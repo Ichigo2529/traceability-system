@@ -1,0 +1,72 @@
+ # Formal State Machines
+
+
+
+ ## ASSY _120
+
+States:
+
+ - CREATED
+
+ - WASH2 _DONE
+
+ - MAG _DONE
+
+ - FLUX _PASS
+
+ - COMPONENTS _BOUND
+
+ - ASSEMBLY _IN _PROGRESS
+
+ - ASSEMBLY _COMPLETED
+
+ - LABELED
+
+
+
+Transitions:
+
+|From|Event|To|
+
+|CREATED|WASH2 _END|WASH2 _DONE|
+
+|WASH2 _DONE|MAGNETIZE _DONE|MAG _DONE|
+
+|MAG _DONE|FLUX _PASS|FLUX _PASS|
+
+|FLUX _PASS|ASSY _BIND _COMPONENTS|COMPONENTS _BOUND|
+
+|COMPONENTS _BOUND|FIRST _STEP _DONE|ASSEMBLY _IN _PROGRESS|
+
+|ASSEMBLY _IN _PROGRESS|FVMI _PASS|ASSEMBLY _COMPLETED|
+
+|ASSEMBLY _COMPLETED|LABELS _GENERATED|LABELED|
+
+
+
+Symptoms violating DSL => block.
+
+
+
+---
+
+
+
+ ## Component JIG
+
+States:
+
+ - LOADED
+
+ - WASH2 _COMPLETED
+
+ - IN _USE
+
+ - RETURNED
+
+
+
+Transitions formalized similarly.
+
+
+

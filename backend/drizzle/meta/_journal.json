@@ -1,0 +1,97 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1770964138975,
+      "tag": "0000_aspiring_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771069000000,
+      "tag": "0001_enterprise_mes_upgrade",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771070400000,
+      "tag": "0002_model_part_and_bom_supplier",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771072200000,
+      "tag": "0003_supplier_domain_traceability",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1771083000000,
+      "tag": "0004_bom_component_name_location",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1771090200000,
+      "tag": "0005_component_types_part_numbers",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1771093800000,
+      "tag": "0006_supplier_part_profiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771095600000,
+      "tag": "0007_material_requests_voucher",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1771101000000,
+      "tag": "0008_material_requests_model_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771104600000,
+      "tag": "0009_departments_master",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1771110000000,
+      "tag": "0010_material_request_issue_allocations",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1771120800000,
+      "tag": "0011_material_requests_issued_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1771131600000,
+      "tag": "0012_suppliers_vendor_id",
+      "breakpoints": true
+    }
+  ]
+}
