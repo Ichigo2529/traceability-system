@@ -1,0 +1,21 @@
+{
+  "name": "@traceability/offline-queue",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@traceability/sdk": "*",
+    "dexie": "^3.2.4",
+    "dexie-react-hooks": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.2.2"
+  }
+}

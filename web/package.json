@@ -1,0 +1,26 @@
+{
+  "name": "traceability-web",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter \"./apps/*\" dev",
+    "build": "bun run --filter \"./apps/*\" build",
+    "check": "bun run --filter \"./packages/*\" lint && bun run --filter \"./apps/*\" build",
+    "lint": "bun run --filter \"*\" lint",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.5"
+  },
+  "resolutions": {
+    "@types/react": "~18.2.0",
+    "@types/react-dom": "~18.2.0"
+  },
+  "overrides": {
+    "@types/react": "~18.2.0",
+    "@types/react-dom": "~18.2.0"
+  }
+}
