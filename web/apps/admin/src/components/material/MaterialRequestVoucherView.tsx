@@ -4,74 +4,74 @@ import { formatDate, formatDateTime } from "../../lib/datetime";
 
 export function MaterialRequestVoucherView({ detail }: { detail: MaterialRequestDetail }) {
   return (
-    <div className="rounded-sm border border-slate-300 bg-white p-3 motion-safe:animate-fade-in-up">
+    <div className="enterprise-surface p-4 motion-safe:animate-fade-in-up">
       <div className="mb-3 motion-safe:animate-fade-in-up [animation-delay:40ms]">
         <div className="flex items-start gap-3">
           <img src="/logo.png" alt="MMI Logo" className="h-14 w-auto object-contain" />
-          <div className="text-sm leading-5">
-            <p className="text-2xl font-semibold italic tracking-wide text-slate-700">MMI Precision Assembly (Thailand) Co., Ltd.</p>
+          <div className="text-sm leading-5 text-slate-700">
+            <p className="text-[1.95rem] font-semibold italic tracking-tight text-slate-700">MMI Precision Assembly (Thailand) Co., Ltd.</p>
             <p>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</p>
             <p>TEL : (6644) 000188 &nbsp;&nbsp; FAX : (6644) 000199</p>
           </div>
         </div>
       </div>
 
-      <p className="mb-3 text-2xl font-semibold tracking-tight text-slate-800 motion-safe:animate-fade-in-up [animation-delay:70ms]">
+      <p className="enterprise-title mb-3 motion-safe:animate-fade-in-up [animation-delay:70ms]">
         DIRECT MATERIAL ISSUE VOUCHER
       </p>
 
-      <div className="mb-3 rounded-sm border border-slate-300 bg-slate-50 px-4 py-3 motion-safe:animate-fade-in-up [animation-delay:100ms]">
+      <div className="mb-3 rounded-md border border-slate-300 bg-slate-50 px-4 py-3 shadow-enterprise-soft motion-safe:animate-fade-in-up [animation-delay:100ms]">
         <div className="grid grid-cols-[1fr_1fr_0.8fr] items-end gap-6 text-[15px] font-semibold text-slate-800">
           <div className="grid grid-cols-[auto_1fr] items-end gap-2">
             <span className="whitespace-nowrap">NO.:</span>
-            <span className="w-full border-b border-slate-300 px-1 pb-1 text-[#d92d20]">{detail.request_no || "-"}</span>
+            <span className="enterprise-line-value text-[#d92d20]">{detail.request_no || "-"}</span>
           </div>
           <div className="grid grid-cols-[auto_1fr] items-end gap-2">
             <span className="whitespace-nowrap">DMI. NO.:</span>
-            <span className="w-full border-b border-slate-300 px-1 pb-1 text-[#d92d20]">{detail.dmi_no || "-"}</span>
+            <span className="enterprise-line-value text-[#d92d20]">{detail.dmi_no || "-"}</span>
           </div>
           <div className="grid grid-cols-[auto_1fr] items-end gap-2">
             <span className="whitespace-nowrap">DATE:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1">{formatDate(detail.request_date)}</span>
+            <span className="enterprise-line-value">{formatDate(detail.request_date)}</span>
           </div>
         </div>
       </div>
 
-      <div className="mb-4 rounded-sm border border-slate-300 bg-slate-50 px-4 py-3 motion-safe:animate-fade-in-up [animation-delay:130ms]">
+      <div className="mb-4 rounded-md border border-slate-300 bg-slate-50 px-4 py-3 shadow-enterprise-soft motion-safe:animate-fade-in-up [animation-delay:130ms]">
         <div className="grid grid-cols-[1.2fr_1fr] items-end gap-6 text-[15px] font-semibold text-slate-800">
           <div className="grid grid-cols-[auto_1fr] items-end gap-2">
             <span className="whitespace-nowrap">SECTION:</span>
-            <span className="w-full border-b border-slate-300 px-1 pb-1">{detail.section || "-"}</span>
+            <span className="enterprise-line-value">{detail.section || "-"}</span>
           </div>
           <div className="grid grid-cols-[auto_1fr] items-end gap-2">
             <span className="whitespace-nowrap">COST CENTER:</span>
-            <span className="w-full border-b border-slate-300 px-1 pb-1">{detail.cost_center || "-"}</span>
+            <span className="enterprise-line-value">{detail.cost_center || "-"}</span>
           </div>
         </div>
       </div>
 
       <div className="overflow-x-auto motion-safe:animate-fade-in [animation-delay:150ms]">
-        <table className="w-full table-fixed border-collapse text-sm">
+        <table className="enterprise-table table-fixed">
           <colgroup>
             <col className="w-[56px]" />
             <col className="w-[120px]" />
-            <col className="w-[190px]" />
-            <col className="w-[220px]" />
-            <col className="w-[220px]" />
+            <col className="w-[170px]" />
+            <col className="w-[200px]" />
+            <col className="w-[260px]" />
             <col className="w-[110px]" />
             <col className="w-[76px]" />
             <col />
           </colgroup>
           <thead>
-            <tr className="bg-slate-100 text-[13px] text-slate-700">
-              <th className="border border-slate-300 px-2 py-2 text-center">ITEM</th>
-              <th className="border border-slate-300 px-2 py-2 text-center">TYPE</th>
-              <th className="border border-slate-300 px-2 py-2 text-center">MODEL</th>
-              <th className="border border-slate-300 px-2 py-2 text-center">COMPONENT PART NO.</th>
-              <th className="border border-slate-300 px-2 py-2 text-center">DESCRIPTION</th>
-              <th className="border border-slate-300 px-2 py-2 text-center">QTY</th>
-              <th className="border border-slate-300 px-2 py-2 text-center">UOM</th>
-              <th className="border border-slate-300 px-2 py-2 text-center">REMARKS</th>
+            <tr>
+              <th className="text-center">ITEM</th>
+              <th className="text-center">TYPE</th>
+              <th className="text-center">MODEL</th>
+              <th className="text-center">COMPONENT PART NO.</th>
+              <th className="text-center">DESCRIPTION</th>
+              <th className="text-center">QTY</th>
+              <th className="text-center">UOM</th>
+              <th className="text-center">REMARKS</th>
             </tr>
           </thead>
           <tbody>

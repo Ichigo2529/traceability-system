@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail, MaterialRequestIssueOptionsResponse } from "@traceability/sdk";
-import { ClipboardPen, History } from "lucide-react";
+import { ArrowLeft, ClipboardPen, History } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
-import { FormDialog } from "../../components/shared/FormDialog";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
@@ -347,6 +346,12 @@ export function MaterialRequestsPage() {
   );
   const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
 
+  useEffect(() => {
+    if (tab !== "HISTORY") {
+      setOpenDetails(false);
+    }
+  }, [tab]);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -425,9 +430,9 @@ export function MaterialRequestsPage() {
                 <table className="w-full table-fixed border-collapse text-sm">
                   <colgroup>
                     <col className="w-[56px]" />
-                    <col className="w-[190px]" />
-                    <col className="w-[220px]" />
-                    <col className="w-[220px]" />
+                    <col className="w-[160px]" />
+                    <col className="w-[200px]" />
+                    <col className="w-[280px]" />
                     <col className="w-[110px]" />
                     <col className="w-[76px]" />
                     <col />
@@ -562,94 +567,97 @@ export function MaterialRequestsPage() {
         </Card>
       ) : null}
 
-      {tab === "HISTORY"
-        ? showRequestTableLoading
-          ? <LoadingSkeleton label="Loading material requests..." />
-          : <DataTable data={requestsQuery.data ?? []} columns={columns} filterPlaceholder="Search request no., section, cost center..." />
-        : null}
-
-      <FormDialog
-        open={openDetails}
-        onClose={() => setOpenDetails(false)}
-        title={`Material Request ${detailsQuery.data?.request_no || ""}`}
-        onSubmit={() => setOpenDetails(false)}
-        contentClassName="max-w-[1200px]"
-        bodyClassName="p-0"
-        footer={
-          <div className="flex w-full items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-600">Status:</span>
-              <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {detailsQuery.data?.status === "REQUESTED" || detailsQuery.data?.status === "APPROVED" ? (
+      {tab === "HISTORY" ? (
+        openDetails ? (
+          <div className="space-y-3 motion-safe:animate-panel-slide-in-left">
+            <div className="flex items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 shadow-enterprise-soft">
+              <div className="flex items-center gap-2">
                 <Button
                   size="sm"
-                  onClick={() => {
-                    if (!detailsQuery.data) return;
-                    if (workbench.issueValidationError) return;
-                    setConfirmIssueOpen(true);
-                  }}
-                  disabled={Boolean(
-                    workbench.issueValidationError ||
-                      issueOptionsQuery.isLoading ||
-                      approveMutation.isPending ||
-                      rejectMutation.isPending ||
-                      issueMutation.isPending
-                  )}
-                >
-                  {detailsQuery.data?.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
-                </Button>
-              ) : null}
-              {detailsQuery.data?.status === "REQUESTED" ? (
-                <Button
                   variant="outline"
-                  size="sm"
                   onClick={() => {
-                    if (!detailsQuery.data) return;
-                    setRejectReason("");
-                    setConfirmRejectOpen(true);
+                    setOpenDetails(false);
+                    setSelectedId(null);
                   }}
-                  disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
                 >
-                  Reject
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to History
                 </Button>
-              ) : null}
-              {detailsQuery.data?.status === "ISSUED" ? (
-                <Button size="sm" variant="outline" onClick={() => window.print()}>
-                  Print
-                </Button>
-              ) : null}
-              <Button variant="outline" size="sm" onClick={() => setOpenDetails(false)}>
-                Close
-              </Button>
+                <p className="text-sm font-semibold text-slate-800">
+                  Material Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
+                {detailsQuery.data?.status === "ISSUED" ? (
+                  <Button size="sm" variant="outline" onClick={() => window.print()}>
+                    Print
+                  </Button>
+                ) : null}
+              </div>
             </div>
+            {showDetailsLoading ? (
+              <LoadingSkeleton label="Loading request details..." />
+            ) : detailsQuery.data ? (
+              <div className="space-y-3">
+                <MaterialRequestVoucherView detail={detailsQuery.data} />
+                {detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED" ? (
+                  <IssueAllocationWorkbench
+                    issueOptions={issueOptionsQuery.data}
+                    isLoading={issueOptionsQuery.isLoading}
+                    issueRemarks={workbench.issueRemarks}
+                    onIssueRemarksChange={workbench.setIssueRemarks}
+                    manualAllocations={workbench.manualAllocations}
+                    setManualAllocations={workbench.setManualAllocations}
+                    allocationTotalsByItem={workbench.allocationTotalsByItem}
+                    addAllocationLine={workbench.addAllocationLine}
+                    issueValidationError={workbench.issueValidationError}
+                  />
+                ) : null}
+                {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") ? (
+                  <div className="enterprise-surface flex flex-wrap justify-end gap-2 p-3">
+                    {detailsQuery.data.status === "REQUESTED" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setRejectReason("");
+                          setConfirmRejectOpen(true);
+                        }}
+                        disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
+                      >
+                        Reject
+                      </Button>
+                    ) : null}
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (workbench.issueValidationError) return;
+                        setConfirmIssueOpen(true);
+                      }}
+                      disabled={Boolean(
+                        workbench.issueValidationError ||
+                          issueOptionsQuery.isLoading ||
+                          approveMutation.isPending ||
+                          rejectMutation.isPending ||
+                          issueMutation.isPending
+                      )}
+                    >
+                      {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No details loaded.</p>
+            )}
           </div>
-        }
-      >
-        {showDetailsLoading ? (
-          <LoadingSkeleton label="Loading request details..." />
-        ) : detailsQuery.data ? (
-          <div className="space-y-3">
-            <MaterialRequestVoucherView detail={detailsQuery.data} />
-            {detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED" ? (
-              <IssueAllocationWorkbench
-                issueOptions={issueOptionsQuery.data}
-                isLoading={issueOptionsQuery.isLoading}
-                issueRemarks={workbench.issueRemarks}
-                onIssueRemarksChange={workbench.setIssueRemarks}
-                manualAllocations={workbench.manualAllocations}
-                setManualAllocations={workbench.setManualAllocations}
-                allocationTotalsByItem={workbench.allocationTotalsByItem}
-                addAllocationLine={workbench.addAllocationLine}
-                issueValidationError={workbench.issueValidationError}
-              />
-            ) : null}
-          </div>
+        ) : showRequestTableLoading ? (
+          <LoadingSkeleton label="Loading material requests..." />
         ) : (
-          <p className="text-sm text-muted-foreground">No details loaded.</p>
-        )}
-      </FormDialog>
+          <DataTable data={requestsQuery.data ?? []} columns={columns} filterPlaceholder="Search request no., section, cost center..." />
+        )
+      ) : null}
       <ConfirmDialog
         open={confirmSubmitOpen}
         title="Confirm submit request"

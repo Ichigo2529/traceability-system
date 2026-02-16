@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail } from "@traceability/sdk";
-import { ClipboardPen, History } from "lucide-react";
+import { ArrowLeft, ClipboardPen, History, ScanLine, Trash2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
-import { FormDialog } from "../../components/shared/FormDialog";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
@@ -68,7 +67,12 @@ export function ProductionMaterialRequestPage() {
   const [receivePartNo, setReceivePartNo] = useState("");
   const [receiveDoNo, setReceiveDoNo] = useState("");
   const [receiveScanData, setReceiveScanData] = useState("");
+  const [bulkScanData, setBulkScanData] = useState("");
   const [receiveRemarks, setReceiveRemarks] = useState("");
+  const [scanQueue, setScanQueue] = useState<Array<{ part_number: string; do_number: string; scan_data: string }>>([]);
+  const [scanInputError, setScanInputError] = useState<string | null>(null);
+  const submittedScanCacheRef = useRef<Set<string>>(new Set());
+  const scanInputRef = useRef<HTMLInputElement | null>(null);
 
   const requestsQuery = useQuery({
     queryKey: ["station-production-material-requests"],
@@ -218,12 +222,20 @@ export function ProductionMaterialRequestPage() {
       scans: Array<{ part_number: string; do_number: string; scan_data: string }>;
       remarks?: string;
     }) => confirmMaterialReceipt(id, { scans, remarks }),
-    onSuccess: async (result) => {
+    onSuccess: async (result, variables) => {
+      for (const row of variables.scans) {
+        const key = `${row.part_number}|${row.do_number}|${row.scan_data}`;
+        submittedScanCacheRef.current.add(key);
+      }
       toast.success("Material receipt confirmed", {
         description: `Saved scans: ${result.scans_saved ?? 0}`,
       });
       setReceiveScanData("");
+      setBulkScanData("");
       setReceiveRemarks("");
+      setScanQueue([]);
+      setScanInputError(null);
+      requestAnimationFrame(() => scanInputRef.current?.focus());
       await queryClient.invalidateQueries({ queryKey: ["station-production-material-requests"] });
       await queryClient.invalidateQueries({ queryKey: ["station-production-material-request"] });
     },
@@ -320,7 +332,12 @@ export function ProductionMaterialRequestPage() {
     setReceivePartNo(first?.part_number ?? "");
     setReceiveDoNo(first?.do_number ?? "");
     setReceiveScanData("");
+    setBulkScanData("");
     setReceiveRemarks("");
+    setScanQueue([]);
+    setScanInputError(null);
+    submittedScanCacheRef.current.clear();
+    requestAnimationFrame(() => scanInputRef.current?.focus());
   }, [detailsQuery.data, receiptOptions, openDetails]);
 
   useEffect(() => {
@@ -347,6 +364,107 @@ export function ProductionMaterialRequestPage() {
     250
   );
   const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
+
+  const appendScanToQueue = (rawValue?: string) => {
+    const payload = (rawValue ?? receiveScanData).trim();
+    if (!payload) {
+      setScanInputError("Please scan 2D barcode first.");
+      return;
+    }
+    if (!receivePartNo || !receiveDoNo) {
+      setScanInputError("Please select component part and DO number.");
+      return;
+    }
+    const key = `${receivePartNo}|${receiveDoNo}|${payload}`;
+    const queuedDuplicate = scanQueue.some(
+      (row) => row.part_number === receivePartNo && row.do_number === receiveDoNo && row.scan_data === payload
+    );
+    if (queuedDuplicate || submittedScanCacheRef.current.has(key)) {
+      setScanInputError("Duplicate scan detected. This barcode is already in queue/submitted.");
+      setReceiveScanData("");
+      requestAnimationFrame(() => scanInputRef.current?.focus());
+      return;
+    }
+    setScanQueue((prev) => [
+      ...prev,
+      {
+        part_number: receivePartNo,
+        do_number: receiveDoNo,
+        scan_data: payload,
+      },
+    ]);
+    setReceiveScanData("");
+    setScanInputError(null);
+    requestAnimationFrame(() => scanInputRef.current?.focus());
+  };
+
+  const importBulkScans = () => {
+    const rows = bulkScanData
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (!rows.length) {
+      setScanInputError("Please paste at least one 2D barcode line.");
+      return;
+    }
+    if (!receivePartNo || !receiveDoNo) {
+      setScanInputError("Please select component part and DO number.");
+      return;
+    }
+    const queued = new Set(scanQueue.map((row) => `${row.part_number}|${row.do_number}|${row.scan_data}`));
+    const nextRows: Array<{ part_number: string; do_number: string; scan_data: string }> = [];
+    let skipped = 0;
+    for (const scan of rows) {
+      const key = `${receivePartNo}|${receiveDoNo}|${scan}`;
+      if (queued.has(key) || submittedScanCacheRef.current.has(key)) {
+        skipped += 1;
+        continue;
+      }
+      queued.add(key);
+      nextRows.push({
+        part_number: receivePartNo,
+        do_number: receiveDoNo,
+        scan_data: scan,
+      });
+    }
+    if (!nextRows.length) {
+      setScanInputError("All pasted scans are duplicates.");
+      return;
+    }
+    setScanQueue((prev) => [...prev, ...nextRows]);
+    setBulkScanData("");
+    setScanInputError(null);
+    toast.success(`Added ${nextRows.length} scan(s) to queue${skipped ? `, skipped ${skipped} duplicate(s)` : ""}.`);
+    requestAnimationFrame(() => scanInputRef.current?.focus());
+  };
+
+  const queueGroupSummary = useMemo(() => {
+    const map = new Map<string, { part_number: string; do_number: string; count: number }>();
+    for (const row of scanQueue) {
+      const key = `${row.part_number}|${row.do_number}`;
+      const current = map.get(key);
+      if (current) {
+        current.count += 1;
+      } else {
+        map.set(key, { part_number: row.part_number, do_number: row.do_number, count: 1 });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.part_number === b.part_number) return a.do_number.localeCompare(b.do_number);
+      return a.part_number.localeCompare(b.part_number);
+    });
+  }, [scanQueue]);
+
+  const selectedPairQueuedCount = useMemo(
+    () => scanQueue.filter((row) => row.part_number === receivePartNo && row.do_number === receiveDoNo).length,
+    [scanQueue, receivePartNo, receiveDoNo]
+  );
+
+  useEffect(() => {
+    if (tab !== "HISTORY") {
+      setOpenDetails(false);
+    }
+  }, [tab]);
 
   if (!canUsePage) {
     return (
@@ -431,9 +549,9 @@ export function ProductionMaterialRequestPage() {
                 <table className="w-full table-fixed border-collapse text-sm">
                   <colgroup>
                     <col className="w-[56px]" />
-                    <col className="w-[190px]" />
-                    <col className="w-[220px]" />
-                    <col className="w-[220px]" />
+                    <col className="w-[160px]" />
+                    <col className="w-[200px]" />
+                    <col className="w-[280px]" />
                     <col className="w-[110px]" />
                     <col className="w-[76px]" />
                     <col />
@@ -568,116 +686,277 @@ export function ProductionMaterialRequestPage() {
         </Card>
       ) : null}
 
-      {tab === "HISTORY"
-        ? showRequestTableLoading
-          ? <LoadingSkeleton label="Loading material requests..." />
-          : <DataTable data={requestsQuery.data ?? []} columns={columns} filterPlaceholder="Search voucher no / dmi no / status" />
-        : null}
-
-      <FormDialog
-        open={openDetails}
-        onClose={() => setOpenDetails(false)}
-        title={`Request ${detailsQuery.data?.request_no ?? ""}`}
-        submitText="Close"
-        onSubmit={() => setOpenDetails(false)}
-        contentClassName="max-w-[1200px]"
-        bodyClassName="p-0"
-      >
-        {showDetailsLoading ? (
-          <LoadingSkeleton label="Loading request details..." />
-        ) : detailsQuery.data ? (
-          <div className="space-y-3">
-            <MaterialRequestVoucherView detail={detailsQuery.data} />
-            {detailsQuery.data.status === "ISSUED" ? (
-              <Card className="border-slate-300 shadow-none">
-                <CardContent className="space-y-3 p-4">
-                  <p className="text-sm font-semibold text-slate-800">Production Receive From Forklift (2D Scan)</p>
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-600">Component Part No.</label>
-                      <select
-                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm"
-                        value={receivePartNo}
-                        onChange={(e) => setReceivePartNo(e.target.value)}
-                      >
-                        <option value="">Select part number</option>
-                        {Array.from(new Set(receiptOptions.map((row) => row.part_number))).map((part) => (
-                          <option key={part} value={part}>
-                            {part}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-600">DO No.</label>
-                      <select
-                        className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm"
-                        value={receiveDoNo}
-                        onChange={(e) => setReceiveDoNo(e.target.value)}
-                        disabled={!receivePartNo}
-                      >
-                        <option value="">Select DO number</option>
-                        {availableDoByPart.map((doNo) => (
-                          <option key={doNo} value={doNo}>
-                            {doNo}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-600">2D Barcode Scan</label>
-                      <Input
-                        value={receiveScanData}
-                        onChange={(e) => setReceiveScanData(e.target.value)}
-                        placeholder="Scan vendor 2D barcode"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-                    <Input
-                      value={receiveRemarks}
-                      onChange={(e) => setReceiveRemarks(e.target.value)}
-                      placeholder="Receive remarks (optional)"
-                    />
-                    <Button
-                      variant="outline"
-                      onClick={() => window.print()}
-                    >
-                      Print Voucher
-                    </Button>
-                    <Button
-                      onClick={() => {
-                        if (!detailsQuery.data?.id) return;
-                        confirmReceiptMutation.mutate({
-                          id: detailsQuery.data.id,
-                          scans: [
-                            {
-                              part_number: receivePartNo,
-                              do_number: receiveDoNo,
-                              scan_data: receiveScanData.trim(),
-                            },
-                          ],
-                          remarks: receiveRemarks.trim() || undefined,
-                        });
-                      }}
-                      disabled={
-                        confirmReceiptMutation.isPending ||
-                        !receivePartNo ||
-                        !receiveDoNo ||
-                        !receiveScanData.trim()
-                      }
-                    >
-                      {confirmReceiptMutation.isPending ? "Confirming..." : "Confirm Receipt"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
+      {tab === "HISTORY" ? (
+        openDetails ? (
+          <div className="space-y-3 motion-safe:animate-panel-slide-in-left">
+            <div className="flex items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 shadow-enterprise-soft">
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setOpenDetails(false);
+                    setSelectedId(null);
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to History
+                </Button>
+                <p className="text-sm font-semibold text-slate-800">
+                  Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}
+                </p>
+              </div>
+              <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
+            </div>
+            {showDetailsLoading ? (
+              <LoadingSkeleton label="Loading request details..." />
+            ) : detailsQuery.data ? (
+              <div className="space-y-3">
+                <MaterialRequestVoucherView detail={detailsQuery.data} />
+                {detailsQuery.data.status === "ISSUED" ? (
+                  <Card className="border-slate-300 shadow-enterprise-soft">
+                    <CardContent className="space-y-3 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-800">Production Receive From Forklift (High-Volume 2D Scan)</p>
+                        <div className="inline-flex items-center gap-3 rounded-md border border-slate-300 bg-slate-50 px-3 py-1 text-xs">
+                          <span className="text-slate-600">Total queued:</span>
+                          <span className="font-semibold text-primary">{scanQueue.length}</span>
+                          <span className="text-slate-600">Current Part/DO:</span>
+                          <span className="font-semibold text-primary">{selectedPairQueuedCount}</span>
+                        </div>
+                      </div>
+                      <div className="grid gap-3 lg:grid-cols-[1.55fr_1fr]">
+                        <div className="space-y-3 rounded-md border border-slate-300 bg-slate-50 p-3">
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-slate-600">Component Part No.</label>
+                              <select
+                                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm"
+                                value={receivePartNo}
+                                onChange={(e) => setReceivePartNo(e.target.value)}
+                              >
+                                <option value="">Select part number</option>
+                                {Array.from(new Set(receiptOptions.map((row) => row.part_number))).map((part) => (
+                                  <option key={part} value={part}>
+                                    {part}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-medium text-slate-600">DO No.</label>
+                              <select
+                                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm"
+                                value={receiveDoNo}
+                                onChange={(e) => setReceiveDoNo(e.target.value)}
+                                disabled={!receivePartNo}
+                              >
+                                <option value="">Select DO number</option>
+                                {availableDoByPart.map((doNo) => (
+                                  <option key={doNo} value={doNo}>
+                                    {doNo}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-slate-600">
+                              2D Barcode Scan (scanner gun: Enter each pack)
+                            </label>
+                            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+                              <Input
+                                ref={scanInputRef}
+                                value={receiveScanData}
+                                onChange={(e) => setReceiveScanData(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    appendScanToQueue();
+                                  }
+                                }}
+                                placeholder="Scan vendor 2D barcode"
+                              />
+                              <Button
+                                type="button"
+                                onClick={() => appendScanToQueue()}
+                                disabled={!receivePartNo || !receiveDoNo || !receiveScanData.trim()}
+                              >
+                                <ScanLine className="h-4 w-4" />
+                                Add
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-slate-600">Bulk paste (one barcode per line)</label>
+                            <textarea
+                              value={bulkScanData}
+                              onChange={(e) => setBulkScanData(e.target.value)}
+                              placeholder={"*P760049400-P*EA*Q160..."}
+                              className="h-20 w-full rounded-md border border-slate-300 bg-white px-2 py-2 font-mono text-[11px] text-slate-700 outline-none ring-0 focus:border-primary"
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={importBulkScans}
+                                disabled={!bulkScanData.trim() || !receivePartNo || !receiveDoNo}
+                              >
+                                Import Lines
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2 rounded-md border border-slate-300 bg-white p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Queue Summary by Part / DO</p>
+                          <div className="max-h-52 overflow-auto rounded-md border border-slate-200">
+                            <table className="w-full border-collapse text-xs">
+                              <thead className="sticky top-0 bg-slate-100 text-slate-700">
+                                <tr>
+                                  <th className="border-b border-slate-200 px-2 py-1 text-left">Part No.</th>
+                                  <th className="border-b border-slate-200 px-2 py-1 text-left">DO No.</th>
+                                  <th className="border-b border-slate-200 px-2 py-1 text-right">Scans</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {queueGroupSummary.length ? (
+                                  queueGroupSummary.map((row) => (
+                                    <tr key={`${row.part_number}-${row.do_number}`} className="odd:bg-slate-50/60">
+                                      <td className="border-b border-slate-200 px-2 py-1">{row.part_number}</td>
+                                      <td className="border-b border-slate-200 px-2 py-1">{row.do_number}</td>
+                                      <td className="border-b border-slate-200 px-2 py-1 text-right font-semibold">{row.count}</td>
+                                    </tr>
+                                  ))
+                                ) : (
+                                  <tr>
+                                    <td colSpan={3} className="px-2 py-6 text-center text-slate-500">
+                                      No queue summary
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                      {scanInputError ? (
+                        <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">{scanInputError}</p>
+                      ) : null}
+                      <div className="max-h-56 overflow-auto rounded-md border border-slate-300 bg-white">
+                        <table className="w-full border-collapse text-xs">
+                          <thead className="sticky top-0 bg-slate-100 text-slate-700">
+                            <tr>
+                              <th className="border-b border-slate-300 px-2 py-1 text-left">#</th>
+                              <th className="border-b border-slate-300 px-2 py-1 text-left">Part No.</th>
+                              <th className="border-b border-slate-300 px-2 py-1 text-left">DO No.</th>
+                              <th className="border-b border-slate-300 px-2 py-1 text-left">2D Data</th>
+                              <th className="border-b border-slate-300 px-2 py-1 text-center">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {scanQueue.length ? (
+                              scanQueue.map((row, idx) => (
+                                <tr key={`${row.part_number}-${row.do_number}-${idx}`} className="odd:bg-slate-50/60">
+                                  <td className="border-b border-slate-200 px-2 py-1">{idx + 1}</td>
+                                  <td className="border-b border-slate-200 px-2 py-1">{row.part_number}</td>
+                                  <td className="border-b border-slate-200 px-2 py-1">{row.do_number}</td>
+                                  <td className="border-b border-slate-200 px-2 py-1 font-mono text-[11px]">{row.scan_data}</td>
+                                  <td className="border-b border-slate-200 px-2 py-1 text-center">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() =>
+                                        setScanQueue((prev) => prev.filter((_, rowIdx) => rowIdx !== idx))
+                                      }
+                                      aria-label={`Remove scan ${idx + 1}`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))
+                            ) : (
+                              <tr>
+                                <td colSpan={5} className="px-2 py-6 text-center text-slate-500">
+                                  No scans queued yet
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setScanQueue((prev) => prev.slice(0, -1));
+                            requestAnimationFrame(() => scanInputRef.current?.focus());
+                          }}
+                          disabled={!scanQueue.length}
+                        >
+                          Undo Last
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setScanQueue([]);
+                            setScanInputError(null);
+                            requestAnimationFrame(() => scanInputRef.current?.focus());
+                          }}
+                          disabled={!scanQueue.length}
+                        >
+                          Clear Queue
+                        </Button>
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
+                        <Input
+                          value={receiveRemarks}
+                          onChange={(e) => setReceiveRemarks(e.target.value)}
+                          placeholder="Receive remarks (optional)"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => window.print()}
+                        >
+                          Print Voucher
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            if (!detailsQuery.data?.id) return;
+                            if (!scanQueue.length) {
+                              setScanInputError("Please scan at least one pack before confirm.");
+                              return;
+                            }
+                            confirmReceiptMutation.mutate({
+                              id: detailsQuery.data.id,
+                              scans: scanQueue,
+                              remarks: receiveRemarks.trim() || undefined,
+                            });
+                          }}
+                          disabled={
+                            confirmReceiptMutation.isPending ||
+                            !scanQueue.length
+                          }
+                        >
+                          {confirmReceiptMutation.isPending ? "Confirming..." : `Confirm Receipt (${scanQueue.length})`}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500">No details loaded.</p>
+            )}
           </div>
+        ) : showRequestTableLoading ? (
+          <LoadingSkeleton label="Loading material requests..." />
         ) : (
-          <p className="text-sm text-slate-500">No details loaded.</p>
-        )}
-      </FormDialog>
+          <DataTable data={requestsQuery.data ?? []} columns={columns} filterPlaceholder="Search voucher no / dmi no / status" />
+        )
+      ) : null}
       <ConfirmDialog
         open={confirmSubmitOpen}
         title="Confirm submit request"

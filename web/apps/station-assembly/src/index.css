@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --mes-primary: #1134a6;
-  --mes-primary-dark: #0d2a84;
-  --mes-primary-soft: #e8eefc;
-  --mes-bg: #edf2fa;
+  --mes-primary: #1f6fa0;
+  --mes-primary-dark: #155983;
+  --mes-primary-soft: #eaf3f9;
+  --mes-bg: #eef3f8;
   --mes-surface: #ffffff;
-  --mes-border: #cdd7ea;
-  --mes-text: #0f172a;
+  --mes-border: #c6d2df;
+  --mes-text: #1f2d3d;
   --mes-muted: #4b5563;
 }
 
@@ -20,9 +20,10 @@
 
   body {
     margin: 0;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: "72", "72full", "Inter", "Segoe UI", Arial, sans-serif;
+    font-size: 0.8125rem;
     color: var(--mes-text);
-    background: radial-gradient(circle at 10% 10%, #f7f9fe 0%, var(--mes-bg) 45%, #e3eaf8 100%);
+    background: radial-gradient(circle at 10% 10%, #f8fbfd 0%, var(--mes-bg) 45%, #e5edf6 100%);
     min-height: 100vh;
     letter-spacing: 0.01em;
   }
@@ -62,7 +63,7 @@
   .mes-panel {
     background: var(--mes-surface);
     border: 1px solid var(--mes-border);
-    @apply rounded-lg shadow-sm;
+    @apply rounded-md shadow-sm;
   }
 
   .mes-primary-btn {

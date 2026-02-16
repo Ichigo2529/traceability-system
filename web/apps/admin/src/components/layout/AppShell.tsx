@@ -78,8 +78,8 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
 
   return (
     <div className="factory-shell grid min-h-screen grid-cols-1 md:grid-cols-[280px_1fr]">
-      <aside className="sticky top-0 flex h-screen flex-col border-r border-slate-300/90 bg-white p-4">
-        <div className="mb-6 flex items-center gap-3 rounded-md border border-[#0f2f94] bg-primary px-3 py-3 text-white shadow-sm">
+      <aside className="sticky top-0 flex h-screen flex-col border-r border-slate-300/90 bg-white/95 p-4 backdrop-blur-sm">
+        <div className="mb-6 flex items-center gap-3 rounded-md border border-primary/40 bg-gradient-to-r from-primary to-[#2c87bf] px-3 py-3 text-white shadow-enterprise">
           <Factory className="h-5 w-5" />
           <div>
             <p className="text-xs uppercase tracking-wide opacity-80">Traceability</p>
@@ -110,7 +110,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
                         cn(
                           "group flex items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                           isActive
-                            ? "border-primary/30 bg-primary/[0.1] text-primary shadow-sm"
+                            ? "border-primary/25 bg-primary/[0.1] text-primary shadow-enterprise-soft"
                             : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900"
                         )
                       }
@@ -133,7 +133,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
                   cn(
                     "group flex items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                     isActive
-                      ? "border-primary/30 bg-primary/[0.1] text-primary shadow-sm"
+                      ? "border-primary/25 bg-primary/[0.1] text-primary shadow-enterprise-soft"
                       : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900"
                   )
                 }
@@ -146,7 +146,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
         )}
         </div>
 
-        <div className="mt-6 rounded-md border border-slate-300 bg-slate-50 p-3 shadow-sm">
+        <div className="mt-6 rounded-md border border-slate-300 bg-slate-50 p-3 shadow-enterprise-soft">
           <p className="text-xs text-muted-foreground">Signed in</p>
           <p className="text-sm font-semibold">{user?.display_name}</p>
           <p className="text-xs text-muted-foreground">{user?.roles?.join(", ")}</p>
@@ -157,7 +157,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
         </div>
       </aside>
 
-      <main className="min-h-screen bg-slate-50/60 p-6 lg:p-8">
+      <main className="min-h-screen bg-slate-50/70 p-6 lg:p-8">
         <div key={location.pathname} className="route-transition route-surface">
           <Outlet />
         </div>

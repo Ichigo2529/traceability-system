@@ -2,11 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { MaterialRequest, MaterialRequestDetail, MaterialRequestIssueOptionsResponse } from "@traceability/sdk";
-import { ClipboardCheck, History } from "lucide-react";
+import { ArrowLeft, ClipboardCheck, History } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
-import { FormDialog } from "../../components/shared/FormDialog";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
@@ -190,6 +189,13 @@ export function StoreMaterialApprovalPage() {
   const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
   const showIssueOptionsLoading = useDelayedBusy(Boolean(selectedId) && issueOptionsQuery.isLoading, 250);
 
+  useEffect(() => {
+    if (!detailsOpen) return;
+    if (tab !== "PENDING" && tab !== "HISTORY") {
+      setDetailsOpen(false);
+    }
+  }, [tab, detailsOpen]);
+
   if (!canUsePage) {
     return <Card><CardContent className="p-6 text-sm text-slate-600">Role นี้ไม่มีสิทธิ์อนุมัติ/จ่ายของ (ต้องมี STORE หรือ SUPERVISOR)</CardContent></Card>;
   }
@@ -208,7 +214,91 @@ export function StoreMaterialApprovalPage() {
         ]}
       />
 
-      {tab === "PENDING" ? (
+      {detailsOpen ? (
+        <div className="space-y-3 motion-safe:animate-panel-slide-in-left">
+          <div className="flex items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 shadow-enterprise-soft">
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setDetailsOpen(false);
+                  setSelectedId(null);
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <p className="text-sm font-semibold text-slate-800">
+                Store Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
+              {detailsQuery.data?.status === "ISSUED" ? (
+                <Button size="sm" variant="outline" onClick={() => window.print()}>
+                  Print
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          {showDetailsLoading ? (
+            <LoadingSkeleton label="Loading request details..." />
+          ) : detailsQuery.data ? (
+            <div className="space-y-3">
+              <MaterialRequestVoucherView detail={detailsQuery.data} />
+              {detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED" ? (
+                <IssueAllocationWorkbench
+                  issueOptions={issueOptionsQuery.data}
+                  isLoading={showIssueOptionsLoading}
+                  issueRemarks={workbench.issueRemarks}
+                  onIssueRemarksChange={workbench.setIssueRemarks}
+                  manualAllocations={workbench.manualAllocations}
+                  setManualAllocations={workbench.setManualAllocations}
+                  allocationTotalsByItem={workbench.allocationTotalsByItem}
+                  addAllocationLine={workbench.addAllocationLine}
+                  issueValidationError={workbench.issueValidationError}
+                />
+              ) : null}
+              {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") ? (
+                <div className="enterprise-surface flex flex-wrap justify-end gap-2 p-3">
+                  {detailsQuery.data.status === "REQUESTED" ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setRejectReason("");
+                        setConfirmRejectOpen(true);
+                      }}
+                      disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
+                    >
+                      Reject
+                    </Button>
+                  ) : null}
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (workbench.issueValidationError) return;
+                      setConfirmIssueOpen(true);
+                    }}
+                    disabled={Boolean(
+                      workbench.issueValidationError ||
+                        issueOptionsQuery.isLoading ||
+                        approveMutation.isPending ||
+                        rejectMutation.isPending ||
+                        issueMutation.isPending
+                    )}
+                  >
+                    {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">No details loaded.</p>
+          )}
+        </div>
+      ) : tab === "PENDING" ? (
         showPendingLoading ? (
           <LoadingSkeleton label="Loading waiting approvals..." />
         ) : (
@@ -227,90 +317,6 @@ export function StoreMaterialApprovalPage() {
           filterPlaceholder="Search by request / section / status"
         />
       )}
-
-      <FormDialog
-        open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-        title={`Request ${detailsQuery.data?.request_no ?? ""}`}
-        onSubmit={() => setDetailsOpen(false)}
-        contentClassName="max-w-[1200px]"
-        bodyClassName="p-0"
-        footer={
-          <div className="flex w-full items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-slate-600">Status:</span>
-              <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {detailsQuery.data?.status === "REQUESTED" || detailsQuery.data?.status === "APPROVED" ? (
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (!detailsQuery.data) return;
-                    if (workbench.issueValidationError) return;
-                    setConfirmIssueOpen(true);
-                  }}
-                  disabled={Boolean(
-                    workbench.issueValidationError ||
-                      issueOptionsQuery.isLoading ||
-                      approveMutation.isPending ||
-                      rejectMutation.isPending ||
-                      issueMutation.isPending
-                  )}
-                >
-                  {detailsQuery.data?.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
-                </Button>
-              ) : null}
-              {detailsQuery.data?.status === "REQUESTED" ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (!detailsQuery.data) return;
-                    setRejectReason("");
-                    setConfirmRejectOpen(true);
-                  }}
-                  disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
-                >
-                  Reject
-                </Button>
-              ) : null}
-              {detailsQuery.data?.status === "ISSUED" ? (
-                <Button size="sm" variant="outline" onClick={() => window.print()}>
-                  Print
-                </Button>
-              ) : null}
-              <Button variant="outline" size="sm" onClick={() => setDetailsOpen(false)}>
-                Close
-              </Button>
-            </div>
-          </div>
-        }
-      >
-        {showDetailsLoading ? (
-          <LoadingSkeleton label="Loading request details..." />
-        ) : detailsQuery.data ? (
-          <div className="space-y-3">
-            <MaterialRequestVoucherView detail={detailsQuery.data} />
-
-            {detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED" ? (
-              <IssueAllocationWorkbench
-                issueOptions={issueOptionsQuery.data}
-                isLoading={showIssueOptionsLoading}
-                issueRemarks={workbench.issueRemarks}
-                onIssueRemarksChange={workbench.setIssueRemarks}
-                manualAllocations={workbench.manualAllocations}
-                setManualAllocations={workbench.setManualAllocations}
-                allocationTotalsByItem={workbench.allocationTotalsByItem}
-                addAllocationLine={workbench.addAllocationLine}
-                issueValidationError={workbench.issueValidationError}
-              />
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-500">No details loaded.</p>
-        )}
-      </FormDialog>
       <ConfirmDialog
         open={confirmIssueOpen}
         title={detailsQuery.data?.status === "REQUESTED" ? "Confirm approve + issue" : "Confirm issue material"}

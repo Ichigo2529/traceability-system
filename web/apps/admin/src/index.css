@@ -9,26 +9,26 @@
 
 @layer base {
   :root {
-    --background: 210 29% 96%;
-    --foreground: 215 26% 21%;
+    --background: 210 22% 97%;
+    --foreground: 214 22% 24%;
     --card: 0 0% 100%;
-    --card-foreground: 215 26% 21%;
+    --card-foreground: 214 22% 24%;
     --popover: 0 0% 100%;
-    --popover-foreground: 215 26% 21%;
-    --primary: 226 82% 36%;
+    --popover-foreground: 214 22% 24%;
+    --primary: 204 75% 38%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 22% 93%;
-    --secondary-foreground: 215 22% 25%;
-    --muted: 210 20% 92%;
-    --muted-foreground: 215 10% 42%;
-    --accent: 210 90% 95%;
-    --accent-foreground: 226 82% 30%;
+    --secondary: 210 18% 93%;
+    --secondary-foreground: 214 20% 30%;
+    --muted: 210 20% 94%;
+    --muted-foreground: 215 12% 42%;
+    --accent: 202 76% 95%;
+    --accent-foreground: 204 75% 33%;
     --destructive: 0 74% 44%;
     --destructive-foreground: 0 0% 100%;
-    --border: 213 22% 82%;
-    --input: 213 22% 82%;
-    --ring: 226 82% 36%;
-    --radius: 0.5rem;
+    --border: 212 20% 79%;
+    --input: 212 20% 79%;
+    --ring: 204 75% 38%;
+    --radius: 0.4rem;
 
     --status-ok: 142 70% 36%;
     --status-wip: 226 82% 36%;
@@ -48,16 +48,56 @@
   }
 
   body {
-    font-family: "Inter", "Segoe UI", Tahoma, sans-serif;
+    font-family: "72", "72full", "Inter", "Segoe UI", Arial, sans-serif;
+    font-size: 0.8125rem;
     @apply bg-background text-foreground antialiased;
   }
 }
 
 @layer components {
   .factory-shell {
-    background:
-      linear-gradient(180deg, #f7f9fb 0%, #f2f5f8 100%);
+    background: linear-gradient(180deg, #f7f9fb 0%, #f3f6f8 100%);
     @apply min-h-screen;
+  }
+
+  .enterprise-surface {
+    @apply rounded-md border border-border bg-card shadow-enterprise-soft;
+  }
+
+  .enterprise-title {
+    @apply text-[1.5rem] font-semibold leading-tight tracking-tight text-slate-800;
+  }
+
+  .enterprise-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-700;
+  }
+
+  .enterprise-line-value {
+    @apply min-h-7 border-b border-slate-300 px-1 py-0.5 text-[0.95rem] font-medium text-slate-800;
+  }
+
+  .enterprise-table {
+    @apply w-full border-collapse text-[0.92rem];
+  }
+
+  .enterprise-table th {
+    @apply border border-slate-300 bg-slate-100 px-2 py-2 text-xs font-semibold tracking-wide text-slate-700;
+  }
+
+  .enterprise-table td {
+    @apply border border-slate-300 px-2 py-1.5 align-middle;
+  }
+
+  .enterprise-tabs {
+    @apply flex items-center gap-1 border-b border-slate-300;
+  }
+
+  .enterprise-tab {
+    @apply inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-600 transition-colors;
+  }
+
+  .enterprise-tab[data-state="active"] {
+    @apply border-primary text-primary;
   }
 
   .route-transition {
@@ -115,7 +155,6 @@
     background: hsl(var(--border) / 0.58);
     background-clip: padding-box;
   }
-
 }
 
 @keyframes route-shell-enter {
@@ -154,6 +193,17 @@
   100% {
     opacity: 0;
     transform: scaleX(1.06);
+  }
+}
+
+@keyframes panel-slide-in-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 

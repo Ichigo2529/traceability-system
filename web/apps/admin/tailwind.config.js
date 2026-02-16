@@ -7,6 +7,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"72"', '"72full"', "Inter", '"Segoe UI"', "Arial", "sans-serif"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -47,6 +50,10 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        enterprise: "0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06)",
+        "enterprise-soft": "0 1px 2px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.05)",
+      },
       keyframes: {
         "fade-in-up": {
           "0%": { opacity: "0", transform: "translateY(10px)" },
@@ -56,10 +63,15 @@ export default {
           "0%": { opacity: "0" },
           "100%": { opacity: "1" },
         },
+        "panel-slide-in-left": {
+          "0%": { opacity: "0", transform: "translateX(-22px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
       },
       animation: {
         "fade-in-up": "fade-in-up 360ms cubic-bezier(0.16, 1, 0.3, 1) both",
         "fade-in": "fade-in 280ms ease-out both",
+        "panel-slide-in-left": "panel-slide-in-left 300ms cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },
   },
