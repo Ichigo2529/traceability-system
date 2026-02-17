@@ -45,7 +45,7 @@ import "@ui5/webcomponents-icons/dist/print.js";
 import "@ui5/webcomponents-icons/dist/accept.js";
 import "@ui5/webcomponents-icons/dist/decline.js";
 import "@ui5/webcomponents-icons/dist/paper-plane.js";
-import "@ui5/webcomponents-icons/dist/activities.js";
+import "@ui5/webcomponents-icons/dist/request.js";
 
 
 import {
@@ -375,7 +375,8 @@ export default function MaterialRequestsPage() {
     <PageLayout
       title="Material Requests"
       subtitle="Production submits direct material requests; Store approves and issues by DMI/DO."
-      icon="activities"
+      icon="request"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
          <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />

@@ -154,6 +154,7 @@ export default function HeartbeatMonitorPage() {
       title="Heartbeat Monitor"
       subtitle={`Live device status monitoring | Online window: ${onlineWindowMinutes}m`}
       icon="heart"
+      iconColor="var(--icon-purple)"
      >
       <Section title="Overview" variant="card">
          <Grid defaultSpan="XL4 L4 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ padding: "0" }}>

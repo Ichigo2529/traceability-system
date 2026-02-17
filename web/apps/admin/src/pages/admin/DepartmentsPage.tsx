@@ -120,6 +120,7 @@ export function DepartmentsPage() {
       title="Departments"
       subtitle="Department master used by user profile and request section"
       icon="org-chart"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         <ApiErrorBanner

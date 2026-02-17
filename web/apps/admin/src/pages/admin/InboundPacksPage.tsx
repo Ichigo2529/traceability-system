@@ -23,7 +23,7 @@ import {
   ObjectStatus
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/product.js";
+import "@ui5/webcomponents-icons/dist/shipping-status.js";
 
 const schema = z.object({
   vendor_id: z.string().min(1, "Vendor is required"),
@@ -169,7 +169,8 @@ export function InboundPacksPage() {
     <PageLayout
       title="Inbound Packs"
       subtitle="Receive vendor 2D packs and keep lot-level traceability."
-      icon="product"
+      icon="shipping-status"
+      iconColor="var(--icon-green)"
     >
       <Section title="Delivery Orders" variant="card">
         <DataTable data={dos} columns={doColumns} filterPlaceholder="Search DO..." />

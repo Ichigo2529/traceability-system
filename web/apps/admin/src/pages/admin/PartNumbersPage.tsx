@@ -130,8 +130,8 @@ export function PartNumbersPage() {
     <PageLayout
       title="Part Numbers"
       subtitle="Master FG/RM part numbers mapped to component type"
-      icon="grid"
-      iconColor="cyan"
+      icon="number-sign"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         <ApiErrorBanner

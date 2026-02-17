@@ -85,7 +85,7 @@ const adminNav: NavItem[] = [
   { to: "/admin/approvals", label: "Workflow Approvals", icon: "approvals", group: "governance" },
   { to: "/admin/heartbeat", label: "Device Heartbeat", icon: "heart", group: "governance" },
   { to: "/admin/system-health", label: "System Health", icon: "sys-monitor", group: "governance" },
-  { to: "/admin/audit-logs", label: "Audit Logs", icon: "log", group: "governance" },
+  { to: "/admin/audit-logs", label: "Audit Logs", icon: "history", group: "governance" },
 ];
 
 const stationNav: NavItem[] = [

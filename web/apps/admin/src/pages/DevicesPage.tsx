@@ -6,10 +6,9 @@ import { DataTable } from "../components/shared/DataTable";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { formatDateTime } from "../lib/datetime";
+import { PageLayout, Section } from "@traceability/ui";
 import { 
-    Page, 
     Bar, 
-    Title, 
     Button, 
     Dialog, 
     Form, 
@@ -104,18 +103,15 @@ export default function DevicesPage() {
 
 
   return (
-    <Page
-      backgroundDesign="List"
-      header={
-        <Bar
-          startContent={<Title level="H2">Device Management</Title>}
-        />
-      }
-      style={{ height: "100%" }}
+    <PageLayout
+      title="Device Management"
+      subtitle="Track and assign industrial devices to machines"
+      icon="laptop"
+      iconColor="var(--icon-green)"
     >
-      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
+      <Section variant="card">
         <DataTable data={rows} columns={columns} />
-      </div>
+      </Section>
 
       <Dialog
         headerText="Assign Machine"
@@ -152,6 +148,6 @@ export default function DevicesPage() {
             </Form>
         </div>
       </Dialog>
-    </Page>
+    </PageLayout>
   );
 }

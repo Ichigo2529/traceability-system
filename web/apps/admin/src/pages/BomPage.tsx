@@ -19,7 +19,7 @@ import {
     ObjectStatus
 } from "@ui5/webcomponents-react";
 import { ColumnDef } from "@tanstack/react-table";
-import "@ui5/webcomponents-icons/dist/tree.js";
+import "@ui5/webcomponents-icons/dist/list.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/add.js";
@@ -194,7 +194,8 @@ export default function BomPage() {
     <PageLayout
       title="BOM Management"
       subtitle="Manage BOM rows by model revision"
-      icon="tree"
+      icon="list"
+      iconColor="var(--icon-orange)"
     >
       <Section variant="card">
          <ApiErrorBanner message={error ? formatApiError(error) : undefined} />

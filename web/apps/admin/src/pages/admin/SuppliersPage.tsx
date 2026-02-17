@@ -151,6 +151,7 @@ export function SuppliersPage() {
       title="Vendors"
       subtitle="Vendor master for inbound pack traceability"
       icon="supplier"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         <ApiErrorBanner

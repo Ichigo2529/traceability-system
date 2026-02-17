@@ -105,6 +105,7 @@ export function ProcessesPage() {
       title="Processes"
       subtitle="Manufacturing process master with sequence ordering"
       icon="process"
+      iconColor="var(--icon-orange)"
     >
       <Section variant="card">
         <ApiErrorBanner

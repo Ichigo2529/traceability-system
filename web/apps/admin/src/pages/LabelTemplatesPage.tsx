@@ -20,7 +20,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/tags.js";
+import "@ui5/webcomponents-icons/dist/measure.js";
 
 const EMPTY = { name: "", revision_id: "", template_body: "{}", description: "" };
 
@@ -132,7 +132,8 @@ export default function LabelTemplatesPage() {
     <PageLayout
       title="Label Templates"
       subtitle="Manage ZPL label templates for printing"
-      icon="tags"
+      icon="measure"
+      iconColor="var(--icon-orange)"
     >
       <Section variant="card">
         <DataTable 

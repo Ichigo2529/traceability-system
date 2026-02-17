@@ -30,7 +30,7 @@ import {
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/marketing-campaign.js";
+import "@ui5/webcomponents-icons/dist/attachment-html.js";
 import "@ui5/webcomponents-icons/dist/filter.js";
 
 const schema = z.object({
@@ -43,7 +43,6 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-import "@ui5/webcomponents-icons/dist/marketing-campaign.js";
 
 export function SupplierPartProfilesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -156,8 +155,8 @@ export function SupplierPartProfilesPage() {
     <PageLayout
       title="Vendor Part Profiles"
       subtitle="Map vendor part number and parser profile per internal part number"
-      icon="marketing-campaign"
-      iconColor="cyan"
+      icon="attachment-html"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         {vendorFilter && (

@@ -28,7 +28,7 @@ import "@ui5/webcomponents-icons/dist/refresh.js";
 import "@ui5/webcomponents-icons/dist/status-positive.js";
 import "@ui5/webcomponents-icons/dist/status-error.js";
 import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
-import "@ui5/webcomponents-icons/dist/validate.js";
+import "@ui5/webcomponents-icons/dist/survey.js";
 
 export default function ReadinessValidatorPage() {
   const [selectedModelId, setSelectedModelId] = useState<string>("");
@@ -58,7 +58,8 @@ export default function ReadinessValidatorPage() {
     <PageLayout
       title="Readiness Validator"
       subtitle="Check model configuration completeness before activation"
-      icon="validate"
+      icon="survey"
+      iconColor="var(--icon-orange)"
       headerActions={
           result ? (
             <ObjectStatus 

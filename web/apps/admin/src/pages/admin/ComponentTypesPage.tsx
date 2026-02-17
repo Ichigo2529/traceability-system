@@ -120,6 +120,7 @@ export function ComponentTypesPage() {
       title="Component Types"
       subtitle="Canonical component categories for BOM and routing"
       icon="dimension"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         <ApiErrorBanner

@@ -52,6 +52,7 @@ export default function AuditLogsPage() {
       title="Configuration Audit Logs"
       subtitle="System-wide configuration changes and user actions"
       icon="history"
+      iconColor="var(--icon-purple)"
     >
       <Section
         title="Audit Logs"

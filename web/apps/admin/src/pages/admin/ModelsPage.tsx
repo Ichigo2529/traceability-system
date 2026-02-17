@@ -124,6 +124,7 @@ export function ModelsPage() {
       title="Models"
       subtitle="Product master for all station dropdowns"
       icon="product"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         <DataTable 

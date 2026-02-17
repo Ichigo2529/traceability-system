@@ -22,7 +22,7 @@ import { FormDialog } from "../components/shared/FormDialog";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/it-system.js";
+import "@ui5/webcomponents-icons/dist/machine.js";
 
 const EMPTY_FORM = { name: "", station_type: "SCANNER", line_code: "", supported_variants: "" };
 const STATION_TYPES = ["SCANNER", "PRINTER", "TESTER", "ASSEMBLY", "PACKING"];
@@ -108,7 +108,7 @@ export default function MachinesPage() {
       accessorKey: "name" as any,
       cell: ({ row }: { row: any }) => (
         <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-          <Avatar icon="it-system" size="XS" colorScheme="Accent6" />
+          <Avatar icon="machine" size="XS" colorScheme="Accent6" />
           <span style={{ fontWeight: "bold" }}>{row.original.name}</span>
         </FlexBox>
       ),
@@ -149,7 +149,8 @@ export default function MachinesPage() {
     <PageLayout
       title="Machines"
       subtitle="Manage machine configurations and line assignments."
-      icon="it-system"
+      icon="machine"
+      iconColor="var(--icon-green)"
     >
       <Section variant="card">
         <DataTable 

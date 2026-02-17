@@ -25,7 +25,7 @@ export function AdminDashboardPage() {
     <PageLayout
       title="Admin Console"
       subtitle="System Overview & Real-time Stats"
-      icon="BusinessSuiteInAppSymbols/dashboard"
+      icon="bbyd-dashboard"
       iconColor="var(--icon-indigo)"
     >
       <div className={layouts.content} style={{ marginTop: '0.5rem' }}>

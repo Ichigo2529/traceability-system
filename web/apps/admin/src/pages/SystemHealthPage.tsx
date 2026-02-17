@@ -9,7 +9,7 @@ import {
   Label,
   Icon
 } from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/electrocardiogram.js";
+import "@ui5/webcomponents-icons/dist/sys-monitor.js";
 import "@ui5/webcomponents-icons/dist/accept.js";
 import "@ui5/webcomponents-icons/dist/alert.js";
 import "@ui5/webcomponents-icons/dist/error.js";
@@ -67,7 +67,8 @@ export default function SystemHealthPage() {
     <PageLayout
       title="System Health"
       subtitle="Real-time diagnostics and fallback monitoring."
-      icon="electrocardiogram"
+      icon="sys-monitor"
+      iconColor="var(--icon-purple)"
     >
         <Section title="Overview" variant="card">
             <Grid defaultSpan="XL3 L3 M6 S12" vSpacing="1rem" hSpacing="1rem" style={{ padding: "0" }}>

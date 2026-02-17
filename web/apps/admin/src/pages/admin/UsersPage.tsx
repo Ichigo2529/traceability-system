@@ -148,7 +148,7 @@ export function UsersPage() {
     <PageLayout
       title="Users"
       subtitle="Manage operator and admin identities"
-      icon="group"
+      icon="employee"
       iconColor="var(--icon-indigo)"
     >
       <Section variant="card">

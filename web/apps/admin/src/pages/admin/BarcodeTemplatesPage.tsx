@@ -240,6 +240,7 @@ export function BarcodeTemplatesPage() {
       title="Barcode Template Master"
       subtitle="Configurable 2D barcode parsing templates by vendor/component without code changes"
       icon="bar-code"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         <ApiErrorBanner message={errorMessage} />

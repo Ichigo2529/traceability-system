@@ -95,6 +95,7 @@ export function RolesPage() {
       title="Roles & Permissions"
       subtitle="Role CRUD and permission matrix"
       icon="role"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         <DataTable 

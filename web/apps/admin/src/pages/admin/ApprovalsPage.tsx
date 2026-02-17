@@ -31,7 +31,7 @@ import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/approvals.js";
 import "@ui5/webcomponents-icons/dist/save.js";
 import "@ui5/webcomponents-icons/dist/slim-arrow-right.js";
 
@@ -278,6 +278,8 @@ export function ApprovalsPage() {
     <PageLayout
       title="Workflow Approvals"
       subtitle="Configure L1/L2/L3 approver gates and transition routes."
+      icon="approvals"
+      iconColor="var(--icon-indigo)"
     >
       <Section title="Online Indicator Window" variant="card">
           <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "1rem", padding: "1rem" }}>

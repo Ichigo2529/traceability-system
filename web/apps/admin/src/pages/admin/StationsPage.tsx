@@ -132,6 +132,7 @@ export function StationsPage() {
       title="Stations"
       subtitle="Factory stations bound to process and area"
       icon="factory"
+      iconColor="var(--icon-orange)"
     >
       <Section variant="card">
         <ApiErrorBanner
