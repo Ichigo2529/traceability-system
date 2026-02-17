@@ -6,6 +6,7 @@ import { EmptyState } from "../../components/shared/States";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { formatDateTime } from "../../lib/datetime";
+import { PageStack } from "@traceability/ui";
 
 export function QueueMonitorPage() {
   const { queue, isOnline, pendingCount } = useOfflineQueue();
@@ -41,7 +42,7 @@ export function QueueMonitorPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <PageStack>
       <PageHeader title="Queue Monitor" description="Inspect offline events and control replay behavior." />
       <StationHeader />
 
@@ -49,9 +50,9 @@ export function QueueMonitorPage() {
         <CardHeader>
           <CardTitle>Queue Controls</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded bg-slate-100 px-2 py-1">Network: {isOnline ? "Online" : "Offline"}</span>
-          <span className="rounded bg-slate-100 px-2 py-1">Pending: {pendingCount}</span>
+        <CardContent className="admin-queue-controls-content">
+          <span className="admin-queue-chip">Network: {isOnline ? "Online" : "Offline"}</span>
+          <span className="admin-queue-chip">Pending: {pendingCount}</span>
           <Button onClick={retryNow} disabled={busy || !isOnline || pendingCount === 0}>
             Retry Now
           </Button>
@@ -69,29 +70,29 @@ export function QueueMonitorPage() {
             <CardTitle>Pending Events</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto rounded-lg border">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50">
+            <div className="admin-queue-table-shell">
+              <table className="admin-queue-table">
+                <thead className="admin-queue-table-head">
                   <tr>
-                    <th className="px-3 py-2 text-left">ID</th>
-                    <th className="px-3 py-2 text-left">Event</th>
-                    <th className="px-3 py-2 text-left">Unit</th>
-                    <th className="px-3 py-2 text-left">Retries</th>
-                    <th className="px-3 py-2 text-left">Last Error</th>
-                    <th className="px-3 py-2 text-left">Created</th>
-                    <th className="px-3 py-2 text-right">Action</th>
+                    <th className="admin-queue-th">ID</th>
+                    <th className="admin-queue-th">Event</th>
+                    <th className="admin-queue-th">Unit</th>
+                    <th className="admin-queue-th">Retries</th>
+                    <th className="admin-queue-th">Last Error</th>
+                    <th className="admin-queue-th">Created</th>
+                    <th className="admin-queue-th admin-queue-th--right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {queuedEvents.map((event) => (
-                    <tr key={event.id} className="border-t">
-                      <td className="px-3 py-2">{event.id}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{event.event_type}</td>
-                      <td className="px-3 py-2 font-mono text-xs">{event.unit_id || "-"}</td>
-                      <td className="px-3 py-2">{event.retry_count}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">{event.last_error || "-"}</td>
-                      <td className="px-3 py-2 text-xs">{formatDateTime(event.created_at)}</td>
-                      <td className="px-3 py-2 text-right">
+                    <tr key={event.id} className="admin-queue-row">
+                      <td className="admin-queue-td">{event.id}</td>
+                      <td className="admin-queue-td admin-queue-td--mono">{event.event_type}</td>
+                      <td className="admin-queue-td admin-queue-td--mono">{event.unit_id || "-"}</td>
+                      <td className="admin-queue-td">{event.retry_count}</td>
+                      <td className="admin-queue-td admin-queue-td--muted">{event.last_error || "-"}</td>
+                      <td className="admin-queue-td admin-queue-td--muted">{formatDateTime(event.created_at)}</td>
+                      <td className="admin-queue-td admin-queue-td--right">
                         <Button
                           size="sm"
                           variant="outline"
@@ -109,6 +110,6 @@ export function QueueMonitorPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageStack>
   );
 }

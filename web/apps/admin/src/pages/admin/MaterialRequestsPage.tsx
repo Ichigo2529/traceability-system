@@ -2,27 +2,52 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail, MaterialRequestIssueOptionsResponse } from "@traceability/sdk";
-import { ArrowLeft, ClipboardPen, History } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
-import { Input } from "../../components/ui/input";
-import { Textarea } from "../../components/ui/textarea";
 import { formatApiError } from "../../lib/errors";
 import { formatDate, formatDateTime } from "../../lib/datetime";
 import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
 import { useDelayedBusy } from "../../hooks/useDelayedBusy";
-import { LoadingSkeleton } from "../../components/shared/States";
-import { UnderlineTabs } from "../../components/shared/UnderlineTabs";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import { IssueAllocationWorkbench } from "../../components/material/IssueAllocationWorkbench";
 import { toast } from "sonner";
-import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Input,
+  Select,
+  Option,
+  TextArea,
+  Label,
+  Title,
+  FlexBox,
+  FlexBoxAlignItems,
+  FlexBoxJustifyContent,
+  Table,
+  TableRow,
+  TableCell,
+  TableHeaderRow,
+  TableHeaderCell,
+  MessageBox,
+  BusyIndicator,
+  Dialog,
+  Bar
+} from "@ui5/webcomponents-react";
+
+import "@ui5/webcomponents-icons/dist/history.js";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/navigation-left-arrow.js";
+import "@ui5/webcomponents-icons/dist/print.js";
+import "@ui5/webcomponents-icons/dist/accept.js";
+import "@ui5/webcomponents-icons/dist/decline.js";
+import "@ui5/webcomponents-icons/dist/paper-plane.js";
+import "@ui5/webcomponents-icons/dist/activities.js";
+
+
 import {
   approveMaterialRequest,
   createMaterialRequest,
@@ -35,6 +60,8 @@ import {
   rejectMaterialRequest,
 } from "../../lib/material-api";
 
+// ... existing types ...
+
 type LineForm = {
   item_no: number;
   model_id: string;
@@ -45,7 +72,6 @@ type LineForm = {
   remarks: string;
 };
 
-type TabKey = "FORM" | "HISTORY";
 function blankLine(itemNo: number): LineForm {
   return {
     item_no: itemNo,
@@ -58,7 +84,7 @@ function blankLine(itemNo: number): LineForm {
   };
 }
 
-export function MaterialRequestsPage() {
+export default function MaterialRequestsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [costCenter, setCostCenter] = useState("");
@@ -66,7 +92,7 @@ export function MaterialRequestsPage() {
   const [lines, setLines] = useState<LineForm[]>([blankLine(1)]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [openDetails, setOpenDetails] = useState(false);
-  const [tab, setTab] = useState<TabKey>("FORM");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [confirmIssueOpen, setConfirmIssueOpen] = useState(false);
   const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
@@ -116,6 +142,7 @@ export function MaterialRequestsPage() {
     enabled: true,
     queryKeys: realtimeQueryKeys,
   });
+  
   useEffect(() => {
     if (!openDetails) {
       workbench.reset();
@@ -219,6 +246,7 @@ export function MaterialRequestsPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
       await queryClient.invalidateQueries({ queryKey: ["material-request-next-numbers-admin"] });
+      setCreateDialogOpen(false);
     },
   });
 
@@ -261,6 +289,7 @@ export function MaterialRequestsPage() {
       await queryClient.invalidateQueries({ queryKey: ["admin-material-request-issue-options"] });
     },
   });
+
   const updateLine = (index: number, patch: Partial<LineForm>) => {
     setLines((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   };
@@ -311,8 +340,8 @@ export function MaterialRequestsPage() {
         header: "Actions",
         cell: ({ row }) => (
           <Button
-            variant="outline"
-            size="sm"
+            icon="display"
+            design="Transparent"
             onClick={() => {
               setSelectedId(row.original.id);
               setOpenDetails(true);
@@ -323,7 +352,7 @@ export function MaterialRequestsPage() {
         ),
       },
     ],
-    []
+    [detailsQuery.data?.id, detailsQuery.data?.status, openDetails]
   );
 
   const anyError =
@@ -336,389 +365,320 @@ export function MaterialRequestsPage() {
     issueMutation.error ??
     detailsQuery.error ??
     issueOptionsQuery.error;
-  const showRequestTableLoading = useDelayedBusy(
-    requestsQuery.isLoading || (requestsQuery.isFetching && !requestsQuery.data),
-    250
-  );
-  const showFormLoading = useDelayedBusy(
-    catalogQuery.isLoading || nextNumbersQuery.isLoading || (catalogQuery.isFetching && !catalogQuery.data),
-    250
-  );
+    
   const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
 
-  useEffect(() => {
-    if (tab !== "HISTORY") {
-      setOpenDetails(false);
-    }
-  }, [tab]);
+  // Removed TabKey effect
+
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Material Requests"
-        description="Production submits direct material requests; Store approves and issues by DMI/DO."
-      />
-      <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
-      <UnderlineTabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: "FORM", label: "Request Form", icon: ClipboardPen },
-          { key: "HISTORY", label: "History", icon: History },
-        ]}
-      />
-      {showFormLoading ? <LoadingSkeleton label="Loading form data..." /> : null}
+    <PageLayout
+      title="Material Requests"
+      subtitle="Production submits direct material requests; Store approves and issues by DMI/DO."
+      icon="activities"
+    >
+      <Section variant="card">
+         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
+         
+         {openDetails ? (
+            <div className="motion-safe:animate-panel-slide-in-left">
+                 <div style={{ padding: "1rem" }}>
+                     <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center} style={{ marginBottom: "1rem" }}>
+                         <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                             <Button icon="navigation-left-arrow" design="Transparent" onClick={() => { setOpenDetails(false); setSelectedId(null); }}>Back</Button>
+                             <Title level="H4">Material Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}</Title>
+                         </FlexBox>
+                         <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                             <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
+                             {detailsQuery.data?.status === "ISSUED" && <Button icon="print" design="Transparent" onClick={() => window.print()}>Print</Button>}
+                         </FlexBox>
+                     </FlexBox>
 
-      {tab === "FORM" ? (
-        <Card className="ml-0 mr-auto w-full max-w-[1120px] rounded-md border-slate-300 bg-white shadow-sm">
-          <CardContent className="p-4">
-            <div className="rounded-sm border border-slate-300 p-3">
-              <div className="mb-3">
-                <div className="flex items-start gap-3">
-                  <img src="/logo.png" alt="MMI Logo" className="h-14 w-auto object-contain" />
-                  <div className="text-sm leading-5">
-                    <p className="text-2xl font-semibold italic tracking-wide text-slate-700">MMI Precision Assembly (Thailand) Co., Ltd.</p>
-                    <p>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</p>
-                    <p>TEL : (6644) 000188 &nbsp;&nbsp; FAX : (6644) 000199</p>
-                  </div>
-                </div>
-              </div>
+                     {showDetailsLoading ? (
+                         <BusyIndicator active text="Loading details..." />
+                     ) : detailsQuery.data ? (
+                         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                             <MaterialRequestVoucherView detail={detailsQuery.data} />
+                             
+                             {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
+                                  <IssueAllocationWorkbench
+                                    issueOptions={issueOptionsQuery.data}
+                                    isLoading={issueOptionsQuery.isLoading}
+                                    issueRemarks={workbench.issueRemarks}
+                                    onIssueRemarksChange={workbench.setIssueRemarks}
+                                    manualAllocations={workbench.manualAllocations}
+                                    setManualAllocations={workbench.setManualAllocations}
+                                    allocationTotalsByItem={workbench.allocationTotalsByItem}
+                                    addAllocationLine={workbench.addAllocationLine}
+                                    issueValidationError={workbench.issueValidationError}
+                                  />
+                             )}
 
-              <p className="mb-3 text-2xl font-semibold tracking-tight text-slate-800">DIRECT MATERIAL ISSUE VOUCHER</p>
-
-              <div className="mb-3 rounded-sm border border-slate-300 bg-slate-50 px-4 py-3">
-                <div className="grid grid-cols-[1fr_1fr_0.8fr] items-end gap-6 text-[15px] font-semibold text-slate-800">
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">NO.:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1 text-[#d92d20]">
-                      {nextNumbersQuery.data?.request_no ?? "-"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">DMI. NO.:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1 text-[#d92d20]">
-                      {nextNumbersQuery.data?.dmi_no ?? "-"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">DATE:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1">
-                      {formatDate(nextNumbersQuery.data?.generated_at ?? new Date().toISOString())}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-4 rounded-sm border border-slate-300 bg-slate-50 px-4 py-3">
-                <div className="grid grid-cols-[1.2fr_1fr] items-end gap-6 text-[15px] font-semibold text-slate-800">
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">SECTION:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1">{sectionAuto || "-"}</span>
-                  </div>
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">COST CENTER:</span>
-                    <Input
-                      value={costCenter}
-                      onChange={(e) => setCostCenter(e.target.value)}
-                      className="h-10 w-full rounded-none border-0 border-b border-slate-300 bg-transparent px-1 pb-1 text-[15px] font-semibold shadow-none focus-visible:ring-0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full table-fixed border-collapse text-sm">
-                  <colgroup>
-                    <col className="w-[56px]" />
-                    <col className="w-[160px]" />
-                    <col className="w-[200px]" />
-                    <col className="w-[280px]" />
-                    <col className="w-[110px]" />
-                    <col className="w-[76px]" />
-                    <col />
-                  </colgroup>
-                  <thead>
-                    <tr className="bg-slate-100 text-[13px] text-slate-700">
-                      <th className="border border-slate-300 px-2 py-2 text-center">ITEM</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">MODEL</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">COMPONENT PART NO.</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">DESCRIPTION</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">QTY</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">UOM</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">REMARKS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((line, idx) => (
-                      <tr key={idx}>
-                        <td className="border border-slate-300 px-2 py-1 text-center">{idx + 1}</td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <select
-                            className="h-8 w-full rounded-none border border-slate-300 bg-white px-2 text-sm"
-                            value={line.model_id}
-                            onChange={(e) => onModelChange(idx, e.target.value)}
-                          >
-                            <option value="">Select Model</option>
-                            {modelOptions.map((model) => (
-                              <option key={model.model_id} value={model.model_id}>
-                                {model.model_code}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <select
-                            className="h-8 w-full rounded-none border border-slate-300 bg-white px-2 text-sm"
-                            value={line.part_number}
-                            disabled={!line.model_id}
-                            onChange={(e) => onPartNumberChange(idx, e.target.value)}
-                          >
-                            <option value="">{line.model_id ? "Select Component Part Number" : "Select model first"}</option>
-                            {(componentOptionsByModel.get(line.model_id) ?? []).map((item) => (
-                              <option key={`${item.model_id}-${item.part_number}`} value={item.part_number}>
-                                {item.part_number} {item.component_name ? `- ${item.component_name}` : ""}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <p className="h-8 border-b border-dotted border-slate-500/70 px-1 py-1.5 text-sm text-slate-700">{line.description || "-"}</p>
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <Input
-                            type="number"
-                            min={1}
-                            step={1}
-                            value={line.requested_qty ?? ""}
-                            onChange={(e) => updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined })}
-                            className="h-8 rounded-none border border-slate-300 text-right text-sm"
-                          />
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <p className="h-8 border-b border-dotted border-slate-500/70 px-1 py-1.5 text-center text-sm font-medium text-slate-700">{line.uom || "PCS"}</p>
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <Input
-                            value={line.remarks}
-                            onChange={(e) => updateLine(idx, { remarks: e.target.value })}
-                            className="h-8 rounded-none border border-slate-300 text-sm"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="mt-2 flex gap-2">
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}
-                >
-                  + Add Item
-                </Button>
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={() => setLines((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)))}
-                >
-                  Remove Last
-                </Button>
-              </div>
-
-              <div className="mt-4 overflow-hidden rounded-sm border border-slate-300 md:grid md:grid-cols-2">
-                <div className="border-b border-slate-300 md:border-b-0 md:border-r">
-                  <div className="bg-slate-100 px-3 py-2 text-xs font-semibold tracking-wide text-slate-700">ISSUED BY</div>
-                  <div className="grid grid-cols-[56px_1fr] items-end gap-x-2 gap-y-3 px-3 py-3 text-sm">
-                    <p className="text-slate-600">NAME :</p>
-                    <p className="border-b border-dotted border-slate-400 pb-1">&nbsp;</p>
-                    <p className="text-slate-600">DATE :</p>
-                    <p className="border-b border-dotted border-slate-400 pb-1">&nbsp;</p>
-                  </div>
-                </div>
-                <div>
-                  <div className="bg-slate-100 px-3 py-2 text-xs font-semibold tracking-wide text-slate-700">RECEIVED BY</div>
-                  <div className="grid grid-cols-[56px_1fr] items-end gap-x-2 gap-y-3 px-3 py-3 text-sm">
-                    <p className="text-slate-600">NAME :</p>
-                    <p className="border-b border-dotted border-slate-400 pb-1">&nbsp;</p>
-                    <p className="text-slate-600">DATE :</p>
-                    <p className="border-b border-dotted border-slate-400 pb-1">&nbsp;</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between">
-                <p className="text-xs text-slate-500">White - STORE &nbsp; Blue - MATERIALS &nbsp; Pink - RECEIVER</p>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setConfirmSubmitOpen(true);
-                  }}
-                  disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty}
-                >
-                  {createMutation.isPending ? "Submitting..." : "Submit Request"}
-                </Button>
-              </div>
+                             {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
+                                 <FlexBox justifyContent={FlexBoxJustifyContent.End} style={{ gap: "0.5rem", padding: "1rem", background: "var(--sapObjectHeader_Background)" }}>
+                                     {detailsQuery.data.status === "REQUESTED" && (
+                                         <Button 
+                                            icon="decline" 
+                                            design="Negative" 
+                                            onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
+                                            disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
+                                         >
+                                            Reject
+                                         </Button>
+                                     )}
+                                     <Button
+                                        icon="accept"
+                                        design="Positive"
+                                        onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
+                                        disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
+                                     >
+                                        {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
+                                     </Button>
+                                 </FlexBox>
+                             )}
+                         </div>
+                     ) : (
+                         <Label>No details loaded.</Label>
+                     )}
+                 </div>
             </div>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {tab === "HISTORY" ? (
-        openDetails ? (
-          <div className="space-y-3 motion-safe:animate-panel-slide-in-left">
-            <div className="flex items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 shadow-enterprise-soft">
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setOpenDetails(false);
-                    setSelectedId(null);
-                  }}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to History
-                </Button>
-                <p className="text-sm font-semibold text-slate-800">
-                  Material Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-                {detailsQuery.data?.status === "ISSUED" ? (
-                  <Button size="sm" variant="outline" onClick={() => window.print()}>
-                    Print
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-            {showDetailsLoading ? (
-              <LoadingSkeleton label="Loading request details..." />
-            ) : detailsQuery.data ? (
-              <div className="space-y-3">
-                <MaterialRequestVoucherView detail={detailsQuery.data} />
-                {detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED" ? (
-                  <IssueAllocationWorkbench
-                    issueOptions={issueOptionsQuery.data}
-                    isLoading={issueOptionsQuery.isLoading}
-                    issueRemarks={workbench.issueRemarks}
-                    onIssueRemarksChange={workbench.setIssueRemarks}
-                    manualAllocations={workbench.manualAllocations}
-                    setManualAllocations={workbench.setManualAllocations}
-                    allocationTotalsByItem={workbench.allocationTotalsByItem}
-                    addAllocationLine={workbench.addAllocationLine}
-                    issueValidationError={workbench.issueValidationError}
-                  />
-                ) : null}
-                {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") ? (
-                  <div className="enterprise-surface flex flex-wrap justify-end gap-2 p-3">
-                    {detailsQuery.data.status === "REQUESTED" ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setRejectReason("");
-                          setConfirmRejectOpen(true);
-                        }}
-                        disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
-                      >
-                        Reject
-                      </Button>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        if (workbench.issueValidationError) return;
-                        setConfirmIssueOpen(true);
-                      }}
-                      disabled={Boolean(
-                        workbench.issueValidationError ||
-                          issueOptionsQuery.isLoading ||
-                          approveMutation.isPending ||
-                          rejectMutation.isPending ||
-                          issueMutation.isPending
-                      )}
-                    >
-                      {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No details loaded.</p>
-            )}
-          </div>
-        ) : showRequestTableLoading ? (
-          <LoadingSkeleton label="Loading material requests..." />
         ) : (
-          <DataTable data={requestsQuery.data ?? []} columns={columns} filterPlaceholder="Search request no., section, cost center..." />
-        )
-      ) : null}
-      <ConfirmDialog
-        open={confirmSubmitOpen}
-        title="Confirm submit request"
-        description="Submit this material request now?"
-        confirmText="Submit"
-        onCancel={() => setConfirmSubmitOpen(false)}
-        onConfirm={() => {
-          setConfirmSubmitOpen(false);
-          createMutation.mutate();
-        }}
-      />
-      <ConfirmDialog
-        open={confirmIssueOpen}
-        title={detailsQuery.data?.status === "REQUESTED" ? "Confirm approve + issue" : "Confirm issue material"}
-        description={
-          detailsQuery.data?.status === "REQUESTED"
-            ? "Approve and issue this request now?"
-            : "Issue this approved request now?"
+            <DataTable 
+                data={requestsQuery.data ?? []} 
+                columns={columns} 
+                filterPlaceholder="Search request no., section, cost center..." 
+                actions={
+                    <Button
+                        icon="add"
+                        design="Emphasized"
+                        onClick={() => {
+                            setLines([blankLine(1)]);
+                            setCostCenter("");
+                            setHeaderRemarks("");
+                            setCreateDialogOpen(true);
+                        }}
+                    >
+                        New Request
+                    </Button>
+                }
+            />
+        )}
+      </Section>
+
+      {/* Create Request Dialog */}
+      <Dialog
+        open={createDialogOpen}
+        headerText="New Material Request"
+        stretch
+        footer={
+            <Bar
+                endContent={
+                    <>
+                        <Button onClick={() => setCreateDialogOpen(false)} design="Transparent">Cancel</Button>
+                        <Button 
+                            design="Emphasized" 
+                            onClick={() => setConfirmSubmitOpen(true)}
+                            disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty}
+                        >
+                            {createMutation.isPending ? "Submitting..." : "Submit Request"}
+                        </Button>
+                    </>
+                }
+            />
         }
-        confirmText={detailsQuery.data?.status === "REQUESTED" ? "Approve + Issue" : "Issue"}
-        onCancel={() => setConfirmIssueOpen(false)}
-        onConfirm={() => {
-          if (!detailsQuery.data) return;
-          setConfirmIssueOpen(false);
-          issueMutation.mutate({
-            id: detailsQuery.data.id,
-            remarks: workbench.issueRemarks || undefined,
-            allocations: workbench.buildAllocationsPayload(),
-          });
-        }}
-      />
-      <ConfirmDialog
-        open={confirmRejectOpen}
-        title="Confirm reject request"
-        description="Reject this material request? You can provide an optional reason."
-        confirmText="Reject"
-        destructive
-        onCancel={() => {
-          setConfirmRejectOpen(false);
-          setRejectReason("");
-        }}
-        onConfirm={() => {
-          if (!detailsQuery.data) return;
-          setConfirmRejectOpen(false);
-          rejectMutation.mutate({ id: detailsQuery.data.id, reason: rejectReason.trim() || undefined });
-          setRejectReason("");
+      >
+        <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem", height: "100%" }}>
+             {/* Header Info - Simplified for Dialog */}
+             <div style={{ padding: "0.75rem 1rem", background: "var(--sapObjectHeader_Background)", border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
+                 <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} wrap="Wrap" style={{ gap: "1rem" }}>
+                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                         <Label style={{ fontWeight: "bold" }}>NO.:</Label>
+                         <Label style={{ color: "var(--sapNegativeColor)" }}>
+                            {nextNumbersQuery.data?.request_no ?? "-"}
+                         </Label>
+                     </FlexBox>
+                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                         <Label style={{ fontWeight: "bold" }}>DMI. NO.:</Label>
+                         <Label style={{ color: "var(--sapNegativeColor)" }}>
+                            {nextNumbersQuery.data?.dmi_no ?? "-"}
+                         </Label>
+                     </FlexBox>
+                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                         <Label style={{ fontWeight: "bold" }}>DATE:</Label>
+                         <Label>
+                            {formatDate(nextNumbersQuery.data?.generated_at ?? new Date().toISOString())}
+                         </Label>
+                     </FlexBox>
+                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                         <Label style={{ fontWeight: "bold" }}>SECTION:</Label>
+                         <Label>
+                            {sectionAuto || "-"}
+                         </Label>
+                     </FlexBox>
+                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem", flexGrow: 1, minWidth: "200px" }}>
+                         <Label style={{ fontWeight: "bold" }}>COST CENTER:</Label>
+                         <Input 
+                            value={costCenter}
+                            onInput={(e) => setCostCenter(e.target.value)}
+                            style={{ flex: 1 }}
+                         />
+                     </FlexBox>
+                 </FlexBox>
+             </div>
+
+             {/* Items Table - Using UI5 Table */}
+             <div style={{ flex: 1, overflow: "auto" }}>
+                 <Table
+                    headerRow={
+                        <TableHeaderRow>
+                            <TableHeaderCell minWidth="3rem"><Label>Item</Label></TableHeaderCell>
+                            <TableHeaderCell minWidth="12rem"><Label>Model</Label></TableHeaderCell>
+                            <TableHeaderCell minWidth="14rem"><Label>Part No.</Label></TableHeaderCell>
+                            <TableHeaderCell minWidth="12rem"><Label>Description</Label></TableHeaderCell>
+                            <TableHeaderCell minWidth="6rem"><Label>Qty</Label></TableHeaderCell>
+                            <TableHeaderCell minWidth="4rem"><Label>UOM</Label></TableHeaderCell>
+                            <TableHeaderCell minWidth="8rem"><Label>Remarks</Label></TableHeaderCell>
+                        </TableHeaderRow>
+                    }
+                 >
+                     {lines.map((line, idx) => (
+                         <TableRow key={idx}>
+                             <TableCell><Label>{idx + 1}</Label></TableCell>
+                             <TableCell>
+                                 <Select 
+                                    onChange={(e) => {
+                                        const selected = e.detail.selectedOption as unknown as { value: string };
+                                        onModelChange(idx, selected.value);
+                                    }}
+                                    value={line.model_id}
+                                    style={{ width: "100%" }}
+                                 >
+                                     <Option value="">Select Model</Option>
+                                     {modelOptions.map((model) => (
+                                         <Option key={model.model_id} value={model.model_id}>{model.model_code}</Option>
+                                     ))}
+                                 </Select>
+                             </TableCell>
+                             <TableCell>
+                                 <Select 
+                                     onChange={(e) => {
+                                        const selected = e.detail.selectedOption as unknown as { value: string };
+                                        onPartNumberChange(idx, selected.value);
+                                    }}
+                                    value={line.part_number}
+                                    disabled={!line.model_id}
+                                    style={{ width: "100%" }}
+                                 >
+                                     <Option value="">{line.model_id ? "Select Component" : "Select model"}</Option>
+                                     {(componentOptionsByModel.get(line.model_id) ?? []).map((item) => (
+                                         <Option key={`${item.model_id}-${item.part_number}`} value={item.part_number}>
+                                             {item.part_number} {item.component_name ? `- ${item.component_name}` : ""}
+                                         </Option>
+                                     ))}
+                                 </Select>
+                             </TableCell>
+                             <TableCell>
+                                 <Label wrappingType="Normal">{line.description || "-"}</Label>
+                             </TableCell>
+                             <TableCell>
+                                 <Input 
+                                    type="Number"
+                                    value={line.requested_qty?.toString() ?? ""}
+                                    onInput={(e) => updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined })}
+                                    style={{ width: "100%", textAlign: "right" }}
+                                 />
+                             </TableCell>
+                             <TableCell>
+                                 <Label>{line.uom || "PCS"}</Label>
+                             </TableCell>
+                             <TableCell>
+                                 <Input 
+                                    value={line.remarks}
+                                    onInput={(e) => updateLine(idx, { remarks: e.target.value })}
+                                    style={{ width: "100%" }}
+                                 />
+                             </TableCell>
+                         </TableRow>
+                     ))}
+                 </Table>
+             </div>
+
+             <FlexBox style={{ gap: "0.5rem" }}>
+                 <Button icon="add" onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}>Add Item</Button>
+                 <Button icon="delete" design="Transparent" onClick={() => setLines((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)))}>Remove Last</Button>
+             </FlexBox>
+        </div>
+      </Dialog>
+      
+      {/* Confirm Dialogs */}
+      <MessageBox
+        open={confirmSubmitOpen}
+        type="Confirm"
+        titleText="Confirm submit request"
+        onClose={(action: string | undefined) => {
+            if (action === "OK") {
+                createMutation.mutate();
+            }
+            setConfirmSubmitOpen(false);
         }}
       >
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700" htmlFor="admin-reject-reason">
-            Reject reason (optional)
-          </label>
-          <Textarea
-            id="admin-reject-reason"
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Enter reason for rejection"
-            className="min-h-[88px]"
-          />
-        </div>
-      </ConfirmDialog>
-    </div>
+          Submit this material request now?
+      </MessageBox>
+
+      <MessageBox
+           open={confirmIssueOpen}
+           type="Confirm"
+           titleText={detailsQuery.data?.status === "REQUESTED" ? "Confirm approve + issue" : "Confirm issue material"}
+           onClose={(action: string | undefined) => {
+               if (action === "OK") {
+                   if (detailsQuery.data) {
+                       issueMutation.mutate({
+                         id: detailsQuery.data.id,
+                         remarks: workbench.issueRemarks || undefined,
+                         allocations: workbench.buildAllocationsPayload(),
+                       });
+                   }
+               }
+               setConfirmIssueOpen(false);
+           }}
+      >
+           {detailsQuery.data?.status === "REQUESTED" ? "Approve and issue this request now?" : "Issue this approved request now?"}
+      </MessageBox>
+
+      <Dialog
+          open={confirmRejectOpen}
+          headerText="Confirm reject request"
+          footer={
+              <Bar
+                  endContent={
+                      <>
+                          <Button onClick={() => setConfirmRejectOpen(false)} design="Transparent">Cancel</Button>
+                          <Button 
+                              design="Negative" 
+                              onClick={() => {
+                                  if (!detailsQuery.data) return;
+                                  setConfirmRejectOpen(false);
+                                  rejectMutation.mutate({ id: detailsQuery.data.id, reason: rejectReason.trim() || undefined });
+                                  setRejectReason("");
+                              }}
+                          >
+                              Reject
+                          </Button>
+                      </>
+                  }
+              />
+          }
+      >
+           <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: "300px", padding: "1rem" }}>
+                <Label>Reject reason (optional)</Label>
+                <TextArea
+                    value={rejectReason}
+                    onInput={(e) => setRejectReason(e.target.value)}
+                    rows={3}
+                    placeholder="Enter reason for rejection"
+                />
+           </div>
+      </Dialog>
+    </PageLayout>
   );
 }

@@ -1,78 +1,59 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
-  --mes-primary: #1f6fa0;
-  --mes-primary-dark: #155983;
-  --mes-primary-soft: #eaf3f9;
-  --mes-bg: #eef3f8;
-  --mes-surface: #ffffff;
-  --mes-border: #c6d2df;
-  --mes-text: #1f2d3d;
-  --mes-muted: #4b5563;
+  --station-bg: radial-gradient(circle at 12% 8%, #f6fbff 0%, #edf4fb 46%, #e2ecf7 100%);
+  --station-text: #1f2d3d;
+  --station-muted: #5b6878;
 }
 
-@layer base {
-  * {
-    border-color: var(--mes-border);
-  }
-
-  body {
-    margin: 0;
-    font-family: "72", "72full", "Inter", "Segoe UI", Arial, sans-serif;
-    font-size: 0.8125rem;
-    color: var(--mes-text);
-    background: radial-gradient(circle at 10% 10%, #f8fbfd 0%, var(--mes-bg) 45%, #e5edf6 100%);
-    min-height: 100vh;
-    letter-spacing: 0.01em;
-  }
-
-  h1,
-  h2,
-  h3 {
-    letter-spacing: 0.015em;
-  }
-
-  input,
-  select,
-  textarea {
-    background: #fff;
-    border: 1px solid var(--mes-border);
-    color: var(--mes-text);
-  }
-
-  input:focus,
-  select:focus,
-  textarea:focus {
-    outline: none;
-    border-color: var(--mes-primary);
-    box-shadow: 0 0 0 2px rgba(17, 52, 166, 0.2);
-  }
-
-  button {
-    transition: all 140ms ease;
-  }
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
 }
 
-@layer components {
-  .mes-shell {
-    @apply min-h-screen p-6 md:p-10;
+body {
+  font-family: "72", "72full", "Segoe UI", Arial, sans-serif;
+  font-size: 0.875rem;
+  color: var(--station-text);
+  background: var(--station-bg);
+}
+
+.station-shell {
+  min-height: 100vh;
+  padding: clamp(1rem, 2vw, 2.5rem);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.station-card {
+  width: min(48rem, 100%);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 28px rgba(15, 33, 61, 0.08);
+}
+
+.station-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.25rem;
+}
+
+.station-content ui5-button {
+  align-self: flex-start;
+}
+
+.station-description {
+  color: var(--station-muted);
+  line-height: 1.45;
+}
+
+@media (min-width: 768px) {
+  .station-shell {
+    padding: 2.5rem;
   }
 
-  .mes-panel {
-    background: var(--mes-surface);
-    border: 1px solid var(--mes-border);
-    @apply rounded-md shadow-sm;
-  }
-
-  .mes-primary-btn {
-    background: var(--mes-primary);
-    color: #fff;
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 font-semibold;
-  }
-
-  .mes-primary-btn:hover {
-    background: var(--mes-primary-dark);
+  .station-content {
+    padding: 1.5rem;
   }
 }

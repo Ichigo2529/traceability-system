@@ -3,9 +3,9 @@ import { Card, CardContent } from "../ui/card";
 
 export function LoadingSkeleton({ label = "Loading..." }: { label?: string }) {
   return (
-    <Card className="border-dashed">
-      <CardContent className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
+    <Card className="admin-state-card admin-state-card--loading">
+      <CardContent className="admin-state-content admin-state-content--loading">
+        <Loader2 className="admin-state-icon admin-state-icon--spin" />
         <span>{label}</span>
       </CardContent>
     </Card>
@@ -14,13 +14,13 @@ export function LoadingSkeleton({ label = "Loading..." }: { label?: string }) {
 
 export function EmptyState({ title, description }: { title: string; description: string }) {
   return (
-    <Card className="border-dashed bg-gradient-to-b from-white to-slate-50">
-      <CardContent className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-        <div className="rounded-full border border-slate-200 bg-white p-3 shadow-sm">
-          <Inbox className="h-6 w-6 text-muted-foreground" />
+    <Card className="admin-state-card admin-state-card--empty">
+      <CardContent className="admin-state-content admin-state-content--empty">
+        <div className="admin-state-icon-shell">
+          <Inbox className="admin-state-icon admin-state-icon--lg" />
         </div>
-        <h3 className="text-base font-semibold">{title}</h3>
-        <p className="max-w-lg text-sm text-muted-foreground">{description}</p>
+        <h3 className="admin-state-title">{title}</h3>
+        <p className="admin-state-description">{description}</p>
       </CardContent>
     </Card>
   );
@@ -28,12 +28,12 @@ export function EmptyState({ title, description }: { title: string; description:
 
 export function ErrorState({ title, description }: { title: string; description: string }) {
   return (
-    <Card className="border-red-200 bg-red-50/70">
-      <CardContent className="flex items-center gap-3 py-4 text-red-800">
-        <AlertTriangle className="h-5 w-5 shrink-0" />
+    <Card className="admin-state-card admin-state-card--error">
+      <CardContent className="admin-state-content admin-state-content--error">
+        <AlertTriangle className="admin-state-icon admin-state-icon--error" />
         <div>
-          <p className="text-sm font-semibold">{title}</p>
-          <p className="text-sm">{description}</p>
+          <p className="admin-state-error-title">{title}</p>
+          <p className="admin-state-error-description">{description}</p>
         </div>
       </CardContent>
     </Card>

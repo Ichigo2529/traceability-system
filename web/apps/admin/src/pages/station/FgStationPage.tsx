@@ -2,16 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
+
 import { StationHeader } from "../../components/shared/StationHeader";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
 import { ScanInput } from "../../components/shared/ScanInput";
 import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
+
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
+import { PageStack } from "@traceability/ui";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -22,7 +22,7 @@ function genEventId() {
 export function FgStationPage() {
   const navigate = useNavigate();
   const { publishEvent } = useStationEvent();
-  const outerRef = useRef<HTMLInputElement>(null);
+  const outerRef = useRef<any>(null);
   const [outerCode, setOuterCode] = useState("");
   const [outerList, setOuterList] = useState<string[]>([]);
   const [overlay, setOverlay] = useState<{ open: boolean; mode: "PASS" | "NG"; title: string; description?: string }>({
@@ -86,8 +86,13 @@ export function FgStationPage() {
   if (heartbeatQuery.data?.status === "disabled") return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="FG / Shipping Station" description="Scan outer cartons and map to pallet." />
+    <PageStack>
+      <div className="admin-toolbar">
+        <div>
+          <h1 className="admin-page-title">FG / Shipping Station</h1>
+          <p className="text-sm text-gray-500">Scan outer cartons and map to pallet.</p>
+        </div>
+      </div>
       <StationHeader
         stationName={heartbeatQuery.data?.station?.name || "Unassigned"}
         processName={heartbeatQuery.data?.process?.name || "Unassigned"}
@@ -95,22 +100,22 @@ export function FgStationPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle>Pallet Mapping</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+        <div className="xl:col-span-2 admin-card">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-medium">Pallet Mapping</h3>
+          </div>
+          <div className="p-4 space-y-3">
             <ScanInput ref={outerRef} value={outerCode} onChange={setOuterCode} onSubmit={addOuter} placeholder="Scan OUTER code" />
-            <div className="flex gap-2">
-              <Button onClick={addOuter} disabled={!outerCode.trim()}>
+            <div className="admin-inline-actions">
+              <button className="admin-button is-primary" onClick={addOuter} disabled={!outerCode.trim()}>
                 Add Outer
-              </Button>
-              <Button variant="outline" onClick={() => setOuterList([])} disabled={!outerList.length}>
+              </button>
+              <button className="admin-button is-secondary" onClick={() => setOuterList([])} disabled={!outerList.length}>
                 Clear
-              </Button>
-              <Button onClick={() => mapMutation.mutate(outerList)} disabled={mapMutation.isPending || outerList.length === 0}>
+              </button>
+              <button className="admin-button is-primary" onClick={() => mapMutation.mutate(outerList)} disabled={mapMutation.isPending || outerList.length === 0}>
                 {mapMutation.isPending ? "Mapping..." : "Map to Pallet"}
-              </Button>
+              </button>
             </div>
             <div className="max-h-72 overflow-auto rounded-lg border">
               <table className="w-full text-sm">
@@ -130,22 +135,22 @@ export function FgStationPage() {
                 </tbody>
               </table>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+        <div className="admin-card">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-medium">Summary</h3>
+          </div>
+          <div className="p-4 admin-stack-2 text-sm">
             <p>
               Device status: <StatusBadge status={heartbeatQuery.data?.status || "active"} />
             </p>
             <p>Station: {heartbeatQuery.data?.station?.name || "Unassigned"}</p>
             <p>Process: {heartbeatQuery.data?.process?.name || "Unassigned"}</p>
             <p>Mapped outers (draft): {outerList.length}</p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       <FullscreenResultOverlay
@@ -155,6 +160,6 @@ export function FgStationPage() {
         description={overlay.description}
         onClose={() => setOverlay((prev) => ({ ...prev, open: false }))}
       />
-    </div>
+    </PageStack>
   );
 }

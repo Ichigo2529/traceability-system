@@ -1,19 +1,30 @@
-import { Button } from '@traceability/ui';
 import { ApiClient } from '@traceability/sdk';
+import { Button, Card, CardHeader, Text } from '@ui5/webcomponents-react';
 
 const api = new ApiClient(import.meta.env.VITE_API_BASE_URL);
 
 function App() {
   console.log('API Client initialized:', api); // Suppress unused var
   return (
-    <div className="mes-shell">
-      <div className="mes-panel max-w-3xl p-8">
-        <h1 className="text-3xl font-bold mb-2">Station: Finished Goods</h1>
-        <p className="text-sm text-gray-500 mb-6">Pallet mapping, verification, and outbound confirmation.</p>
-        <Button variant="primary">Map Pallet</Button>
-      </div>
+    <div className="station-shell">
+      <Card
+        className="station-card"
+        header={
+          <CardHeader
+            titleText="Station: Finished Goods"
+            subtitleText="Pallet mapping, verification, and outbound confirmation."
+          />
+        }
+      >
+        <div className="station-content">
+          <Text className="station-description">
+            Ready for final mapping and shipment confirmation workflow.
+          </Text>
+          <Button design="Emphasized">Map Pallet</Button>
+        </div>
+      </Card>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

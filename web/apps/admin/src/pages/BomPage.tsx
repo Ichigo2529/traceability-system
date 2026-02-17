@@ -1,11 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BomRow, Model, ModelRevision, RevisionStatus } from "@traceability/sdk";
-import { Plus, Trash2 } from "lucide-react";
+import { BomRow, RevisionStatus } from "@traceability/sdk";
 import { sdk } from "../context/AuthContext";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { BomRowDialog, BomRowForm } from "../components/shared/BomRowDialog";
+import { PageLayout, Section } from "@traceability/ui";
+import { DataTable } from "../components/shared/DataTable";
+import { 
+    Button, 
+    Label, 
+    Select, 
+    Option, 
+    FlexBox, 
+    FlexBoxAlignItems, 
+    FlexBoxDirection,
+    FlexBoxJustifyContent,
+    ObjectStatus
+} from "@ui5/webcomponents-react";
+import { ColumnDef } from "@tanstack/react-table";
+import "@ui5/webcomponents-icons/dist/tree.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/add.js";
 
 export default function BomPage() {
   const queryClient = useQueryClient();
@@ -112,128 +129,143 @@ export default function BomPage() {
 
   const error = createBom.error || editBom.error || deleteBom.error;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">BOM Management</h1>
-          <p className="text-sm text-gray-500">Manage BOM rows by model revision</p>
-        </div>
-        {selectedRevision && (
-          <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
-            Revision Status: {selectedRevision.status}
-          </span>
-        )}
-      </div>
-
-      <ApiErrorBanner message={error ? formatApiError(error) : undefined} />
-
-      <div className="grid gap-3 rounded-lg border bg-white p-4 md:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Model</label>
-          <select
-            value={modelId}
-            onChange={(e) => setModelId(e.target.value)}
-            className="w-full rounded border px-3 py-2 text-sm"
-          >
-            {(models as Model[]).map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.code} - {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Revision</label>
-          <select
-            value={revisionId}
-            onChange={(e) => setRevisionId(e.target.value)}
-            className="w-full rounded border px-3 py-2 text-sm"
-            disabled={!revisions.length}
-          >
-            {(revisions as ModelRevision[]).map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.revision_code} ({r.status})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="rounded-lg border bg-white p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold">BOM Rows</h2>
-          {!isReadOnly && modelId && revisionId && (
-            <button
+  const columns = useMemo<ColumnDef<BomRow>[]>(
+    () => [
+      {
+        header: "Model",
+        cell: () => <Label>{selectedModel?.name || "-"}</Label>,
+      },
+      {
+        header: "Part Number FG",
+        cell: () => <Label>{selectedModel?.part_number || "-"}</Label>,
+      },
+      {
+        header: "Component",
+        cell: ({ row }) => (
+            <FlexBox direction={FlexBoxDirection.Column}>
+                <Label style={{ fontWeight: "bold" }}>{row.original.component_name || row.original.component_unit_type}</Label>
+                <Label style={{ fontSize: "0.75rem" }}>{row.original.component_unit_type}</Label>
+            </FlexBox>
+        ),
+      },
+      {
+          header: "Part Number RM",
+          accessorKey: "component_part_number",
+          cell: ({ getValue }) => getValue() || "-"
+      },
+      {
+          header: "Location",
+          accessorKey: "rm_location",
+           cell: ({ getValue }) => getValue() || "-"
+      },
+      {
+          header: "Use pcs / 1 VCM",
+          accessorKey: "qty_per_assy",
+      },
+      {
+        header: "Actions",
+        cell: ({ row }) => (
+           !isReadOnly ? (
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <Button
+              icon="edit"
+              design="Transparent"
               onClick={() => {
-                setEditingRow(null);
+                setEditingRow(row.original);
                 setDialogOpen(true);
               }}
-              className="inline-flex items-center gap-1 rounded border px-3 py-1 text-sm hover:bg-gray-50"
-            >
-              <Plus size={14} />
-              Add BOM
-            </button>
-          )}
-        </div>
+              tooltip="Edit BOM Row"
+            />
+            <Button
+              icon="delete"
+              design="Transparent"
+               onClick={() => deleteBom.mutate(row.original.id)}
+              tooltip="Delete BOM Row"
+            />
+          </div>
+           ) : null
+        ),
+      },
+    ],
+    [deleteBom, isReadOnly, selectedModel]
+  );
 
-        {!modelId || !revisionId ? (
-          <div className="text-sm text-gray-500">Select model and revision</div>
-        ) : !(bom as BomRow[]).length ? (
-          <div className="text-sm text-gray-500">No BOM rows</div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
-              <tr>
-                <th className="px-3 py-2 text-left">Model</th>
-                <th className="px-3 py-2 text-left">Part Number FG</th>
-                <th className="px-3 py-2 text-left">Component</th>
-                <th className="px-3 py-2 text-left">Part Number RM</th>
-                <th className="px-3 py-2 text-left">Location</th>
-                <th className="px-3 py-2 text-right">Use pcs / 1 VCM</th>
-                <th className="px-3 py-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(bom as BomRow[]).map((row) => (
-                <tr key={row.id} className="border-t">
-                  <td className="px-3 py-2">{selectedModel?.name || "-"}</td>
-                  <td className="px-3 py-2 font-semibold text-[#1134A6]">{selectedModel?.part_number || "-"}</td>
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{row.component_name || row.component_unit_type}</div>
-                    <div className="text-xs text-gray-500">{row.component_unit_type}</div>
-                  </td>
-                  <td className="px-3 py-2 font-semibold text-[#1134A6]">{row.component_part_number || "-"}</td>
-                  <td className="px-3 py-2">{row.rm_location || "-"}</td>
-                  <td className="px-3 py-2 text-right font-semibold">{row.qty_per_assy}</td>
-                  <td className="space-x-2 px-3 py-2 text-right">
-                    {!isReadOnly && (
-                      <>
-                        <button
-                          onClick={() => {
-                            setEditingRow(row);
-                            setDialogOpen(true);
-                          }}
-                          className="rounded border px-2 py-1 text-xs hover:bg-gray-50"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => deleteBom.mutate(row.id)}
-                          className="inline-flex items-center text-red-600 hover:text-red-800"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+  return (
+    <PageLayout
+      title="BOM Management"
+      subtitle="Manage BOM rows by model revision"
+      icon="tree"
+    >
+      <Section variant="card">
+         <ApiErrorBanner message={error ? formatApiError(error) : undefined} />
+        
+        <FlexBox 
+            alignItems={FlexBoxAlignItems.End} 
+            justifyContent={FlexBoxJustifyContent.Start}
+            wrap="Wrap"
+            style={{ gap: "1rem", marginBottom: "1rem", padding: "1rem", backgroundColor: "var(--sapObjectHeader_Background)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}
+        >
+             <FlexBox direction={FlexBoxDirection.Column} style={{ minWidth: "200px" }}>
+                <Label>Model</Label>
+                <Select
+                    onChange={(e) => setModelId(e.target.value)}
+                    value={modelId}
+                    style={{ width: "100%" }}
+                >
+                    {models.map((m) => (
+                    <Option key={m.id} value={m.id}>
+                        {m.code} - {m.name}
+                    </Option>
+                    ))}
+                </Select>
+             </FlexBox>
+             
+             <FlexBox direction={FlexBoxDirection.Column} style={{ minWidth: "200px" }}>
+                <Label>Revision</Label>
+                <Select
+                    onChange={(e) => setRevisionId(e.target.value)}
+                    value={revisionId}
+                    disabled={!revisions.length}
+                    style={{ width: "100%" }}
+                >
+                    {revisions.map((r) => (
+                    <Option key={r.id} value={r.id}>
+                        {r.revision_code} ({r.status})
+                    </Option>
+                    ))}
+                </Select>
+             </FlexBox>
 
+             {selectedRevision && (
+                 <FlexBox direction={FlexBoxDirection.Column}>
+                     <Label>Status</Label>
+                     <ObjectStatus state={selectedRevision.status === RevisionStatus.ACTIVE ? "Positive" : "Information"}>{selectedRevision.status}</ObjectStatus>
+                 </FlexBox>
+             )}
+        </FlexBox>
+
+        <DataTable 
+            data={bom} 
+            columns={columns} 
+            filterPlaceholder="Search BOM..." 
+            actions={
+                 !isReadOnly && modelId && revisionId ? (
+                    <Button
+                        icon="add"
+                        design="Emphasized"
+                        onClick={() => {
+                        setEditingRow(null);
+                        setDialogOpen(true);
+                        }}
+                    >
+                        Add BOM Row
+                    </Button>
+                 ) : undefined
+            }
+        />
+
+      </Section>
+      
       <BomRowDialog
         open={dialogOpen}
         row={editingRow}
@@ -249,6 +281,6 @@ export default function BomPage() {
           else createBom.mutate(values);
         }}
       />
-    </div>
+    </PageLayout>
   );
 }

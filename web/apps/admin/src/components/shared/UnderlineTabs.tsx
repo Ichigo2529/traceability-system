@@ -19,8 +19,8 @@ export function UnderlineTabs<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={cn("border-b border-slate-200", className)}>
-      <div className="flex flex-wrap items-center gap-1">
+    <div className={cn("admin-underline-tabs", className)}>
+      <div className="admin-underline-tabs-list">
         {items.map((item) => {
           const active = item.key === value;
           const Icon = item.icon;
@@ -30,14 +30,12 @@ export function UnderlineTabs<T extends string>({
               type="button"
               onClick={() => onChange(item.key)}
               className={cn(
-                "inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-                active
-                  ? "border-primary text-primary"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
+                "admin-underline-tab",
+                active ? "is-active" : undefined
               )}
               aria-current={active ? "page" : undefined}
             >
-              {Icon ? <Icon className="h-4 w-4" /> : null}
+              {Icon ? <Icon className="admin-underline-tab-icon" /> : null}
               <span>{item.label}</span>
             </button>
           );

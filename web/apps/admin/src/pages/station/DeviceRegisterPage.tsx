@@ -1,14 +1,23 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Cpu } from "lucide-react";
-import { sdk } from "../../context/AuthContext";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Button } from "../../components/ui/button";
+import { sdk, useAuth } from "../../context/AuthContext";
+import { 
+    Page, 
+    Card, 
+    CardHeader, 
+    Input, 
+    Label, 
+    Button, 
+    MessageStrip, 
+    FlexBox, 
+    FlexBoxDirection, 
+    Icon 
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/laptop.js"; // cpu icon not standard, using laptop as proxy or generic device
+import "@ui5/webcomponents-icons/dist/log.js";
 
 const schema = z.object({
   deviceCode: z.string().min(3, "Device code is required"),
@@ -22,11 +31,12 @@ function getFingerprint() {
 }
 
 export function DeviceRegisterPage() {
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
 
-  const form = useForm<FormValues>({
+  const { control, handleSubmit, formState: { isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { deviceCode: "", activationPin: "" },
   });
@@ -54,46 +64,83 @@ export function DeviceRegisterPage() {
 
   if (locked) {
     return (
-      <div className="flex min-h-[80vh] items-center justify-center">
-        <Card className="w-full max-w-xl border-red-300">
-          <CardHeader>
-            <CardTitle className="text-red-700">Device Disabled</CardTitle>
-            <CardDescription>This device has been disabled by administrator. Contact factory IT/MES support.</CardDescription>
-          </CardHeader>
-        </Card>
+      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "80vh", padding: "1rem" }}>
+         <MessageStrip design="Negative" hideCloseButton>
+            <div style={{ fontWeight: "bold", marginBottom: "0.5rem" }}>Device Disabled</div>
+            This device has been disabled by administrator. Contact factory IT/MES support.
+         </MessageStrip>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex min-h-[80vh] w-full max-w-3xl items-center">
-      <Card className="w-full">
-        <CardHeader>
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Cpu className="h-6 w-6" />
-          </div>
-          <CardTitle>Device Registration</CardTitle>
-          <CardDescription>First boot activation. Enter device code and activation PIN to lock this terminal into station mode.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="grid gap-4 md:grid-cols-2" onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="space-y-2">
-              <Label htmlFor="deviceCode">Device Code</Label>
-              <Input id="deviceCode" {...form.register("deviceCode")} placeholder="PI5-ASM-01" autoFocus />
+    <Page style={{ height: "100vh" }} backgroundDesign="Solid">
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
+            <Card style={{ width: "500px", maxWidth: "100%" }}>
+                <CardHeader 
+                    titleText="Device Registration" 
+                    subtitleText="First boot activation" 
+                    avatar={<Icon name="laptop" />}
+                />
+                
+                <div style={{ padding: "1rem" }}>
+                    <div style={{ marginBottom: "1rem", color: "var(--sapContent_LabelColor)", fontSize: "0.875rem" }}>
+                        Enter device code and activation PIN to lock this terminal into station mode.
+                    </div>
+
+                    <form onSubmit={handleSubmit(onSubmit)} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                        
+                        <Controller
+                            name="deviceCode"
+                            control={control}
+                            render={({ field, fieldState: { error } }) => (
+                                <FlexBox direction={FlexBoxDirection.Column}>
+                                    <Label>Device Code</Label>
+                                    <Input 
+                                        {...field} 
+                                        onInput={(e) => field.onChange(e.target.value)}
+                                        valueState={error ? "Negative" : "None"}
+                                        valueStateMessage={error && <div>{error.message}</div>}
+                                        placeholder="PI5-ASM-01"
+                                    />
+                                </FlexBox>
+                            )}
+                        />
+
+                        <Controller
+                            name="activationPin"
+                            control={control}
+                            render={({ field, fieldState: { error } }) => (
+                                <FlexBox direction={FlexBoxDirection.Column}>
+                                    <Label>Activation PIN</Label>
+                                    <Input 
+                                        type="Password"
+                                        {...field} 
+                                        onInput={(e) => field.onChange(e.target.value)}
+                                        valueState={error ? "Negative" : "None"}
+                                        valueStateMessage={error && <div>{error.message}</div>}
+                                    />
+                                </FlexBox>
+                            )}
+                        />
+
+                        {error && <MessageStrip design="Negative">{error}</MessageStrip>}
+
+                        <Button design="Emphasized" onClick={() => handleSubmit(onSubmit)()} disabled={isSubmitting}>
+                            {isSubmitting ? "Activating..." : "Activate Device"}
+                        </Button>
+                    </form>
+                </div>
+            </Card>
+            <div style={{ position: "absolute", top: "1rem", right: "1rem" }}>
+                <Button design="Transparent" icon="log" onClick={() => {
+                    logout();
+                    navigate("/login", { replace: true });
+                }}>
+                    Sign Out
+                </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="activationPin">Activation PIN</Label>
-              <Input id="activationPin" type="password" {...form.register("activationPin")} />
-            </div>
-            {error ? <p className="md:col-span-2 text-sm text-red-700">{error}</p> : null}
-            <div className="md:col-span-2">
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Activating..." : "Activate Device"}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+    </Page>
   );
 }

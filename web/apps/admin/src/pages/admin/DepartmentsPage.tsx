@@ -1,23 +1,30 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
 import { Department } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Button } from "../../components/ui/button";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Input,
+  CheckBox,
+  Label,
+  Form,
+  FormItem
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/org-chart.js";
 
 const schema = z.object({
   code: z.string().min(1),
@@ -48,6 +55,7 @@ export function DepartmentsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       setOpen(false);
+      form.reset({ code: "", name: "", sort_order: 100, is_active: true });
     },
   });
 
@@ -76,10 +84,10 @@ export function DepartmentsPage() {
       {
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
-              variant="outline"
-              size="sm"
+              icon="edit"
+              design="Transparent"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -90,18 +98,16 @@ export function DepartmentsPage() {
                 });
                 setOpen(true);
               }}
-            >
-              Edit
-            </Button>
+              tooltip="Edit Department"
+            />
             <Button
-              variant="destructive"
-              size="sm"
+              icon="delete"
+              design="Transparent"
               onClick={() => {
                 setDisableTarget(row.original);
               }}
-            >
-              Disable
-            </Button>
+              tooltip="Disable Department"
+            />
           </div>
         ),
       },
@@ -110,81 +116,92 @@ export function DepartmentsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Departments"
-        description="Department master used by user profile and request section."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({ code: "", name: "", sort_order: 100, is_active: true });
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Department
-          </Button>
-        }
-      />
-      <ApiErrorBanner
-        message={
-          createMutation.error
-            ? formatApiError(createMutation.error)
-            : updateMutation.error
-              ? formatApiError(updateMutation.error)
-              : deleteMutation.error
-                ? formatApiError(deleteMutation.error)
-                : undefined
-        }
-      />
-      <DataTable data={rows} columns={columns} filterPlaceholder="Search department..." />
+    <PageLayout
+      title="Departments"
+      subtitle="Department master used by user profile and request section"
+      icon="org-chart"
+    >
+      <Section variant="card">
+        <ApiErrorBanner
+          message={
+            createMutation.error
+              ? formatApiError(createMutation.error)
+              : updateMutation.error
+                ? formatApiError(updateMutation.error)
+                : deleteMutation.error
+                  ? formatApiError(deleteMutation.error)
+                  : undefined
+          }
+        />
+        <DataTable 
+            data={rows} 
+            columns={columns} 
+            filterPlaceholder="Search department..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    setEditing(null);
+                    form.reset({ code: "", name: "", sort_order: 100, is_active: true });
+                    setOpen(true);
+                  }}
+                >
+                  Add Department
+                </Button>
+            }
+        />
 
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Department" : "Create Department"}
-        onSubmit={form.handleSubmit((payload) => (editing ? updateMutation.mutate(payload) : createMutation.mutate(payload)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Code</Label>
-            <Input {...form.register("code")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Name</Label>
-            <Input {...form.register("name")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Sort Order</Label>
-            <Input
-              type="number"
-              value={form.watch("sort_order")}
-              onChange={(event) => form.setValue("sort_order", Number(event.target.value || 100))}
-            />
-          </div>
-          <div className="flex items-end pb-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.watch("is_active")} onCheckedChange={(v) => form.setValue("is_active", Boolean(v))} />
-              Active
-            </label>
-          </div>
-        </div>
-      </FormDialog>
-      <ConfirmDialog
-        open={Boolean(disableTarget)}
-        title="Disable department"
-        description={disableTarget ? `Disable department ${disableTarget.name}?` : ""}
-        confirmText="Disable"
-        destructive
-        onCancel={() => setDisableTarget(null)}
-        onConfirm={() => {
-          if (!disableTarget) return;
-          deleteMutation.mutate(disableTarget.id);
-          setDisableTarget(null);
-        }}
-      />
-    </div>
+        <FormDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          title={editing ? "Edit Department" : "Create Department"}
+          onSubmit={form.handleSubmit((payload) => (editing ? updateMutation.mutate(payload) : createMutation.mutate(payload)))}
+          submitting={createMutation.isPending || updateMutation.isPending}
+        >
+          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+            <FormItem labelContent={<Label>Code</Label>}>
+              <Input {...form.register("code")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Name</Label>}>
+              <Input {...form.register("name")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Sort Order</Label>}>
+              <Input
+                type="Number"
+                value={form.watch("sort_order")?.toString()}
+                onInput={(event: any) => form.setValue("sort_order", Number(event.target.value || 100))}
+              />
+            </FormItem>
+            <FormItem labelContent={<Label>Status</Label>}>
+                <Controller
+                    name="is_active"
+                    control={form.control}
+                    render={({ field }) => (
+                        <CheckBox
+                            text="Active"
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                    )}
+                />
+            </FormItem>
+          </Form>
+        </FormDialog>
+        <ConfirmDialog
+          open={Boolean(disableTarget)}
+          title="Disable department"
+          description={disableTarget ? `Disable department ${disableTarget.name}?` : ""}
+          confirmText="Disable"
+          destructive
+          onCancel={() => setDisableTarget(null)}
+          onConfirm={() => {
+            if (!disableTarget) return;
+            deleteMutation.mutate(disableTarget.id);
+            setDisableTarget(null);
+          }}
+        />
+      </Section>
+    </PageLayout>
   );
 }

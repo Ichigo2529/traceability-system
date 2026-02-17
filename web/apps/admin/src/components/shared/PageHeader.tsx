@@ -2,12 +2,12 @@ import { ReactNode } from "react";
 
 export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
-        {description ? <p className="mt-1.5 max-w-3xl text-sm text-muted-foreground">{description}</p> : null}
+    <div className="admin-page-header">
+      <div className="admin-page-header-main">
+        <h1 className="admin-page-header-title">{title}</h1>
+        {description ? <p className="admin-page-header-description">{description}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="admin-page-header-actions">{actions}</div> : null}
     </div>
   );
 }

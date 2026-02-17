@@ -1,25 +1,32 @@
 import * as React from "react";
-import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
-import { Check } from "lucide-react";
+import { CheckBox as Ui5CheckBox } from "@ui5/webcomponents-react";
 import { cn } from "../../lib/utils";
 
-const Checkbox = React.forwardRef<
-  React.ElementRef<typeof CheckboxPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <CheckboxPrimitive.Root
-    ref={ref}
-    className={cn(
-      "peer h-4 w-4 shrink-0 rounded border border-primary ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
-      className
-    )}
-    {...props}
-  >
-    <CheckboxPrimitive.Indicator className={cn("flex items-center justify-center text-current")}>
-      <Check className="h-3 w-3" />
-    </CheckboxPrimitive.Indicator>
-  </CheckboxPrimitive.Root>
-));
-Checkbox.displayName = CheckboxPrimitive.Root.displayName;
+type CheckedState = boolean | "indeterminate";
+
+export interface CheckboxProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "onChange" | "checked"> {
+  checked?: boolean;
+  onChange?: React.ChangeEventHandler<HTMLInputElement>;
+  onCheckedChange?: (checked: CheckedState) => void;
+}
+
+const Checkbox = React.forwardRef<HTMLElement, CheckboxProps>(
+  ({ className, onCheckedChange, onChange, checked, defaultChecked, children, ...props }, ref) => (
+    <Ui5CheckBox
+      ref={ref as React.Ref<any>}
+      className={cn("admin-ui5-checkbox", className)}
+      checked={checked ?? defaultChecked}
+      onChange={(event) => {
+        const nextChecked = Boolean(event.target.checked);
+        onCheckedChange?.(nextChecked);
+        onChange?.(event as unknown as React.ChangeEvent<HTMLInputElement>);
+      }}
+      {...(props as any)}
+    >
+      {children}
+    </Ui5CheckBox>
+  )
+);
+Checkbox.displayName = "Checkbox";
 
 export { Checkbox };

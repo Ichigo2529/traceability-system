@@ -2,24 +2,36 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { useSearchParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
 import { PartNumberMaster, Supplier, SupplierPackParserInfo, SupplierPartProfile } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Button } from "../../components/ui/button";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Input,
+  CheckBox,
+  Label,
+  Form,
+  FormItem,
+  Select,
+  Option,
+  FlexBox,
+  FlexBoxAlignItems,
+  FlexBoxJustifyContent
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/marketing-campaign.js";
+import "@ui5/webcomponents-icons/dist/filter.js";
 
 const schema = z.object({
   vendor_id: z.string().min(1),
@@ -105,10 +117,10 @@ export function SupplierPartProfilesPage() {
       {
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
-              variant="outline"
-              size="sm"
+              icon="edit"
+              design="Transparent"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -121,18 +133,16 @@ export function SupplierPartProfilesPage() {
                 });
                 setOpen(true);
               }}
-            >
-              Edit
-            </Button>
+              tooltip="Edit Profile"
+            />
             <Button
-              variant="destructive"
-              size="sm"
+              icon="delete"
+              design="Transparent"
               onClick={() => {
                 setDeleteTarget(row.original);
               }}
-            >
-              Delete
-            </Button>
+              tooltip="Delete Profile"
+            />
           </div>
         ),
       },
@@ -141,149 +151,189 @@ export function SupplierPartProfilesPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Vendor Part Profiles"
-        description="Map vendor part number and parser profile per internal part number."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({
-                vendor_id: vendorFilter || vendors[0]?.id || "",
-                part_number: partNumbers[0]?.part_number || "",
-                vendor_part_number: "",
-                parser_key: parserKeys[0]?.key || "GENERIC",
-                default_pack_qty: undefined,
-                is_active: true,
-              });
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Profile
-          </Button>
-        }
-      />
-      <ApiErrorBanner
-        message={
-          createMutation.error
-            ? formatApiError(createMutation.error)
-            : updateMutation.error
-              ? formatApiError(updateMutation.error)
-              : deleteMutation.error
-                ? formatApiError(deleteMutation.error)
-                : undefined
-        }
-      />
-      {vendorFilter ? (
-        <div className="flex items-center justify-between rounded-lg border bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          <span>
-            Filtered by vendor: <span className="font-semibold">{activeVendor ? `${activeVendor.code} - ${activeVendor.name}` : vendorFilter}</span>
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const next = new URLSearchParams(searchParams);
-              next.delete("vendorId");
-              setSearchParams(next);
-            }}
-          >
-            Clear Filter
-          </Button>
-        </div>
-      ) : null}
+    <PageLayout
+      title="Vendor Part Profiles"
+      subtitle="Map vendor part number and parser profile per internal part number"
+      icon="marketing-campaign"
+    >
+      <Section variant="card">
+        {vendorFilter && (
+             <FlexBox 
+                alignItems={FlexBoxAlignItems.Center} 
+                justifyContent={FlexBoxJustifyContent.SpaceBetween}
+                style={{ marginBottom: "1rem", padding: "0.5rem 1rem", backgroundColor: "var(--sapList_SelectionBackgroundColor)", borderRadius: "0.25rem" }}
+            >
+                <Label>
+                  Filtered by vendor: <strong>{activeVendor ? `${activeVendor.code} - ${activeVendor.name}` : vendorFilter}</strong>
+                </Label>
+                <Button
+                  icon="filter"
+                  design="Transparent"
+                  onClick={() => {
+                    const next = new URLSearchParams(searchParams);
+                    next.delete("vendorId");
+                    setSearchParams(next);
+                  }}
+                >
+                  Clear Filter
+                </Button>
+            </FlexBox>
+        )}
+      
+        <ApiErrorBanner
+          message={
+            createMutation.error
+              ? formatApiError(createMutation.error)
+              : updateMutation.error
+                ? formatApiError(updateMutation.error)
+                : deleteMutation.error
+                  ? formatApiError(deleteMutation.error)
+                  : undefined
+          }
+        />
+        
+        <DataTable 
+            data={filteredRows} 
+            columns={columns} 
+            filterPlaceholder="Search profile..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    setEditing(null);
+                    form.reset({
+                        vendor_id: vendorFilter || vendors[0]?.id || "",
+                        part_number: partNumbers[0]?.part_number || "",
+                        vendor_part_number: "",
+                        parser_key: parserKeys[0]?.key || "GENERIC",
+                        default_pack_qty: undefined,
+                        is_active: true,
+                    });
+                    setOpen(true);
+                  }}
+                >
+                  Add Profile
+                </Button>
+            }
+        />
 
-      <DataTable data={filteredRows} columns={columns} filterPlaceholder="Search profile..." />
-
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Vendor Part Profile" : "Create Vendor Part Profile"}
-        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Vendor</Label>
-            <Select value={form.watch("vendor_id")} onValueChange={(v) => form.setValue("vendor_id", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select vendor" />
-              </SelectTrigger>
-              <SelectContent>
-                {vendors.map((s: Supplier) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.code} - {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Part Number</Label>
-            <Select value={form.watch("part_number")} onValueChange={(v) => form.setValue("part_number", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select part number" />
-              </SelectTrigger>
-              <SelectContent>
-                {partNumbers.map((pn: PartNumberMaster) => (
-                  <SelectItem key={pn.id} value={pn.part_number}>
-                    {pn.part_number}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Vendor Part Number</Label>
-            <Input {...form.register("vendor_part_number")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Parser Key</Label>
-            <Select value={form.watch("parser_key")} onValueChange={(v) => form.setValue("parser_key", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select parser" />
-              </SelectTrigger>
-              <SelectContent>
-                {parserKeys.map((p: SupplierPackParserInfo) => (
-                  <SelectItem key={p.key} value={p.key}>
-                    {p.key}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Default Pack Quantity</Label>
-            <Input type="number" {...form.register("default_pack_qty")} />
-          </div>
-          <div className="flex items-end pb-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.watch("is_active")} onCheckedChange={(v) => form.setValue("is_active", Boolean(v))} />
-              Active
-            </label>
-          </div>
-        </div>
-      </FormDialog>
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Delete vendor part profile"
-        description={
-          deleteTarget
-            ? `Delete profile ${deleteTarget.vendor_code || deleteTarget.supplier_code || deleteTarget.vendor_id || deleteTarget.supplier_id} / ${deleteTarget.part_number}?`
-            : ""
-        }
-        confirmText="Delete"
-        destructive
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-      />
-    </div>
+        <FormDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          title={editing ? "Edit Vendor Part Profile" : "Create Vendor Part Profile"}
+          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+          submitting={createMutation.isPending || updateMutation.isPending}
+        >
+          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+            <FormItem labelContent={<Label>Vendor</Label>}>
+                <Controller
+                    control={form.control}
+                    name="vendor_id"
+                    render={({ field }) => (
+                         <Select
+                            onChange={(e) => {
+                                const selected = e.detail.selectedOption as unknown as { value: string };
+                                field.onChange(selected.value);
+                            }}
+                            value={field.value}
+                        >
+                             {vendors.map((s: Supplier) => (
+                                <Option key={s.id} value={s.id}>
+                                  {s.code} - {s.name}
+                                </Option>
+                              ))}
+                        </Select>
+                    )}
+                 />
+            </FormItem>
+            
+            <FormItem labelContent={<Label>Part Number</Label>}>
+                <Controller
+                    control={form.control}
+                    name="part_number"
+                    render={({ field }) => (
+                         <Select
+                            onChange={(e) => {
+                                const selected = e.detail.selectedOption as unknown as { value: string };
+                                field.onChange(selected.value);
+                            }}
+                            value={field.value}
+                        >
+                             {partNumbers.map((pn: PartNumberMaster) => (
+                                <Option key={pn.id} value={pn.part_number}>
+                                  {pn.part_number}
+                                </Option>
+                              ))}
+                        </Select>
+                    )}
+                 />
+            </FormItem>
+            
+            <FormItem labelContent={<Label>Vendor Part Number</Label>}>
+              <Input {...form.register("vendor_part_number")} />
+            </FormItem>
+            
+            <FormItem labelContent={<Label>Parser Key</Label>}>
+                <Controller
+                    control={form.control}
+                    name="parser_key"
+                    render={({ field }) => (
+                         <Select
+                            onChange={(e) => {
+                                const selected = e.detail.selectedOption as unknown as { value: string };
+                                field.onChange(selected.value);
+                            }}
+                            value={field.value}
+                        >
+                            {parserKeys.map((p: SupplierPackParserInfo) => (
+                                <Option key={p.key} value={p.key}>
+                                  {p.key}
+                                </Option>
+                              ))}
+                        </Select>
+                    )}
+                 />
+            </FormItem>
+            
+            <FormItem labelContent={<Label>Default Pack Quantity</Label>}>
+              <Input type="Number" {...form.register("default_pack_qty")} />
+            </FormItem>
+            
+            <FormItem labelContent={<Label>Status</Label>}>
+                <Controller
+                    name="is_active"
+                    control={form.control}
+                    render={({ field }) => (
+                        <CheckBox
+                            text="Active"
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                    )}
+                />
+            </FormItem>
+            
+          </Form>
+        </FormDialog>
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title="Delete vendor part profile"
+          description={
+            deleteTarget
+              ? `Delete profile ${deleteTarget.vendor_code || deleteTarget.supplier_code || deleteTarget.vendor_id || deleteTarget.supplier_id} / ${deleteTarget.part_number}?`
+              : ""
+          }
+          confirmText="Delete"
+          destructive
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            if (!deleteTarget) return;
+            deleteMutation.mutate(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
+      </Section>
+    </PageLayout>
   );
 }

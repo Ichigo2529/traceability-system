@@ -28,18 +28,18 @@ export function IssueAllocationWorkbench({
   const issueItems = issueOptions?.items ?? [];
 
   return (
-    <div className="space-y-3 rounded-xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-800">DO Allocation Workbench</p>
-        <span className="rounded-md bg-[#1134A6]/10 px-2 py-1 text-xs font-medium text-[#1134A6]">Store Action</span>
+    <div className="admin-issue-workbench">
+      <div className="admin-issue-workbench-header">
+        <p className="admin-issue-workbench-title">DO Allocation Workbench</p>
+        <span className="admin-issue-workbench-chip">Store Action</span>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-xs font-semibold text-slate-600">Issue Remarks</label>
+      <div className="admin-issue-workbench-field">
+        <label className="admin-issue-workbench-label">Issue Remarks</label>
         <input
           value={issueRemarks}
           onChange={(e) => onIssueRemarksChange(e.target.value)}
-          className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm"
+          className="admin-issue-workbench-input"
           placeholder="Optional"
         />
       </div>
@@ -47,20 +47,20 @@ export function IssueAllocationWorkbench({
       {isLoading ? (
         <LoadingSkeleton label="Loading item vendor profiles..." />
       ) : (
-        <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-100/80">
+        <div className="admin-issue-workbench-table-shell">
+          <table className="admin-issue-workbench-table">
+            <thead className="admin-issue-workbench-thead">
               <tr>
-                <th className="px-2 py-2 text-left">Item</th>
-                <th className="px-2 py-2 text-left">Part Number</th>
-                <th className="px-2 py-2 text-left">Type</th>
-                <th className="px-2 py-2 text-left">Vendor</th>
-                <th className="px-2 py-2 text-left">DO No.</th>
-                <th className="px-2 py-2 text-right">Pack Size</th>
-                <th className="px-2 py-2 text-right">Packs</th>
-                <th className="px-2 py-2 text-right">Qty</th>
-                <th className="px-2 py-2 text-left">Remarks</th>
-                <th className="px-2 py-2 text-right">Action</th>
+                <th className="admin-issue-workbench-th">Item</th>
+                <th className="admin-issue-workbench-th">Part Number</th>
+                <th className="admin-issue-workbench-th">Type</th>
+                <th className="admin-issue-workbench-th">Vendor</th>
+                <th className="admin-issue-workbench-th">DO No.</th>
+                <th className="admin-issue-workbench-th admin-issue-workbench-th--right">Pack Size</th>
+                <th className="admin-issue-workbench-th admin-issue-workbench-th--right">Packs</th>
+                <th className="admin-issue-workbench-th admin-issue-workbench-th--right">Qty</th>
+                <th className="admin-issue-workbench-th">Remarks</th>
+                <th className="admin-issue-workbench-th admin-issue-workbench-th--right">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -70,33 +70,35 @@ export function IssueAllocationWorkbench({
                 const diff = total - item.requested_qty;
                 return (
                   <Fragment key={item.item_id}>
-                    <tr className="border-t border-slate-200 bg-blue-50/40">
-                      <td className="px-2 py-2 font-semibold">{item.item_no}</td>
-                      <td className="px-2 py-2 font-medium">{item.part_number}</td>
-                      <td className="px-2 py-2">
-                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">Requested</span>
+                    <tr className="admin-issue-workbench-row admin-issue-workbench-row--requested">
+                      <td className="admin-issue-workbench-td admin-issue-workbench-td--strong">{item.item_no}</td>
+                      <td className="admin-issue-workbench-td admin-issue-workbench-td--medium">{item.part_number}</td>
+                      <td className="admin-issue-workbench-td">
+                        <span className="admin-issue-workbench-pill admin-issue-workbench-pill--requested">Requested</span>
                       </td>
-                      <td className="px-2 py-2 text-slate-500" colSpan={4}>
+                      <td className="admin-issue-workbench-td admin-issue-workbench-td--muted" colSpan={4}>
                         Requested Qty {item.requested_qty}
                       </td>
-                      <td className="px-2 py-2 text-right font-semibold">{item.requested_qty}</td>
-                      <td className="px-2 py-2">Production request</td>
-                      <td className="px-2 py-2 text-right">
+                      <td className="admin-issue-workbench-td admin-issue-workbench-td--right admin-issue-workbench-td--strong">
+                        {item.requested_qty}
+                      </td>
+                      <td className="admin-issue-workbench-td">Production request</td>
+                      <td className="admin-issue-workbench-td admin-issue-workbench-td--right">
                         <Button type="button" size="sm" variant="outline" onClick={() => addAllocationLine(item.item_id)}>
                           + Add DO
                         </Button>
                       </td>
                     </tr>
                     {rows.map((row, idx) => (
-                      <tr key={row.id} className="border-t border-slate-200 bg-amber-50/40">
-                        <td className="px-2 py-2 text-slate-500">{`${item.item_no}.${idx + 1}`}</td>
-                        <td className="px-2 py-2 text-slate-500">{row.part_number}</td>
-                        <td className="px-2 py-2">
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">DO</span>
+                      <tr key={row.id} className="admin-issue-workbench-row admin-issue-workbench-row--do">
+                        <td className="admin-issue-workbench-td admin-issue-workbench-td--muted">{`${item.item_no}.${idx + 1}`}</td>
+                        <td className="admin-issue-workbench-td admin-issue-workbench-td--muted">{row.part_number}</td>
+                        <td className="admin-issue-workbench-td">
+                          <span className="admin-issue-workbench-pill admin-issue-workbench-pill--do">DO</span>
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="admin-issue-workbench-td">
                           <select
-                            className="h-8 w-full rounded border border-slate-300 px-1 text-sm"
+                            className="admin-issue-workbench-select"
                             value={row.vendor_id || "NONE"}
                             onChange={(e) => {
                               const nextVendorId = e.target.value === "NONE" ? "" : e.target.value;
@@ -132,7 +134,7 @@ export function IssueAllocationWorkbench({
                             ))}
                           </select>
                         </td>
-                        <td className="px-2 py-2">
+                        <td className="admin-issue-workbench-td">
                           <input
                             value={row.do_number}
                             onChange={(e) =>
@@ -140,11 +142,11 @@ export function IssueAllocationWorkbench({
                                 prev.map((x) => (x.id === row.id ? { ...x, do_number: e.target.value } : x))
                               )
                             }
-                            className="h-8 w-28 rounded border border-slate-300 px-2"
+                            className="admin-issue-workbench-input-sm admin-issue-workbench-input-do"
                             placeholder="D0001"
                           />
                         </td>
-                        <td className="px-2 py-2 text-right">
+                        <td className="admin-issue-workbench-td admin-issue-workbench-td--right">
                           <input
                             type="number"
                             min={1}
@@ -158,10 +160,10 @@ export function IssueAllocationWorkbench({
                                 )
                               )
                             }
-                            className="h-8 w-20 rounded border border-slate-300 px-2 text-right"
+                            className="admin-issue-workbench-input-sm admin-issue-workbench-input-num"
                           />
                         </td>
-                        <td className="px-2 py-2 text-right">
+                        <td className="admin-issue-workbench-td admin-issue-workbench-td--right">
                           <input
                             type="number"
                             min={1}
@@ -169,15 +171,17 @@ export function IssueAllocationWorkbench({
                             onChange={(e) =>
                               setManualAllocations((prev) =>
                                 prev.map((x) =>
-                                  x.id === row.id ? { ...x, issued_packs: Math.max(1, Number(e.target.value || 1)) } : x
+                                    x.id === row.id ? { ...x, issued_packs: Math.max(1, Number(e.target.value || 1)) } : x
                                 )
                               )
                             }
-                            className="h-8 w-20 rounded border border-slate-300 px-2 text-right"
+                            className="admin-issue-workbench-input-sm admin-issue-workbench-input-num"
                           />
                         </td>
-                        <td className="px-2 py-2 text-right font-semibold">{row.vendor_pack_size * row.issued_packs}</td>
-                        <td className="px-2 py-2">
+                        <td className="admin-issue-workbench-td admin-issue-workbench-td--right admin-issue-workbench-td--strong">
+                          {row.vendor_pack_size * row.issued_packs}
+                        </td>
+                        <td className="admin-issue-workbench-td">
                           <input
                             value={row.remarks}
                             onChange={(e) =>
@@ -185,11 +189,11 @@ export function IssueAllocationWorkbench({
                                 prev.map((x) => (x.id === row.id ? { ...x, remarks: e.target.value } : x))
                               )
                             }
-                            className="h-8 w-full rounded border border-slate-300 px-2"
+                            className="admin-issue-workbench-input-sm"
                             placeholder="optional"
                           />
                         </td>
-                        <td className="px-2 py-2 text-right">
+                        <td className="admin-issue-workbench-td admin-issue-workbench-td--right">
                           <Button
                             type="button"
                             size="sm"
@@ -201,24 +205,28 @@ export function IssueAllocationWorkbench({
                         </td>
                       </tr>
                     ))}
-                    <tr className="border-t border-slate-200 bg-emerald-50/40">
-                      <td className="px-2 py-2"></td>
-                      <td className="px-2 py-2"></td>
-                      <td className="px-2 py-2">
-                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                    <tr className="admin-issue-workbench-row admin-issue-workbench-row--total">
+                      <td className="admin-issue-workbench-td"></td>
+                      <td className="admin-issue-workbench-td"></td>
+                      <td className="admin-issue-workbench-td">
+                        <span className="admin-issue-workbench-pill admin-issue-workbench-pill--total">
                           Total
                         </span>
                       </td>
-                      <td className="px-2 py-2 text-slate-600" colSpan={4}>
+                      <td className="admin-issue-workbench-td admin-issue-workbench-td--muted" colSpan={4}>
                         Allocated {total} / Requested {item.requested_qty}
                       </td>
-                      <td className={`px-2 py-2 text-right font-semibold ${diff >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      <td
+                        className={`admin-issue-workbench-td admin-issue-workbench-td--right admin-issue-workbench-td--strong ${
+                          diff >= 0 ? "is-ok" : "is-danger"
+                        }`}
+                      >
                         {total}
                       </td>
-                      <td className={`px-2 py-2 font-semibold ${diff >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      <td className={`admin-issue-workbench-td admin-issue-workbench-td--strong ${diff >= 0 ? "is-ok" : "is-danger"}`}>
                         {diff >= 0 ? "OK" : `Need +${Math.abs(diff)}`}
                       </td>
-                      <td className="px-2 py-2 text-right"></td>
+                      <td className="admin-issue-workbench-td admin-issue-workbench-td--right"></td>
                     </tr>
                   </Fragment>
                 );
@@ -229,19 +237,19 @@ export function IssueAllocationWorkbench({
       )}
 
       {issueOptions?.items?.length ? (
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+        <div className="admin-issue-workbench-summary">
           {issueOptions.items.map((item) => {
             const total = allocationTotalsByItem[item.item_id] ?? 0;
             const ok = total >= item.requested_qty;
             return (
-              <p key={item.item_id} className={ok ? "text-emerald-700" : "text-amber-700"}>
+              <p key={item.item_id} className={ok ? "admin-issue-workbench-summary-line is-ok" : "admin-issue-workbench-summary-line is-warn"}>
                 Item {item.item_no} {item.part_number}: requested {item.requested_qty} / allocated {total}
               </p>
             );
           })}
         </div>
       ) : null}
-      {issueValidationError ? <p className="text-xs font-medium text-red-600">{issueValidationError}</p> : null}
+      {issueValidationError ? <p className="admin-issue-workbench-error">{issueValidationError}</p> : null}
     </div>
   );
 }

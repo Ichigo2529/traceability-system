@@ -2,25 +2,34 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { InventoryDoRecord, PartNumberMaster, SupplierPackParserInfo, SupplierPackRecord, SupplierPartProfile } from "@traceability/sdk";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
-import { FormDialog } from "../../components/shared/FormDialog";
-import { Button } from "../../components/ui/button";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Dialog,
+  Label,
+  Input,
+  Select,
+  Option,
+  FlexBox,
+  FlexBoxDirection,
+  Bar,
+  ObjectStatus
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/product.js";
 
 const schema = z.object({
-  vendor_id: z.string().min(1),
+  vendor_id: z.string().min(1, "Vendor is required"),
   do_number: z.string().optional(),
   parser_key: z.string().default("GENERIC"),
-  pack_barcode_raw: z.string().min(1),
+  pack_barcode_raw: z.string().min(1, "Barcode is required"),
   part_number: z.string().optional(),
   vendor_part_number: z.string().optional(),
   vendor_lot: z.string().optional(),
@@ -32,6 +41,7 @@ type InboundPackForm = z.infer<typeof schema>;
 export function InboundPacksPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | undefined>();
 
   const { data: vendors = [] } = useQuery({
     queryKey: ["vendors"],
@@ -58,7 +68,7 @@ export function InboundPacksPage() {
     queryFn: () => sdk.admin.getVendorPackParsers(),
   });
 
-  const form = useForm<InboundPackForm>({
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<InboundPackForm>({
     resolver: zodResolver(schema),
     defaultValues: {
       vendor_id: "",
@@ -91,7 +101,7 @@ export function InboundPacksPage() {
       queryClient.invalidateQueries({ queryKey: ["vendor-packs"] });
       queryClient.invalidateQueries({ queryKey: ["inventory-do"] });
       setOpen(false);
-      form.reset({
+      reset({
         vendor_id: "",
         do_number: "",
         parser_key: "GENERIC",
@@ -102,11 +112,13 @@ export function InboundPacksPage() {
         pack_qty_total: 1,
         production_date: "",
       });
+      setError(undefined);
     },
+    onError: (err) => setError(formatApiError(err))
   });
 
-  const selectedVendorId = form.watch("vendor_id");
-  const selectedPartNumber = form.watch("part_number");
+  const selectedVendorId = watch("vendor_id");
+  const selectedPartNumber = watch("part_number");
   const selectedProfile = useMemo(
     () =>
       profiles.find(
@@ -154,179 +166,261 @@ export function InboundPacksPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Inbound Packs"
-        description="Receive vendor 2D packs and keep lot-level traceability."
-        actions={
-          <Button
-            onClick={() => {
-              form.reset({
-                vendor_id: vendors[0]?.id || "",
-                do_number: "",
-                parser_key: "GENERIC",
-                pack_barcode_raw: "",
-                part_number: "",
-                vendor_part_number: "",
-                vendor_lot: "",
-                pack_qty_total: 1,
-                production_date: "",
-              });
-              setOpen(true);
-            }}
-            disabled={receiveMutation.isPending}
-          >
-            Receive Pack
-          </Button>
-        }
-      />
-
-      <ApiErrorBanner message={receiveMutation.error ? formatApiError(receiveMutation.error) : undefined} />
-
-      <div className="rounded-lg border bg-white p-4">
-        <h3 className="mb-2 font-semibold">Vendors ({vendors.length})</h3>
-        <div className="text-sm text-gray-600">{vendors.map((s) => `${s.code}:${s.name}`).join(" | ") || "-"}</div>
-      </div>
-
-      <div className="space-y-3">
-        <h3 className="font-semibold">Delivery Orders</h3>
+    <PageLayout
+      title="Inbound Packs"
+      subtitle="Receive vendor 2D packs and keep lot-level traceability."
+      icon="product"
+    >
+      <Section title="Delivery Orders" variant="card">
         <DataTable data={dos} columns={doColumns} filterPlaceholder="Search DO..." />
-      </div>
+      </Section>
 
-      <div className="space-y-3">
-        <h3 className="font-semibold">Vendor Packs</h3>
-        <DataTable data={packs} columns={packColumns} filterPlaceholder="Search pack..." />
-      </div>
+      <Section title="Vendor Packs" variant="card">
+        <ApiErrorBanner message={receiveMutation.error ? formatApiError(receiveMutation.error) : undefined} />
+        <DataTable 
+            data={packs} 
+            columns={packColumns} 
+            filterPlaceholder="Search pack..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    reset({
+                      vendor_id: vendors[0]?.id || "",
+                      do_number: "",
+                      parser_key: "GENERIC",
+                      pack_barcode_raw: "",
+                      part_number: "",
+                      vendor_part_number: "",
+                      vendor_lot: "",
+                      pack_qty_total: 1,
+                      production_date: "",
+                    });
+                    setError(undefined);
+                    setOpen(true);
+                  }}
+                  disabled={receiveMutation.isPending}
+                >
+                  Receive Pack
+                </Button>
+            }
+        />
+      </Section>
 
-      <FormDialog
+      <Dialog
         open={open}
-        onClose={() => setOpen(false)}
-        title="Receive Vendor Pack"
-        description="Scan vendor 2D barcode and record lot/package information."
-        onSubmit={form.handleSubmit((values) => receiveMutation.mutate(values))}
-        submitting={receiveMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Vendor</Label>
-            <Select value={form.watch("vendor_id")} onValueChange={(v) => form.setValue("vendor_id", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select vendor" />
-              </SelectTrigger>
-              <SelectContent>
-                {vendors.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.code} - {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>DO Number</Label>
-            <Input {...form.register("do_number")} placeholder="D0001" />
-          </div>
-          <div className="space-y-2">
-            <Label>Parser Key</Label>
-            <Select value={form.watch("parser_key")} onValueChange={(v) => form.setValue("parser_key", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select parser" />
-              </SelectTrigger>
-              <SelectContent>
-                {parsers.map((p: SupplierPackParserInfo) => (
-                  <SelectItem key={p.key} value={p.key}>
-                    {p.key}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Part Number</Label>
-            <Select
-              value={form.watch("part_number") || "NONE"}
-              onValueChange={(v) => {
-                form.setValue("part_number", v === "NONE" ? "" : v);
-                const nextProfile = profiles.find(
-                  (p: SupplierPartProfile) =>
-                    (p.vendor_id ?? p.supplier_id) === form.getValues("vendor_id") &&
-                    p.part_number === (v === "NONE" ? "" : v) &&
-                    p.is_active
-                );
-                if (nextProfile) {
-                  form.setValue("parser_key", nextProfile.parser_key || "GENERIC");
-                  form.setValue("vendor_part_number", nextProfile.vendor_part_number || nextProfile.supplier_part_number || "");
-                  if (nextProfile.default_pack_qty) form.setValue("pack_qty_total", nextProfile.default_pack_qty);
+        headerText="Receive Vendor Pack"
+        footer={
+            <Bar
+                endContent={
+                    <>
+                        <Button onClick={() => setOpen(false)} design="Transparent">Cancel</Button>
+                        <Button design="Emphasized" onClick={(e) => { handleSubmit((values) => receiveMutation.mutate(values))(e as any); }} disabled={receiveMutation.isPending}>
+                            {receiveMutation.isPending ? "Receiving..." : "Receive"}
+                        </Button>
+                    </>
                 }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select part number" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">Manual input</SelectItem>
-                {partNumbers.map((pn: PartNumberMaster) => (
-                  <SelectItem key={pn.id} value={pn.part_number}>
-                    {pn.part_number}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
+            />
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: "480px", padding: "1rem" }}>
+          {error && (
+              <ObjectStatus state="Negative" inverted>
+                  {error}
+              </ObjectStatus>
+          )}
+
+          <FlexBox direction={FlexBoxDirection.Column}>
+            <Label required>Vendor</Label>
+            <Controller
+                name="vendor_id"
+                control={control}
+                render={({ field }) => (
+                    <Select
+                        onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
+                        value={field.value}
+                        valueState={errors.vendor_id ? "Negative" : "None"}
+                        valueStateMessage={errors.vendor_id && <div>{errors.vendor_id.message}</div>}
+                    >
+                        <Option value="" data-value="">Select vendor</Option>
+                        {vendors.map((s) => (
+                            <Option key={s.id} value={s.id} data-value={s.id} selected={s.id === field.value}>
+                                {s.code} - {s.name}
+                            </Option>
+                        ))}
+                    </Select>
+                )}
+            />
+          </FlexBox>
+
+          <FlexBox direction={FlexBoxDirection.Column}>
+            <Label>DO Number</Label>
+            <Controller
+                name="do_number"
+                control={control}
+                render={({ field }) => (<Input {...field} value={field.value || ""} placeholder="D0001" />)}
+            />
+          </FlexBox>
+
+          <FlexBox direction={FlexBoxDirection.Column}>
+            <Label>Parser Key</Label>
+            <Controller
+                name="parser_key"
+                control={control}
+                render={({ field }) => (
+                    <Select
+                        onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
+                        value={field.value}
+                    >
+                        {parsers.map((p: SupplierPackParserInfo) => (
+                            <Option key={p.key} value={p.key} data-value={p.key} selected={p.key === field.value}>
+                                {p.key}
+                            </Option>
+                        ))}
+                    </Select>
+                )}
+            />
+          </FlexBox>
+
+          <FlexBox direction={FlexBoxDirection.Column}>
+            <Label>Part Number</Label>
+            <Controller
+                name="part_number"
+                control={control}
+                render={({ field }) => (
+                    <Select
+                        onChange={(e) => {
+                             const val = (e.target.selectedOption as any).dataset.value;
+                             field.onChange(val === "NONE" ? "" : val);
+
+                             const nextProfile = profiles.find(
+                               (p: SupplierPartProfile) =>
+                                 (p.vendor_id ?? p.supplier_id) === watch("vendor_id") &&
+                                 p.part_number === (val === "NONE" ? "" : val) &&
+                                 p.is_active
+                             );
+                             if (nextProfile) {
+                               setValue("parser_key", nextProfile.parser_key || "GENERIC");
+                               setValue("vendor_part_number", nextProfile.vendor_part_number || nextProfile.supplier_part_number || "");
+                               if (nextProfile.default_pack_qty) setValue("pack_qty_total", nextProfile.default_pack_qty);
+                             }
+                        }}
+                        value={field.value || "NONE"}
+                    >
+                        <Option value="NONE" data-value="NONE">Manual input</Option>
+                        {partNumbers.map((pn: PartNumberMaster) => (
+                            <Option key={pn.id} value={pn.part_number} data-value={pn.part_number} selected={pn.part_number === field.value}>
+                                {pn.part_number}
+                            </Option>
+                        ))}
+                    </Select>
+                )}
+            />
+          </FlexBox>
+
+          <FlexBox direction={FlexBoxDirection.Column}>
             <Label>Vendor Part Number</Label>
             {vendorProfiles.length ? (
-              <Select
-                value={form.watch("vendor_part_number") || "NONE"}
-                onValueChange={(v) => {
-                  const next = v === "NONE" ? "" : v;
-                  form.setValue("vendor_part_number", next);
-                  const matched = vendorProfiles.find((p: SupplierPartProfile) => (p.vendor_part_number || p.supplier_part_number) === next);
-                  if (matched) {
-                    form.setValue("parser_key", matched.parser_key || "GENERIC");
-                    if (matched.default_pack_qty) form.setValue("pack_qty_total", matched.default_pack_qty);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select vendor part number" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">Not specified</SelectItem>
-                  {vendorProfiles.map((profile: SupplierPartProfile) => (
-                    <SelectItem key={profile.id} value={profile.vendor_part_number || profile.supplier_part_number || ""}>
-                      {profile.vendor_part_number || profile.supplier_part_number || "(empty mapping)"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Controller
+                    name="vendor_part_number"
+                    control={control}
+                    render={({ field }) => (
+                        <Select
+                            onChange={(e) => {
+                                const val = (e.target.selectedOption as any).dataset.value;
+                                const next = val === "NONE" ? "" : val;
+                                field.onChange(next);
+                                const matched = vendorProfiles.find((p: SupplierPartProfile) => (p.vendor_part_number || p.supplier_part_number) === next);
+                                if (matched) {
+                                    setValue("parser_key", matched.parser_key || "GENERIC");
+                                    if (matched.default_pack_qty) setValue("pack_qty_total", matched.default_pack_qty);
+                                }
+                            }}
+                            value={field.value || "NONE"}
+                        >
+                            <Option value="NONE" data-value="NONE">Not specified</Option>
+                            {vendorProfiles.map((profile: SupplierPartProfile) => (
+                                <Option 
+                                    key={profile.id} 
+                                    value={profile.vendor_part_number || profile.supplier_part_number || ""}
+                                    data-value={profile.vendor_part_number || profile.supplier_part_number || ""}
+                                    selected={(profile.vendor_part_number || profile.supplier_part_number) === field.value}
+                                >
+                                    {profile.vendor_part_number || profile.supplier_part_number || "(empty mapping)"}
+                                </Option>
+                            ))}
+                        </Select>
+                    )}
+                />
             ) : (
-              <Input {...form.register("vendor_part_number")} />
+                <Controller
+                    name="vendor_part_number"
+                    control={control}
+                    render={({ field }) => (<Input {...field} value={field.value || ""} />)}
+                />
             )}
-          </div>
-          <div className="space-y-2">
+          </FlexBox>
+          
+          <FlexBox direction={FlexBoxDirection.Column}>
             <Label>Vendor Lot</Label>
-            <Input {...form.register("vendor_lot")} />
-          </div>
-          <div className="space-y-2">
+            <Controller
+                name="vendor_lot"
+                control={control}
+                render={({ field }) => (<Input {...field} value={field.value || ""} />)}
+            />
+          </FlexBox>
+
+          <FlexBox direction={FlexBoxDirection.Column}>
             <Label>Pack Quantity</Label>
-            <Input type="number" {...form.register("pack_qty_total")} />
-          </div>
-          <div className="space-y-2">
+            <Controller
+                name="pack_qty_total"
+                control={control}
+                render={({ field }) => (
+                    <Input 
+                        type="Number" 
+                        {...field} 
+                        value={field.value?.toString() || ""} 
+                        onInput={(e) => field.onChange(Number(e.target.value))}
+                        valueState={errors.pack_qty_total ? "Negative" : "None"}
+                        valueStateMessage={errors.pack_qty_total && <div>{errors.pack_qty_total.message}</div>}
+                    />
+                )}
+            />
+          </FlexBox>
+
+          <FlexBox direction={FlexBoxDirection.Column}>
             <Label>Production Date</Label>
-            <Input type="date" {...form.register("production_date")} />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Pack 2D Barcode Raw</Label>
-            <Input {...form.register("pack_barcode_raw")} />
-          </div>
+            <Controller
+                name="production_date"
+                control={control}
+                render={({ field }) => (<Input type="Text" placeholder="YYYY-MM-DD" {...field} value={field.value || ""} />)}
+            />
+          </FlexBox>
+          
+          <FlexBox direction={FlexBoxDirection.Column}>
+            <Label required>Pack 2D Barcode Raw</Label>
+             <Controller
+                name="pack_barcode_raw"
+                control={control}
+                render={({ field }) => (
+                    <Input 
+                        {...field} 
+                        value={field.value || ""} 
+                        valueState={errors.pack_barcode_raw ? "Negative" : "None"}
+                        valueStateMessage={errors.pack_barcode_raw && <div>{errors.pack_barcode_raw.message}</div>}
+                    />
+                )}
+            />
+          </FlexBox>
+          
           {selectedProfile ? (
-            <div className="md:col-span-2 rounded border bg-slate-50 p-2 text-xs text-slate-600">
+            <div style={{ fontSize: "0.875rem", color: "var(--sapContent_LabelColor)", marginTop: "0.5rem" }}>
               Active profile: parser `{selectedProfile.parser_key}` {selectedProfile.default_pack_qty ? `| default pack ${selectedProfile.default_pack_qty}` : ""}
             </div>
           ) : null}
         </div>
-      </FormDialog>
-    </div>
+      </Dialog>
+    </PageLayout>
   );
 }

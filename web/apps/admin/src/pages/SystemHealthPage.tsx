@@ -1,21 +1,45 @@
 import { useEffect, useMemo, useState } from "react";
-import { PageHeader } from "../components/shared/PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { 
+  Grid,
+  ObjectStatus,
+  FlexBox,
+  FlexBoxDirection,
+  FlexBoxAlignItems,
+  FlexBoxJustifyContent,
+  Label,
+  Icon
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/electrocardiogram.js";
+import "@ui5/webcomponents-icons/dist/accept.js";
+import "@ui5/webcomponents-icons/dist/alert.js";
+import "@ui5/webcomponents-icons/dist/error.js";
+import "@ui5/webcomponents-icons/dist/search.js";
+import "@ui5/webcomponents-icons/dist/sort.js";
+
+import { DataTable } from "../components/shared/DataTable";
 import { getEdenFallbackDebugInfo, getEdenFallbackStats } from "../lib/eden-fallback";
 import { getMaterialRealtimeHealth, subscribeMaterialRealtimeHealth, type MaterialRealtimeHealth } from "../lib/realtime-health";
 import { formatDateTime } from "../lib/datetime";
+import { PageLayout, Section, StatCard } from "@traceability/ui";
 
 type FallbackStat = {
   scope: string;
   count: number;
 };
 
-function statusClass(status: MaterialRealtimeHealth["status"]) {
-  if (status === "connected" || status === "polling") return "bg-emerald-100 text-emerald-700";
-  if (status === "reconnecting" || status === "connecting") return "bg-amber-100 text-amber-700";
-  if (status === "error") return "bg-red-100 text-red-700";
-  return "bg-slate-100 text-slate-700";
+// Helper to map health status to ValueState strings
+function toValueState(status: MaterialRealtimeHealth["status"]): "Success" | "Warning" | "Error" | "None" {
+  if (status === "connected" || status === "polling") return "Success";
+  if (status === "reconnecting" || status === "connecting") return "Warning";
+  if (status === "error") return "Error";
+  return "None";
 }
+
+// Icon wrappers for StatCard
+const IconStrict = (props: any) => <Icon name="accept" {...props} />;
+const IconScopes = (props: any) => <Icon name="search" {...props} />;
+const IconFallback = (props: any) => <Icon name="alert" {...props} />;
+const IconTopScope = (props: any) => <Icon name="sort" {...props} />;
 
 export default function SystemHealthPage() {
   const debugInfo = useMemo(() => getEdenFallbackDebugInfo(), []);
@@ -36,118 +60,82 @@ export default function SystemHealthPage() {
   const fallbackTotal = useMemo(() => fallbackStats.reduce((sum, item) => sum + item.count, 0), [fallbackStats]);
   const topScope = fallbackStats[0]?.scope ?? "-";
 
+  // DataTable requires items to have an 'id' property
+  const tableData = useMemo(() => fallbackStats.map((s, i) => ({ ...s, id: s.scope || i })), [fallbackStats]);
+
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="System Health"
-        description="Runtime observability for Eden strict/fallback behavior and material request realtime connection."
-      />
+    <PageLayout
+      title="System Health"
+      subtitle="Real-time diagnostics and fallback monitoring."
+      icon="electrocardiogram"
+    >
+        <Section title="Overview" variant="card">
+            <Grid defaultSpan="XL3 L3 M6 S12" vSpacing="1rem" hSpacing="1rem" style={{ padding: "0" }}>
+                <StatCard
+                    icon={IconStrict}
+                    label="Strict Preset"
+                    value={debugInfo.strictPreset || "none"}
+                />
+                <StatCard
+                    icon={IconScopes}
+                    label="Strict Scopes"
+                    value={String(debugInfo.strictScopes.length)}
+                />
+                <StatCard
+                    icon={IconFallback}
+                    label="Fallback Events"
+                    value={String(fallbackTotal)}
+                    trend={fallbackTotal > 0 ? "down" : "neutral"}
+                    trendValue={fallbackTotal > 0 ? "Detected" : "Clean"}
+                />
+                <StatCard
+                    icon={IconTopScope}
+                    label="Top Fallback Scope"
+                    value={topScope}
+                />
+            </Grid>
+        </Section>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Strict Preset</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold">
-            {debugInfo.strictPreset || "none"}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Strict Scopes</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold">
-            {debugInfo.strictScopes.length}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Fallback Events</CardTitle>
-          </CardHeader>
-          <CardContent className="text-xl font-semibold">
-            {fallbackTotal}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Top Fallback Scope</CardTitle>
-          </CardHeader>
-          <CardContent className="truncate text-base font-semibold">
-            {topScope}
-          </CardContent>
-        </Card>
-      </div>
+        <Section title="Material Request Realtime" variant="card">
+            <Grid defaultSpan="XL6 L6 M12 S12" style={{ padding: "0" }}>
+                <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem" }}>
+                    <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center}>
+                        <Label>Status</Label>
+                        <ObjectStatus state={toValueState(realtimeHealth.status) as any} inverted>
+                            {realtimeHealth.status.toUpperCase()}
+                        </ObjectStatus>
+                    </FlexBox>
+                    <Label>Mode: {realtimeHealth.mode}</Label>
+                    <Label>Last Event: {formatDateTime(realtimeHealth.lastEventAt)}</Label>
+                    <Label>Last Error: {formatDateTime(realtimeHealth.lastErrorAt)}</Label>
+                </FlexBox>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Material Request Realtime</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground">Status</span>
-              <span className={`rounded px-2 py-0.5 text-xs font-semibold ${statusClass(realtimeHealth.status)}`}>
-                {realtimeHealth.status.toUpperCase()}
-              </span>
-            </div>
-            <p><span className="text-muted-foreground">Mode:</span> {realtimeHealth.mode}</p>
-            <p><span className="text-muted-foreground">Last Event:</span> {formatDateTime(realtimeHealth.lastEventAt)}</p>
-            <p><span className="text-muted-foreground">Last Error:</span> {formatDateTime(realtimeHealth.lastErrorAt)}</p>
-          </div>
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
-            <p className="mb-1 font-medium text-slate-700">Latest Error</p>
-            <p className="text-slate-600">{realtimeHealth.errorMessage ?? "-"}</p>
-          </div>
-        </CardContent>
-      </Card>
+                <div style={{ padding: "0.5rem", border: "1px solid var(--sapErrorBorderColor)", background: "var(--sapErrorBackground)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
+                    <Label style={{ color: "var(--sapNegativeColor)", fontWeight: "bold" }}>Latest Error</Label>
+                    <div style={{ fontSize: "0.875rem", color: "var(--sapNegativeColor)", wordBreak: "break-all" }}>
+                        {realtimeHealth.errorMessage ?? "-"}
+                    </div>
+                </div>
+            </Grid>
+        </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Eden Fallback Stats</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {fallbackStats.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No fallback events recorded.</p>
-          ) : (
-            <div className="overflow-x-auto rounded-md border">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Scope</th>
-                    <th className="px-3 py-2 text-right">Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {fallbackStats.map((row) => (
-                    <tr key={row.scope} className="border-t">
-                      <td className="px-3 py-2 font-medium">{row.scope}</td>
-                      <td className="px-3 py-2 text-right">{row.count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        <Section title="Eden Fallback Stats" variant="card">
+            <DataTable
+                data={tableData}
+                columns={[
+                    { header: "Scope", accessorKey: "scope" as any },
+                    { header: "Count", accessorKey: "count" as any }
+                ]}
+            />
+        </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Strict Config</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <p>
-            <span className="font-medium">Preset:</span> {debugInfo.strictPreset || "none"}
-          </p>
-          <p>
-            <span className="font-medium">Scopes:</span>{" "}
-            {debugInfo.strictScopes.length ? debugInfo.strictScopes.join(", ") : "none"}
-          </p>
-          <p>
-            <span className="font-medium">Debug Panel Enabled:</span> {debugInfo.debugEnabled ? "true" : "false"}
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+        <Section title="Strict Config Details" variant="card">
+            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+                <Label>Preset: {debugInfo.strictPreset || "none"}</Label>
+                <Label>Scopes: {debugInfo.strictScopes.length ? debugInfo.strictScopes.join(", ") : "none"}</Label>
+                <Label>Debug Panel: {debugInfo.debugEnabled ? "true" : "false"}</Label>
+            </FlexBox>
+        </Section>
+    </PageLayout>
   );
 }

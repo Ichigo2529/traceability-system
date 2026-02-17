@@ -1,14 +1,27 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
 import { TraceResult } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
-import { StationHeader } from "../../components/shared/StationHeader";
-import { EmptyState, ErrorState } from "../../components/shared/States";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Input } from "../../components/ui/input";
-import { Button } from "../../components/ui/button";
+import { 
+    Page, 
+    Bar, 
+    Title, 
+    Button, 
+    Card, 
+    CardHeader, 
+    Input, 
+    Label, 
+    MessageStrip, 
+    FlexBox, 
+    FlexBoxAlignItems,
+    Icon,
+    Timeline,
+    TimelineItem,
+} from "@ui5/webcomponents-react";
+import { StatusBadge } from "../../components/shared/StatusBadge";
+import "@ui5/webcomponents-icons/dist/search.js";
+import "@ui5/webcomponents-icons/dist/history.js";
+import "@ui5/webcomponents-icons/dist/product.js";
 
 async function fetchTraceBySerial(serial: string): Promise<TraceResult> {
   try {
@@ -36,70 +49,103 @@ export function StationHistoryPage() {
   const events = traceQuery.data?.events || [];
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="History / Trace View" description="Search by serial and review event timeline." />
-      <StationHeader />
-
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-col gap-2 md:flex-row">
-            <Input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="Enter serial, tray, carton, or pallet" />
-            <Button onClick={() => setQueryKeyword(keyword.trim())} disabled={!keyword.trim()}>
-              <Search className="h-4 w-4" />
+    <Page
+      header={<Bar startContent={<Title level="H2">History / Trace View</Title>} />}
+      backgroundDesign="List"
+      style={{ height: "100%" }}
+    >
+      <div style={{ padding: "1rem", maxWidth: "1000px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "1rem" }}>
+        
+        <Card header={<CardHeader titleText="Trace & Search" subtitleText="Search by serial, tray, carton, or pallet" />}>
+          <div style={{ padding: "1rem", display: "flex", gap: "0.5rem" }}>
+            <Input 
+                value={keyword} 
+                onInput={(e) => setKeyword(e.target.value)} 
+                placeholder="Enter serial ID..."
+                style={{ flex: 1 }}
+                icon={<Icon name="search" />}
+                onKeyDown={(e) => { if(e.key === 'Enter') setQueryKeyword(keyword.trim()) }}
+            />
+            <Button design="Emphasized" onClick={() => setQueryKeyword(keyword.trim())} disabled={!keyword.trim()}>
               Search
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </Card>
 
-      {!queryKeyword ? <EmptyState title="No search yet" description="Enter serial ID to view full traceability timeline." /> : null}
-      {traceQuery.error ? <ErrorState title="Trace not found" description="No genealogy result was returned for this serial." /> : null}
+        {!queryKeyword && (
+            <MessageStrip design="Information" hideCloseButton>
+                Enter a serial ID above to view the full traceability timeline.
+            </MessageStrip>
+        )}
 
-      {traceQuery.data ? (
-        <div className="grid gap-4 xl:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardTitle>Unit Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <p>
-                ID: <span className="font-mono">{traceQuery.data.unit.id}</span>
-              </p>
-              <p>Type: {traceQuery.data.unit.unitType}</p>
-              <p>Status: {traceQuery.data.unit.status}</p>
-              <p>Line: {traceQuery.data.unit.lineCode || "-"}</p>
-            </CardContent>
-          </Card>
+        {traceQuery.error && (
+            <MessageStrip design="Negative" hideCloseButton>
+                Trace not found. No genealogy result was returned for this serial.
+            </MessageStrip>
+        )}
 
-          <Card className="xl:col-span-2">
-            <CardHeader>
-              <CardTitle>Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!events.length ? (
-                <p className="text-sm text-muted-foreground">No events recorded.</p>
-              ) : (
-                <div className="space-y-3">
-                  {events.map((event: any, index: number) => (
-                    <div key={`${event.id || event.event_id || index}`} className="rounded-lg border p-3 text-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="font-semibold">{event.event_type || event.type || "EVENT"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {event.created_at || event.created_at_device || event.timestamp || "-"}
-                        </p>
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Device: {event.device_id || event.deviceCode || "-"} | User: {event.user_id || event.operator || "-"}
-                      </p>
-                      <p className="mt-1 text-xs text-muted-foreground">Station: {event.station || event.station_name || "-"}</p>
+        {traceQuery.data && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "1rem", alignItems: "start" }}>
+                
+                <Card header={<CardHeader titleText="Unit Summary" avatar={<Icon name="product" />} />}>
+                    <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                            <Label>ID:</Label>
+                            <span style={{ fontFamily: "monospace", fontWeight: "bold" }}>{traceQuery.data.unit.id}</span>
+                        </FlexBox>
+                        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                            <Label>Type:</Label>
+                            <span>{traceQuery.data.unit.unitType}</span>
+                        </FlexBox>
+                        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                            <Label>Status:</Label>
+                            <StatusBadge status={traceQuery.data.unit.status} />
+                        </FlexBox>
+                        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                            <Label>Line:</Label>
+                            <span>{traceQuery.data.unit.lineCode || "-"}</span>
+                        </FlexBox>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
-    </div>
+                </Card>
+
+                <Card header={<CardHeader titleText="Timeline" avatar={<Icon name="history" />} />}>
+                    <div style={{ padding: "1rem" }}>
+                        {events.length === 0 ? (
+                            <div style={{ color: "var(--sapContent_LabelColor)", fontStyle: "italic" }}>No events recorded.</div>
+                        ) : (
+                            <Timeline>
+                                {events.map((event: any, index: number) => (
+                                    <TimelineItem 
+                                        key={`${event.id || event.event_id || index}`}
+                                        titleText={event.event_type || event.type || "EVENT"}
+                                        subtitleText={event.created_at || event.created_at_device || event.timestamp || "-"}
+                                        icon="history"
+                                        state="None"
+                                    >
+                                        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                            <div>
+                                                <Label>Device: </Label>
+                                                <span>{event.device_id || event.deviceCode || "-"}</span>
+                                            </div>
+                                            <div>
+                                                <Label>User: </Label>
+                                                <span>{event.user_id || event.operator || "-"}</span>
+                                            </div>
+                                            <div>
+                                                <Label>Station: </Label>
+                                                <span>{event.station || event.station_name || "-"}</span>
+                                            </div>
+                                        </div>
+                                    </TimelineItem>
+                                ))}
+                            </Timeline>
+                        )}
+                    </div>
+                </Card>
+
+            </div>
+        )}
+      </div>
+    </Page>
   );
 }

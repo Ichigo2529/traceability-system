@@ -2,16 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
+
 import { StationHeader } from "../../components/shared/StationHeader";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
 import { ScanInput } from "../../components/shared/ScanInput";
 import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
+
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
+import { PageStack } from "@traceability/ui";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -68,46 +68,63 @@ export function MagnetizeFluxStationPage() {
   if (heartbeatQuery.data?.status === "disabled") return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Magnetize / Flux Station" description="Transition ASSY through magnetize and flux decision." />
+    <PageStack>
+      <div className="admin-toolbar">
+        <div>
+          <h1 className="admin-page-title">Magnetize / Flux Station</h1>
+          <p className="text-sm text-gray-500">Transition ASSY through magnetize and flux decision.</p>
+        </div>
+      </div>
       <StationHeader
         stationName={heartbeatQuery.data?.station?.name || "Unassigned"}
         processName={heartbeatQuery.data?.process?.name || "Unassigned"}
         deviceStatus={heartbeatQuery.data?.status || "active"}
       />
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle>Flux Decision</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="xl:col-span-2 admin-card">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-medium">Flux Decision</h3>
+          </div>
+          <div className="p-4 space-y-4">
             <ScanInput value={assyId} onChange={setAssyId} onSubmit={() => mutation.mutate("MAGNETIZE_DONE")} placeholder="Scan ASSY ID" />
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => mutation.mutate("MAGNETIZE_DONE")} disabled={!assyId.trim() || mutation.isPending}>
+              <button
+                className="admin-button is-primary"
+                onClick={() => mutation.mutate("MAGNETIZE_DONE")}
+                disabled={!assyId.trim() || mutation.isPending}
+              >
                 MAGNETIZE_DONE
-              </Button>
-              <Button variant="outline" onClick={() => mutation.mutate("FLUX_PASS")} disabled={!assyId.trim() || mutation.isPending}>
+              </button>
+              <button
+                className="admin-button is-secondary"
+                onClick={() => mutation.mutate("FLUX_PASS")}
+                disabled={!assyId.trim() || mutation.isPending}
+              >
                 FLUX_PASS
-              </Button>
-              <Button variant="destructive" onClick={() => mutation.mutate("FLUX_FAIL")} disabled={!assyId.trim() || mutation.isPending}>
+              </button>
+              <button
+                className="admin-button is-destructive"
+                onClick={() => mutation.mutate("FLUX_FAIL")}
+                disabled={!assyId.trim() || mutation.isPending}
+              >
                 FLUX_FAIL (HOLD)
-              </Button>
+              </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Station Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+        <div className="admin-card">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-medium">Station Summary</h3>
+          </div>
+          <div className="p-4 admin-stack-2 text-sm">
             <p>
               Device status: <StatusBadge status={heartbeatQuery.data?.status || "active"} />
             </p>
             <p>Station: {heartbeatQuery.data?.station?.name || "Unassigned"}</p>
             <p>Process: {heartbeatQuery.data?.process?.name || "Unassigned"}</p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       <FullscreenResultOverlay
@@ -117,6 +134,6 @@ export function MagnetizeFluxStationPage() {
         description={overlay.description}
         onClose={() => setOverlay((prev) => ({ ...prev, open: false }))}
       />
-    </div>
+    </PageStack>
   );
 }

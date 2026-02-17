@@ -5,7 +5,30 @@ import { sdk } from "../context/AuthContext";
 import { Model, ModelReadinessResult, ModelReadinessIssue } from "@traceability/sdk";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
-import { CheckCircle2, AlertTriangle, RefreshCw } from "lucide-react";
+import { PageLayout, Section } from "@traceability/ui";
+import { 
+    Title, 
+    Button, 
+    Select, 
+    Option, 
+    ObjectStatus, 
+    Table,
+    TableRow,
+    TableCell,
+    TableHeaderRow,
+    TableHeaderCell,
+    Icon,
+    FlexBox,
+    FlexBoxAlignItems,
+    FlexBoxDirection,
+    Label,
+    BusyIndicator
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/refresh.js";
+import "@ui5/webcomponents-icons/dist/status-positive.js";
+import "@ui5/webcomponents-icons/dist/status-error.js";
+import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
+import "@ui5/webcomponents-icons/dist/validate.js";
 
 export default function ReadinessValidatorPage() {
   const [selectedModelId, setSelectedModelId] = useState<string>("");
@@ -32,72 +55,112 @@ export default function ReadinessValidatorPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Readiness Validator</h1>
-          <p className="text-sm text-gray-500">Check model configuration completeness before activation.</p>
-        </div>
+    <PageLayout
+      title="Readiness Validator"
+      subtitle="Check model configuration completeness before activation"
+      icon="validate"
+      headerActions={
+          result ? (
+            <ObjectStatus 
+              state={result.status === "PASS" ? "Positive" : "Critical"}
+              icon={<Icon name={result.status === "PASS" ? "status-positive" : "status-error"} />}
+            >
+                {result.status}
+            </ObjectStatus>
+        ) : undefined
+      }
+    >
+      <Section variant="card">
+        <ApiErrorBanner message={validatorMutation.isError ? formatApiError(validatorMutation.error) : undefined} />
 
-        {result && (
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${result.status === "PASS" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-            {result.status === "PASS" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
-            <span>{result.status}</span>
-          </div>
-        )}
-      </div>
+        <div style={{ padding: "1rem" }}>
+            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem", marginBottom: "1rem" }}>
+                <Label>Model:</Label>
+                <Select 
+                    disabled={isLoadingModels} 
+                    value={selectedModelId} 
+                    style={{ width: "300px" }}
+                    onChange={(e) => {
+                         const selected = e.detail.selectedOption as unknown as { value: string };
+                         setSelectedModelId(selected.value);
+                    }}
+                >
+                    <Option value="">-- Select Model --</Option>
+                    {models.map((m: Model) => (
+                        <Option key={m.id} value={m.id}>
+                            {m.code} - {m.name}
+                        </Option>
+                    ))}
+                </Select>
+                <Button 
+                    design="Emphasized" 
+                    disabled={!selectedModelId || validatorMutation.isPending} 
+                    onClick={runValidation}
+                    icon="refresh"
+                >
+                    {validatorMutation.isPending ? "Validating..." : "Run Validator"}
+                </Button>
+            </FlexBox>
 
-      <ApiErrorBanner message={validatorMutation.isError ? formatApiError(validatorMutation.error) : undefined} />
+            {validatorMutation.isPending && (
+                <FlexBox justifyContent="Center" style={{ padding: "2rem" }}>
+                    <BusyIndicator active text="Validating model..." />
+                </FlexBox>
+            )}
 
-      <div className="bg-white border rounded-lg shadow-sm p-4 flex flex-col md:flex-row md:items-end gap-4">
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-          <select className="w-full px-3 py-2 border rounded-md" disabled={isLoadingModels} value={selectedModelId} onChange={(e) => setSelectedModelId(e.target.value)}>
-            <option value="">-- Select Model --</option>
-            {models.map((m: Model) => (
-              <option key={m.id} value={m.id}>
-                {m.code} - {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
+            {result && !validatorMutation.isPending && (
+                <div style={{ width: "100%" }}>
+                    <Title level="H4" style={{ marginBottom: "1rem" }}>Validation Results</Title>
 
-        <button type="button" disabled={!selectedModelId || validatorMutation.isPending} onClick={runValidation} className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#1134A6] text-white rounded-md hover:bg-[#0D2A84] disabled:opacity-50">
-          <RefreshCw size={16} className={validatorMutation.isPending ? "animate-spin" : ""} />
-          <span>{validatorMutation.isPending ? "Validating..." : "Run Validator"}</span>
-        </button>
-      </div>
+                    {result.issues.length === 0 ? (
+                        <ObjectStatus state="Positive">No issue found. Model configuration is ready.</ObjectStatus>
+                    ) : (
+                        <Table
+                            headerRow={
+                                <TableHeaderRow>
+                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Code</Label></TableHeaderCell>
+                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Scope</Label></TableHeaderCell>
+                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Message / Path</Label></TableHeaderCell>
+                                </TableHeaderRow>
+                            }
+                        >
+                            {result.issues.map((issue: ModelReadinessIssue, idx: number) => (
+                                <TableRow key={`${issue.code}-${idx}`}>
+                                    <TableCell>
+                                        <Title level="H5" style={{ color: "var(--sapNegativeColor)" }}>{issue.code}</Title>
+                                    </TableCell>
+                                    <TableCell>
+                                        {issue.scope && <ObjectStatus state="Critical">{issue.scope}</ObjectStatus>}
+                                    </TableCell>
+                                    <TableCell>
+                                        <FlexBox direction={FlexBoxDirection.Column}>
+                                            <Label style={{ whiteSpace: "normal" }}>{issue.message}</Label>
+                                            {issue.path && (
+                                                <span style={{ marginTop: "0.25rem", fontSize: "0.75rem", fontFamily: "monospace", color: "var(--sapContent_LabelColor)" }}>
+                                                    {issue.path}
+                                                </span>
+                                            )}
+                                        </FlexBox>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </Table>
+                    )}
 
-      {result && (
-        <div className="bg-white border rounded-lg shadow-sm p-4">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">Validation Result</h2>
-
-          {result.issues.length === 0 ? (
-            <p className="text-sm text-emerald-700">No issue found. Model configuration is ready.</p>
-          ) : (
-            <div className="space-y-2">
-              {result.issues.map((issue: ModelReadinessIssue, idx: number) => (
-                <div key={`${issue.code}-${idx}`} className="border border-red-100 bg-red-50 rounded-md p-3 text-sm">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-red-800">{issue.code}</span>
-                    {issue.scope && <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">{issue.scope}</span>}
-                  </div>
-                  <p className="text-red-700">{issue.message}</p>
-                  {issue.path && <p className="mt-1 text-xs text-red-600">Path: <span className="font-mono">{issue.path}</span></p>}
+                    {selectedModelId && (
+                        <div style={{ marginTop: "1.5rem" }}>
+                            <Link 
+                                to={`/admin/models/${selectedModelId}`} 
+                                style={{ color: "var(--sapLinkColor)", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                            >
+                                Open model configuration <Icon name="navigation-right-arrow" style={{ fontSize: "0.75rem" }} />
+                            </Link>
+                        </div>
+                    )}
                 </div>
-              ))}
-            </div>
-          )}
-
-          {selectedModelId && (
-            <div className="mt-4">
-              <Link to={`/admin/models/${selectedModelId}`} className="text-sm text-[#1134A6] hover:text-[#0A1F66] underline">
-                Open model configuration
-              </Link>
-            </div>
-          )}
+            )}
         </div>
-      )}
-    </div>
+      </Section>
+    </PageLayout>
   );
 }

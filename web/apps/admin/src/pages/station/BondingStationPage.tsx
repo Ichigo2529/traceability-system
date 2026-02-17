@@ -2,16 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
+
 import { StationHeader } from "../../components/shared/StationHeader";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
 import { ScanInput } from "../../components/shared/ScanInput";
 import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
+
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
+import { PageStack } from "@traceability/ui";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -73,57 +73,78 @@ export function BondingStationPage() {
   if (heartbeatQuery.data?.status === "disabled") return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Bonding Station" description="Validate plate/magnet and create ASSY_120 by bonding." />
+    <PageStack>
+      <div className="admin-toolbar">
+        <div>
+          <h1 className="admin-page-title">Bonding Station</h1>
+          <p className="text-sm text-gray-500">Validate plate/magnet and create ASSY_120 by bonding.</p>
+        </div>
+      </div>
       <StationHeader
         stationName={heartbeatQuery.data?.station?.name || "Unassigned"}
         processName={heartbeatQuery.data?.process?.name || "Unassigned"}
         deviceStatus={heartbeatQuery.data?.status || "active"}
       />
       <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader>
-            <CardTitle>Bonding Flow</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
+        <div className="xl:col-span-2 admin-card">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-medium">Bonding Flow</h3>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="admin-stack-2">
               <p className="text-sm font-medium">Plate</p>
               <ScanInput value={plateId} onChange={setPlateId} onSubmit={() => mutation.mutate({ eventType: "BONDING_PLATE_SCANNED", payload: { plate_id: plateId }, unitId: plateId })} placeholder="Scan plate ID" />
             </div>
-            <div className="space-y-2">
+            <div className="admin-stack-2">
               <p className="text-sm font-medium">Magnet Pack</p>
               <ScanInput value={magnetPackId} onChange={setMagnetPackId} onSubmit={() => mutation.mutate({ eventType: "BONDING_MAGNET_SCANNED", payload: { magnet_pack_id: magnetPackId }, unitId: magnetPackId })} placeholder="Scan magnet pack ID" />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => mutation.mutate({ eventType: "BONDING_PLATE_SCANNED", payload: { plate_id: plateId }, unitId: plateId })} disabled={!plateId.trim() || mutation.isPending}>
+              <button
+                className="admin-button is-primary"
+                onClick={() => mutation.mutate({ eventType: "BONDING_PLATE_SCANNED", payload: { plate_id: plateId }, unitId: plateId })}
+                disabled={!plateId.trim() || mutation.isPending}
+              >
                 BONDING_PLATE_SCANNED
-              </Button>
-              <Button variant="outline" onClick={() => mutation.mutate({ eventType: "BONDING_MAGNET_SCANNED", payload: { magnet_pack_id: magnetPackId }, unitId: magnetPackId })} disabled={!magnetPackId.trim() || mutation.isPending}>
+              </button>
+              <button
+                className="admin-button is-secondary"
+                onClick={() => mutation.mutate({ eventType: "BONDING_MAGNET_SCANNED", payload: { magnet_pack_id: magnetPackId }, unitId: magnetPackId })}
+                disabled={!magnetPackId.trim() || mutation.isPending}
+              >
                 BONDING_MAGNET_SCANNED
-              </Button>
-              <Button variant="outline" onClick={() => mutation.mutate({ eventType: "BONDING_START", payload: { plate_id: plateId, magnet_pack_id: magnetPackId } })} disabled={!plateId.trim() || !magnetPackId.trim() || mutation.isPending}>
+              </button>
+              <button
+                className="admin-button is-secondary"
+                onClick={() => mutation.mutate({ eventType: "BONDING_START", payload: { plate_id: plateId, magnet_pack_id: magnetPackId } })}
+                disabled={!plateId.trim() || !magnetPackId.trim() || mutation.isPending}
+              >
                 BONDING_START
-              </Button>
-              <Button onClick={() => mutation.mutate({ eventType: "BONDING_END", payload: { plate_id: plateId, magnet_pack_id: magnetPackId } })} disabled={!plateId.trim() || !magnetPackId.trim() || mutation.isPending}>
+              </button>
+              <button
+                className="admin-button is-primary"
+                onClick={() => mutation.mutate({ eventType: "BONDING_END", payload: { plate_id: plateId, magnet_pack_id: magnetPackId } })}
+                disabled={!plateId.trim() || !magnetPackId.trim() || mutation.isPending}
+              >
                 BONDING_END
-              </Button>
+              </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Station Summary</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+        <div className="admin-card">
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-lg font-medium">Station Summary</h3>
+          </div>
+          <div className="p-4 admin-stack-2 text-sm">
             <p>
               Device status: <StatusBadge status={heartbeatQuery.data?.status || "active"} />
             </p>
             <p>Station: {heartbeatQuery.data?.station?.name || "Unassigned"}</p>
             <p>Process: {heartbeatQuery.data?.process?.name || "Unassigned"}</p>
             <p>Latest ASSY ID: {assyId ? <span className="font-mono text-xs">{assyId}</span> : "-"}</p>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       <FullscreenResultOverlay
@@ -133,6 +154,6 @@ export function BondingStationPage() {
         description={overlay.description}
         onClose={() => setOverlay((prev) => ({ ...prev, open: false }))}
       />
-    </div>
+    </PageStack>
   );
 }

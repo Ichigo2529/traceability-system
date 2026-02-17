@@ -12,7 +12,6 @@ export default defineConfig({
           if (!id.includes("node_modules")) return undefined;
           if (id.includes("react-router-dom") || id.includes("react-router")) return "vendor-router";
           if (id.includes("@tanstack/")) return "vendor-tanstack";
-          if (id.includes("@radix-ui/")) return "vendor-radix";
           if (id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("axios")) return "vendor-axios";
           return undefined;

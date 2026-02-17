@@ -1,24 +1,32 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
 import { Process, Station } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Button } from "../../components/ui/button";
-import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
+import { StatusBadge } from "../../components/shared/StatusBadge";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Input,
+  CheckBox,
+  Label,
+  Form,
+  FormItem,
+  Select,
+  Option
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/factory.js";
 
 const NONE = "__none__";
 
@@ -57,6 +65,7 @@ export function StationsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stations"] });
       setOpen(false);
+      form.reset({ station_code: "", name: "", active: true });
     },
   });
   const updateMutation = useMutation({
@@ -74,7 +83,6 @@ export function StationsPage() {
     },
   });
 
-  const processMap = processes.reduce<Record<string, Process>>((acc, p) => ({ ...acc, [p.id]: p }), {});
   const columns = useMemo<ColumnDef<Station>[]>(
     () => [
       { header: "Code", accessorKey: "station_code" },
@@ -86,10 +94,10 @@ export function StationsPage() {
       {
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
-              variant="outline"
-              size="sm"
+              icon="edit"
+              design="Transparent"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -102,18 +110,16 @@ export function StationsPage() {
                 });
                 setOpen(true);
               }}
-            >
-              Edit
-            </Button>
+              tooltip="Edit Station"
+            />
             <Button
-              variant="destructive"
-              size="sm"
+              icon="delete"
+              design="Transparent"
               onClick={() => {
                 setDeleteTarget(row.original);
               }}
-            >
-              Delete
-            </Button>
+              tooltip="Delete Station"
+            />
           </div>
         ),
       },
@@ -122,103 +128,114 @@ export function StationsPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Stations"
-        description="Factory stations bound to process and area."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({ station_code: "", name: "", active: true });
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Station
-          </Button>
-        }
-      />
-      <ApiErrorBanner
-        message={
-          createMutation.error
-            ? formatApiError(createMutation.error)
-            : updateMutation.error
-              ? formatApiError(updateMutation.error)
-              : deleteMutation.error
-                ? formatApiError(deleteMutation.error)
-                : undefined
-        }
-      />
-      <DataTable data={stations} columns={columns} filterPlaceholder="Search station..." />
+    <PageLayout
+      title="Stations"
+      subtitle="Factory stations bound to process and area"
+      icon="factory"
+    >
+      <Section variant="card">
+        <ApiErrorBanner
+          message={
+            createMutation.error
+              ? formatApiError(createMutation.error)
+              : updateMutation.error
+                ? formatApiError(updateMutation.error)
+                : deleteMutation.error
+                  ? formatApiError(deleteMutation.error)
+                  : undefined
+          }
+        />
+        <DataTable 
+            data={stations} 
+            columns={columns} 
+            filterPlaceholder="Search station..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    setEditing(null);
+                    form.reset({ station_code: "", name: "", active: true });
+                    setOpen(true);
+                  }}
+                >
+                  Add Station
+                </Button>
+            }
+        />
 
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Station" : "Create Station"}
-        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Station Code</Label>
-            <Input {...form.register("station_code")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Name</Label>
-            <Input {...form.register("name")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Line</Label>
-            <Input {...form.register("line")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Area</Label>
-            <Input {...form.register("area")} />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Process</Label>
-            <Select
-              value={form.watch("process_id") || NONE}
-              onValueChange={(v) => form.setValue("process_id", v === NONE ? "" : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select process" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Unassigned</SelectItem>
-                {processes.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.process_code} - {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {form.watch("process_id") && processMap[form.watch("process_id") || ""] ? (
-              <p className="text-xs text-muted-foreground">{processMap[form.watch("process_id") || ""].name}</p>
-            ) : null}
-          </div>
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.watch("active")} onCheckedChange={(v) => form.setValue("active", Boolean(v))} />
-              Active
-            </label>
-          </div>
-        </div>
-      </FormDialog>
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Delete station"
-        description={deleteTarget ? `Delete station ${deleteTarget.station_code}?` : ""}
-        confirmText="Delete"
-        destructive
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-      />
-    </div>
+        <FormDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          title={editing ? "Edit Station" : "Create Station"}
+          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+          submitting={createMutation.isPending || updateMutation.isPending}
+        >
+          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+            <FormItem labelContent={<Label>Station Code</Label>}>
+              <Input {...form.register("station_code")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Name</Label>}>
+              <Input {...form.register("name")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Line</Label>}>
+              <Input {...form.register("line")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Area</Label>}>
+              <Input {...form.register("area")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Process</Label>}>
+                 <Controller
+                    control={form.control}
+                    name="process_id"
+                    render={({ field }) => (
+                         <Select
+                            onChange={(e) => {
+                                const selected = e.detail.selectedOption as unknown as { value: string };
+                                field.onChange(selected.value === NONE ? "" : selected.value);
+                            }}
+                            value={field.value || NONE}
+                        >
+                            <Option value={NONE}>Unassigned</Option>
+                             {processes.map((p) => (
+                                <Option key={p.id} value={p.id}>
+                                  {p.process_code} - {p.name}
+                                </Option>
+                              ))}
+                        </Select>
+                    )}
+                 />
+            </FormItem>
+            <FormItem labelContent={<Label>Status</Label>}>
+                <Controller
+                    name="active"
+                    control={form.control}
+                    render={({ field }) => (
+                        <CheckBox
+                            text="Active"
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                    )}
+                />
+            </FormItem>
+          </Form>
+        </FormDialog>
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title="Delete station"
+          description={deleteTarget ? `Delete station ${deleteTarget.station_code}?` : ""}
+          confirmText="Delete"
+          destructive
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            if (!deleteTarget) return;
+            deleteMutation.mutate(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
+      </Section>
+    </PageLayout>
   );
 }
+

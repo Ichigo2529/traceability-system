@@ -1,6 +1,6 @@
-import { Button } from '@traceability/ui';
 import { ApiClient } from '@traceability/sdk';
 import { db } from '@traceability/offline-queue';
+import { Button, Card, CardHeader, Text } from '@ui5/webcomponents-react';
 
 const api = new ApiClient(import.meta.env.VITE_API_BASE_URL);
 
@@ -18,14 +18,27 @@ function App() {
   };
 
   return (
-    <div className="mes-shell">
-      <div className="mes-panel max-w-3xl p-8">
-        <h1 className="text-3xl font-bold mb-2">Shopfloor Kiosk (Pi5)</h1>
-        <p className="text-sm text-gray-500 mb-6">Offline-first event buffering for production continuity.</p>
-        <Button variant="secondary" onClick={handleOfflineTest}>Test Offline Queue</Button>
-      </div>
+    <div className="station-shell">
+      <Card
+        className="station-card"
+        header={
+          <CardHeader
+            titleText="Shopfloor Kiosk (Pi5)"
+            subtitleText="Offline-first event buffering for production continuity."
+          />
+        }
+      >
+        <div className="station-content">
+          <Text className="station-description">
+            Queue events locally and sync them when the line network is available.
+          </Text>
+          <Button design="Default" onClick={handleOfflineTest}>
+            Test Offline Queue
+          </Button>
+        </div>
+      </Card>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

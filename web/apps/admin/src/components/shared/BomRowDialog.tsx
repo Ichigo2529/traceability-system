@@ -1,13 +1,10 @@
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BomRow } from "@traceability/sdk";
 import { FormDialog } from "./FormDialog";
-import { Label } from "../ui/label";
-import { Input } from "../ui/input";
-import { Checkbox } from "../ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Select, Option, CheckBox, Form, FormItem, Input, Label } from "@ui5/webcomponents-react";
 
 const bomSchema = z.object({
   component_name: z.string().min(1, "Component name is required"),
@@ -68,71 +65,100 @@ export function BomRowDialog({
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={submitting}
     >
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Component</Label>
-          <Input {...form.register("component_name")} />
-          {err.component_name ? <p className="text-xs text-red-600">{err.component_name.message}</p> : null}
-        </div>
-        <div className="space-y-2">
-          <Label>Component Unit Type</Label>
-          {componentTypeOptions.length ? (
-            <Select value={form.watch("component_unit_type")} onValueChange={(v) => form.setValue("component_unit_type", v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select component type" />
-              </SelectTrigger>
-              <SelectContent>
-                {componentTypeOptions.map((option) => (
-                  <SelectItem key={option.code} value={option.code}>
-                    {option.code} - {option.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input {...form.register("component_unit_type")} placeholder="MAGNET_PACK_UNIT" />
-          )}
-          {err.component_unit_type ? <p className="text-xs text-red-600">{err.component_unit_type.message}</p> : null}
-        </div>
-        <div className="space-y-2">
-          <Label>Part Number RM</Label>
-          {partNumberOptions.length ? (
-            <Select value={form.watch("component_part_number") || "NONE"} onValueChange={(v) => form.setValue("component_part_number", v === "NONE" ? "" : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select part number" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">Not assigned</SelectItem>
-                {partNumberOptions.map((pn) => (
-                  <SelectItem key={pn} value={pn}>
-                    {pn}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input {...form.register("component_part_number")} />
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label>Location</Label>
+      <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+        <FormItem labelContent={<Label>Component</Label>}>
+          <Input
+            {...form.register("component_name")}
+            valueState={err.component_name ? "Negative" : "None"}
+            valueStateMessage={err.component_name ? <div>{err.component_name.message}</div> : undefined}
+          />
+        </FormItem>
+        
+        <FormItem labelContent={<Label>Component Unit Type</Label>}>
+          <Controller
+            name="component_unit_type"
+            control={form.control}
+            render={({ field }) =>
+              componentTypeOptions.length ? (
+                <Select
+                  onChange={(e) => field.onChange(e.target.value)}
+                  value={field.value}
+                  valueState={err.component_unit_type ? "Negative" : "None"}
+                  valueStateMessage={err.component_unit_type ? <div>{err.component_unit_type.message}</div> : undefined}
+                >
+                  <Option value="">Select component type</Option>
+                  {componentTypeOptions.map((option) => (
+                    <Option key={option.code} value={option.code}>
+                      {option.code} - {option.name}
+                    </Option>
+                  ))}
+                </Select>
+              ) : (
+                <Input
+                  {...field}
+                  placeholder="MAGNET_PACK_UNIT"
+                  valueState={err.component_unit_type ? "Negative" : "None"}
+                  valueStateMessage={err.component_unit_type ? <div>{err.component_unit_type.message}</div> : undefined}
+                />
+              )
+            }
+          />
+        </FormItem>
+
+        <FormItem labelContent={<Label>Part Number RM</Label>}>
+          <Controller
+            name="component_part_number"
+            control={form.control}
+            render={({ field }) =>
+              partNumberOptions.length ? (
+                <Select
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    field.onChange(val === "NONE" ? "" : val);
+                  }}
+                  value={field.value || "NONE"}
+                >
+                  <Option value="NONE">Not assigned</Option>
+                  {partNumberOptions.map((pn) => (
+                    <Option key={pn} value={pn}>
+                      {pn}
+                    </Option>
+                  ))}
+                </Select>
+              ) : (
+                <Input {...field} />
+              )
+            }
+          />
+        </FormItem>
+
+        <FormItem labelContent={<Label>Location</Label>}>
           <Input {...form.register("rm_location")} placeholder="2001" />
-        </div>
-        <div className="space-y-2">
-          <Label>Use pcs / 1 VCM</Label>
-          <Input type="number" {...form.register("qty_per_assy")} />
-          {err.qty_per_assy ? <p className="text-xs text-red-600">{err.qty_per_assy.message}</p> : null}
-        </div>
-        <div className="md:col-span-2">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={form.watch("required")}
-              onCheckedChange={(v) => form.setValue("required", Boolean(v))}
-            />
-            Required component
-          </label>
-        </div>
-      </div>
+        </FormItem>
+
+        <FormItem labelContent={<Label>Use pcs / 1 VCM</Label>}>
+          <Input
+            type="Number"
+            {...form.register("qty_per_assy")}
+            valueState={err.qty_per_assy ? "Negative" : "None"}
+            valueStateMessage={err.qty_per_assy ? <div>{err.qty_per_assy.message}</div> : undefined}
+          />
+        </FormItem>
+
+        <FormItem>
+          <Controller
+            name="required"
+            control={form.control}
+            render={({ field }) => (
+              <CheckBox
+                text="Required component"
+                checked={field.value}
+                onChange={(e) => field.onChange(e.target.checked)}
+              />
+            )}
+          />
+        </FormItem>
+      </Form>
     </FormDialog>
   );
 }

@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
-import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, Button } from "@ui5/webcomponents-react";
 
 export function FormDialog({
   open,
@@ -28,26 +27,38 @@ export function FormDialog({
   children: ReactNode;
 }) {
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className={`max-h-[90vh] overflow-y-auto ${contentClassName ?? ""}`}>
-        <DialogHeader>
-          <DialogTitle className="tracking-tight">{title}</DialogTitle>
-          {description ? <DialogDescription>{description}</DialogDescription> : null}
-        </DialogHeader>
-        <div className={bodyClassName ?? "space-y-4 rounded-lg border border-slate-200/70 bg-slate-50/60 p-3"}>{children}</div>
-        {footer ? (
-          <DialogFooter className="border-t border-slate-200 pt-3">{footer}</DialogFooter>
-        ) : (
-          <DialogFooter className="border-t border-slate-200 pt-3">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={onSubmit} disabled={submitting}>
-              {submitting ? "Saving..." : submitText}
-            </Button>
-          </DialogFooter>
+    <Dialog
+      open={open}
+      headerText={title}
+      {...({ onAfterClose: (e: any) => {
+        e.stopPropagation();
+        onClose();
+      }} as any)}
+      className={contentClassName}
+      state={description ? "Information" : "None"}
+      footer={
+          <div style={{ width: '100%', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem' }}>
+            {footer ? footer : (
+                <>
+                    <Button design="Transparent" onClick={onClose}>
+                        Cancel
+                    </Button>
+                    <Button design="Emphasized" onClick={onSubmit} disabled={submitting}>
+                        {submitting ? "Saving..." : submitText}
+                    </Button>
+                </>
+            )}
+          </div>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem 0" }} className={bodyClassName}>
+        {description && (
+            <div style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
+                {description}
+            </div>
         )}
-      </DialogContent>
+        {children}
+      </div>
     </Dialog>
   );
 }

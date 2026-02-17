@@ -7,36 +7,61 @@ import {
   useReactTable,
   PaginationState,
 } from "@tanstack/react-table";
-import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
-import { EmptyState } from "./States";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Card, CardContent } from "../ui/card";
+import { 
+    Table, 
+    TableHeaderRow, 
+    TableHeaderCell, 
+    TableRow, 
+    TableCell, 
+    Label, 
+    Input, 
+    Icon,
+    Button,
+    Title
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/search.js";
+import "@ui5/webcomponents-icons/dist/navigation-left-arrow.js";
+import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
 
 export function DataTable<TData>({
   data,
   columns,
   filterPlaceholder = "Search",
   initialPageSize = 10,
+  onRowClick,
+  globalFilter,
+  onGlobalFilterChange,
+  hideToolbar,
+  actions,
 }: {
   data: TData[];
   columns: ColumnDef<TData>[];
   filterPlaceholder?: string;
   initialPageSize?: number;
+  onRowClick?: (data: TData) => void;
+  globalFilter?: string;
+  onGlobalFilterChange?: (value: string) => void;
+  hideToolbar?: boolean;
+  actions?: React.ReactNode;
 }) {
-  const [globalFilter, setGlobalFilter] = useState("");
+  const [internalGlobalFilter, setInternalGlobalFilter] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: initialPageSize,
   });
+
+  const activeGlobalFilter = globalFilter ?? internalGlobalFilter;
+  const activeSetGlobalFilter = onGlobalFilterChange ?? setInternalGlobalFilter;
+
   const table = useReactTable({
     data,
     columns,
-    state: { globalFilter, pagination },
-    onGlobalFilterChange: setGlobalFilter,
+    state: { globalFilter: activeGlobalFilter, pagination },
+    onGlobalFilterChange: activeSetGlobalFilter,
     onPaginationChange: setPagination,
     autoResetPageIndex: false,
+    columnResizeMode: "onChange",
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -47,7 +72,6 @@ export function DataTable<TData>({
   const visibleRows = table.getRowModel().rows.length;
   const pageIndex = table.getState().pagination.pageIndex;
   const pageSize = table.getState().pagination.pageSize;
-  const hasRows = totalFiltered > 0;
   const start = totalFiltered === 0 ? 0 : pageIndex * pageSize + 1;
   const end = Math.min((pageIndex + 1) * pageSize, totalFiltered);
 
@@ -56,83 +80,118 @@ export function DataTable<TData>({
     if (visibleRows > 0) return;
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   }, [totalFiltered, visibleRows]);
+  // ... (rest of the file until return)
 
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="relative w-full max-w-sm">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={globalFilter ?? ""}
-              onChange={(e) => setGlobalFilter(e.target.value)}
-              placeholder={filterPlaceholder}
-              className="pl-9"
-            />
-          </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%", boxSizing: "border-box" }}>
+        
+        {!hideToolbar && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ width: "300px" }}>
+                <Input
+                    icon={<Icon name="search" />}
+                    placeholder={filterPlaceholder}
+                    value={activeGlobalFilter ?? ""}
+                    onInput={(e) => activeSetGlobalFilter(e.target.value)}
+                />
+            </div>
+            {actions && (
+                <div>
+                    {actions}
+                </div>
+            )}
         </div>
-
-        {!hasRows ? (
-          <EmptyState title="No records found" description="Try another keyword or create a new item." />
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200/90 bg-white shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50/90">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <th key={header.id} className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="border-t border-slate-100 transition-colors hover:bg-primary/[0.03]">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3.5 align-middle text-slate-700">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         )}
 
-        <div className="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <p className="text-xs text-muted-foreground">
+        <Table
+            headerRow={
+                <TableHeaderRow>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                        headerGroup.headers.map((header) => (
+                            <TableHeaderCell 
+                                key={header.id} 
+                                style={{ width: header.getSize(), position: "relative" }}
+                            >
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                                    <Label style={{ fontWeight: "bold" }}>
+                                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                                    </Label>
+                                    <div
+                                        onMouseDown={header.getResizeHandler()}
+                                        onTouchStart={header.getResizeHandler()}
+                                        className={`resizer ${
+                                            header.column.getIsResizing() ? "isResizing" : ""
+                                        }`}
+                                        style={{
+                                            transform: header.column.getIsResizing() ? "translateX(0px)" : "translateX(0px)",
+                                            cursor: "col-resize",
+                                            userSelect: "none",
+                                            touchAction: "none",
+                                            height: "100%",
+                                            width: "5px",
+                                            backgroundColor: header.column.getIsResizing() ? "var(--sapSelectedColor)" : "transparent",
+                                            position: "absolute",
+                                            right: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            zIndex: 1
+                                        }}
+                                        title="Resize column"
+                                    />
+                                </div>
+                            </TableHeaderCell>
+                        ))
+                    ))}
+                </TableHeaderRow>
+            }
+        >
+            {table.getRowModel().rows.length > 0 ? (
+                table.getRowModel().rows.map((row) => (
+                    <TableRow 
+                        key={row.id}
+                        onClick={() => onRowClick?.(row.original)}
+                        style={{ cursor: onRowClick ? 'pointer' : 'default' }}
+                    >
+                        {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                ))
+            ) : (
+                <TableRow>
+                    <TableCell>
+                        <div style={{ padding: "2rem", textAlign: "center", width: "100%" }}>
+                            <Title level="H3">No records found</Title>
+                        </div>
+                    </TableCell>
+                </TableRow>
+            )}
+        </Table>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem" }}>
+            <Label>
               {start}-{end} of {totalFiltered}
-            </p>
-            <select
-              className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs shadow-sm"
-              value={pageSize}
-              onChange={(e) => table.setPageSize(Number(e.target.value))}
-              aria-label="Rows per page"
-            >
-              <option value={10}>10 / page</option>
-              <option value={20}>20 / page</option>
-              <option value={50}>50 / page</option>
-              <option value={100}>100 / page</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-muted-foreground">
-              Page {pageIndex + 1} of {table.getPageCount() || 1}
-            </p>
-            <Button size="sm" variant="outline" disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()}>
-              Previous
-            </Button>
-            <Button size="sm" variant="outline" disabled={!table.getCanNextPage()} onClick={() => table.nextPage()}>
-              Next
-            </Button>
-          </div>
+            </Label>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <Button 
+                    design="Transparent" 
+                    icon="navigation-left-arrow" 
+                    disabled={!table.getCanPreviousPage()} 
+                    onClick={() => table.previousPage()}
+                    tooltip="Previous Page"
+                />
+                <Label>Page {pageIndex + 1} of {table.getPageCount() || 1}</Label>
+                <Button 
+                    design="Transparent" 
+                    icon="navigation-right-arrow" 
+                    disabled={!table.getCanNextPage()} 
+                    onClick={() => table.nextPage()}
+                    tooltip="Next Page"
+                />
+            </div>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

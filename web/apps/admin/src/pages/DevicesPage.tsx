@@ -2,19 +2,36 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "../context/AuthContext";
 import { DeviceInfo, Machine } from "@traceability/sdk";
-import { DataTable } from "../components/ui/DataTable";
-import { Modal } from "../components/ui/Modal";
+import { DataTable } from "../components/shared/DataTable";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { formatDateTime } from "../lib/datetime";
-import { Smartphone, Server } from "lucide-react";
+import { 
+    Page, 
+    Bar, 
+    Title, 
+    Button, 
+    Dialog, 
+    Form, 
+    FormItem, 
+    Select, 
+    Option,
+    Label,
+    FlexBox,
+    FlexBoxAlignItems,
+    Icon,
+    ObjectStatus
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/laptop.js";
+import "@ui5/webcomponents-icons/dist/server.js";
+
 
 export default function DevicesPage() {
   const queryClient = useQueryClient();
   const [selectedDevice, setSelectedDevice] = useState<DeviceInfo | null>(null);
   const [selectedMachineId, setSelectedMachineId] = useState("");
 
-  const { data: devices = [], isLoading: isLoadingDevices } = useQuery({
+  const { data: devices = [] } = useQuery({
     queryKey: ["devices"],
     queryFn: () => sdk.admin.getDevices(),
   });
@@ -47,77 +64,94 @@ export default function DevicesPage() {
     {
       header: "Fingerprint",
       accessorKey: "fingerprint" as any,
-      cell: (device: DeviceInfo) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-            <Smartphone size={16} />
-          </div>
-          <div>
-            <div className="font-medium text-gray-900 font-mono text-xs">{device.fingerprint}</div>
-            <div className="text-xs text-gray-500">{device.hostname || "-"}</div>
-          </div>
-        </div>
+      cell: ({ row }: { row: any }) => (
+        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+          <Icon name="laptop" />
+          <FlexBox direction="Column">
+            <span style={{ fontWeight: "bold" }}>{row.original.fingerprint}</span>
+            <span style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)" }}>{row.original.hostname || "-"}</span>
+          </FlexBox>
+        </FlexBox>
       ),
     },
     {
       header: "Last Seen",
       accessorKey: "last_seen" as any,
-      cell: (device: DeviceInfo) => <span className="text-sm">{formatDateTime(device.last_seen)}</span>,
+      cell: ({ row }: { row: any }) => <span>{formatDateTime(row.original.last_seen)}</span>,
     },
     {
       header: "Assigned Machine",
       accessorKey: "assigned_machine" as any,
-      cell: (device: DeviceInfo) =>
-        device.assigned_machine ? (
-          <div className="flex items-center gap-2 text-[#0D2A84] bg-[#E8EEFC] px-2 py-1 rounded-md w-fit">
-            <Server size={14} />
-            <span className="text-sm font-medium">{device.assigned_machine.name}</span>
-          </div>
+      cell: ({ row }: { row: any }) =>
+        row.original.assigned_machine ? (
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+            <Icon name="server" />
+            <span style={{ fontWeight: 600 }}>{row.original.assigned_machine.name}</span>
+          </FlexBox>
         ) : (
-          <span className="text-gray-400 italic text-sm">Unassigned</span>
+          <ObjectStatus state="Critical">Unassigned</ObjectStatus>
         ),
     },
     {
       header: "Action",
-      cell: (device: DeviceInfo) => (
-        <button onClick={(e) => { e.stopPropagation(); openAssignModal(device); }} className="text-xs bg-slate-800 text-white px-3 py-1 rounded hover:bg-slate-700 transition">
-          {device.assigned_machine ? "Reassign" : "Assign Machine"}
-        </button>
+      cell: ({ row }: { row: any }) => (
+        <Button onClick={(e) => { e.stopPropagation(); openAssignModal(row.original); }} design="Transparent">
+          {row.original.assigned_machine ? "Reassign" : "Assign Machine"}
+        </Button>
       ),
     },
   ];
 
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-800">Device Management</h1>
+    <Page
+      backgroundDesign="List"
+      header={
+        <Bar
+          startContent={<Title level="H2">Device Management</Title>}
+        />
+      }
+      style={{ height: "100%" }}
+    >
+      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
+        <DataTable data={rows} columns={columns} />
+      </div>
 
-      <DataTable data={rows} columns={columns} isLoading={isLoadingDevices} />
-
-      <Modal isOpen={!!selectedDevice} onClose={() => setSelectedDevice(null)} title={`Assign Machine`}> 
-        <div className="space-y-4">
-          <ApiErrorBanner message={assignMachine.isError ? formatApiError(assignMachine.error) : undefined} />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Machine</label>
-            <select className="w-full px-3 py-2 border rounded-md" value={selectedMachineId} onChange={(e) => setSelectedMachineId(e.target.value)}>
-              <option value="">-- Select Machine --</option>
-              {machines.map((m: Machine) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.line_code || "No Line"})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex justify-end pt-4">
-            <button onClick={() => setSelectedDevice(null)} className="mr-3 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
-              Cancel
-            </button>
-            <button onClick={() => assignMachine.mutate()} disabled={assignMachine.isPending || !selectedMachineId} className="px-4 py-2 bg-[#1134A6] text-white rounded-md hover:bg-[#0D2A84] disabled:opacity-50">
-              {assignMachine.isPending ? "Saving..." : "Save Assignment"}
-            </button>
-          </div>
+      <Dialog
+        headerText="Assign Machine"
+        open={!!selectedDevice}
+        onClose={() => setSelectedDevice(null)}
+        footer={
+          <Bar
+            endContent={
+              <>
+                <Button onClick={() => setSelectedDevice(null)} design="Transparent">
+                  Cancel
+                </Button>
+                <Button onClick={() => assignMachine.mutate()} disabled={assignMachine.isPending || !selectedMachineId} design="Emphasized">
+                  {assignMachine.isPending ? "Saving..." : "Save Assignment"}
+                </Button>
+              </>
+            }
+          />
+        }
+      >
+        <div style={{ padding: "1rem", width: "400px" }}>
+            <ApiErrorBanner message={assignMachine.isError ? formatApiError(assignMachine.error) : undefined} />
+            <Form layout="S12 M12 L12 XL12">
+                <FormItem labelContent={<Label>Machine</Label>}>
+                    <Select value={selectedMachineId} onChange={(e) => setSelectedMachineId(e.target.value)} style={{ width: "100%" }}>
+                        <Option value="">-- Select Machine --</Option>
+                        {machines.map((m: Machine) => (
+                        <Option key={m.id} value={m.id}>
+                            {m.name} ({m.line_code || "No Line"})
+                        </Option>
+                        ))}
+                    </Select>
+                </FormItem>
+            </Form>
         </div>
-      </Modal>
-    </div>
+      </Dialog>
+    </Page>
   );
 }

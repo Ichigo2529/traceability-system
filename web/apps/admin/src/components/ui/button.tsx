@@ -1,44 +1,51 @@
 import * as React from "react";
-import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "../../lib/utils";
+import { Button as Ui5Button, ButtonDomRef } from "@ui5/webcomponents-react";
 
-const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground shadow-enterprise-soft hover:bg-[#1f6f9f]",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-slate-200",
-        outline: "border border-slate-300 bg-card text-slate-700 shadow-enterprise-soft hover:bg-accent hover:text-accent-foreground",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-red-800",
-      },
-      size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-lg px-8",
-        icon: "h-10 w-10",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default",
-    },
-  }
-);
+type ButtonVariant = "default" | "secondary" | "outline" | "destructive";
+type ButtonSize = "default" | "sm" | "lg" | "icon";
+
+// UI5 Button design prop expects specific strings.
+// We allow any string that the underlying component accepts, but strongly type our mapping.
+const variantToDesign: Record<ButtonVariant, "Emphasized" | "Transparent" | "Negative" | "Default"> = {
+  default: "Emphasized",
+  secondary: "Transparent",
+  outline: "Transparent",
+  destructive: "Negative",
+};
+
+type NativeButtonType = "button" | "submit" | "reset";
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
-  asChild?: boolean;
+  extends Omit<React.ComponentProps<typeof Ui5Button>, "design" | "type"> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  asChild?: boolean; // Dropping asChild support complexity for now unless critical
+  type?: NativeButtonType;
 }
 
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+// We'll keep the component simple.
+const Button = React.forwardRef<ButtonDomRef, ButtonProps>(
+  ({ className, variant = "default", size = "default", asChild = false, onClick, children, title, type, ...props }, ref) => {
+    
+    // Map HTML type to UI5 type
+    // UI5 expects "Button", "Submit", "Reset"
+    const ui5Type = type ? (type.charAt(0).toUpperCase() + type.slice(1)) as "Button" | "Submit" | "Reset" : "Submit"; // Default to Submit if not specified, or Button? HTML default is submit.
+
+    return (
+      <Ui5Button
+        ref={ref}
+        design={variantToDesign[variant]}
+        onClick={onClick}
+        tooltip={title}
+        type={ui5Type}
+        className={className} // Allow passing generic classNames if needed but we won't generate internal ones
+        {...props}
+      >
+        {children}
+      </Ui5Button>
+    );
   }
 );
 Button.displayName = "Button";
 
-export { Button, buttonVariants };
+export { Button };

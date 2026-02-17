@@ -1,22 +1,39 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Save } from "lucide-react";
 import { Role, User, WorkflowApprovalConfig } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
-import { FormDialog } from "../../components/shared/FormDialog";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Button } from "../../components/ui/button";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Label,
+  Input,
+  Select,
+  Option,
+  CheckBox,
+  Title,
+  FlexBox,
+  FlexBoxDirection,
+  FlexBoxAlignItems,
+  FlexBoxJustifyContent,
+  ObjectStatus,
+  Icon,
+  Form,
+  FormGroup,
+  FormItem
+} from "@ui5/webcomponents-react";
+import { FormDialog } from "../../components/shared/FormDialog";
+import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/save.js";
+import "@ui5/webcomponents-icons/dist/slim-arrow-right.js";
 
 const NONE = "__none__";
 
@@ -69,7 +86,7 @@ export function ApprovalsPage() {
     },
   });
 
-  const form = useForm<ApprovalForm>({
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<ApprovalForm>({
     resolver: zodResolver(schema),
     defaultValues: {
       flow_code: "MATERIAL_REQUEST_APPROVAL",
@@ -177,10 +194,10 @@ export function ApprovalsPage() {
           const approvers = row.original.approver_users ?? [];
           if (!approvers.length) return "-";
           return (
-            <div className="flex flex-col gap-1 text-xs">
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
               {approvers.map((approver) => (
-                <span key={approver.user_id} className={approver.is_default ? "font-semibold text-primary" : ""}>
-                  {(approver.display_name || userMap[approver.user_id]?.display_name || approver.user_id) +
+                <span key={approver.user_id} style={{ fontSize: "0.875rem", color: approver.is_default ? "var(--sapContent_LabelColor)" : "inherit" }}>
+                   • {(approver.display_name || userMap[approver.user_id]?.display_name || approver.user_id) +
                     (approver.email ? ` (${approver.email})` : "")}
                   {approver.is_default ? " [default]" : ""}
                 </span>
@@ -196,13 +213,13 @@ export function ApprovalsPage() {
       {
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <FlexBox>
             <Button
-              variant="outline"
-              size="sm"
+              icon="edit"
+              design="Transparent"
               onClick={() => {
                 setEditing(row.original);
-                form.reset({
+                reset({
                   flow_code: row.original.flow_code,
                   flow_name: row.original.flow_name,
                   from_status: row.original.from_status,
@@ -220,18 +237,25 @@ export function ApprovalsPage() {
                 setApproverRows(rows.length ? rows : [{ ...EMPTY_APPROVER_ROW }]);
                 setOpen(true);
               }}
-            >
-              Edit
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => deleteMutation.mutate(row.original.id)}>
-              Delete
-            </Button>
-          </div>
+              tooltip="Edit"
+            />
+            <Button 
+                icon="delete" 
+                design="Transparent" 
+                style={{ color: "var(--sapNegativeColor)" }}
+                onClick={() => {
+                   setDeleteTarget(row.original.id);
+                }}
+                tooltip="Delete"
+            />
+          </FlexBox>
         ),
       },
     ],
-    [deleteMutation, form, roleMap, userMap]
+    [deleteMutation, reset, roleMap, userMap]
   );
+  
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const transitionGroups = useMemo<TransitionView[]>(() => {
     const grouped = approvals.reduce<Record<string, WorkflowApprovalConfig[]>>((acc, row) => {
@@ -251,252 +275,293 @@ export function ApprovalsPage() {
   }, [approvals]);
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Workflow Approvals"
-        description="Configure L1/L2/L3 approver gates and transition routes."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({
-                flow_code: "MATERIAL_REQUEST_APPROVAL",
-                flow_name: "Material Request Approval",
-                from_status: "REQUESTED",
-                to_status: "APPROVED",
-                level: 1,
-                approver_role_id: "",
-                active: true,
-              });
-              setApproverRows([{ ...EMPTY_APPROVER_ROW }]);
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Rule
-          </Button>
-        }
-      />
+    <PageLayout
+      title="Workflow Approvals"
+      subtitle="Configure L1/L2/L3 approver gates and transition routes."
+    >
+      <Section title="Online Indicator Window" variant="card">
+          <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "1rem", padding: "1rem" }}>
+            <FlexBox direction={FlexBoxDirection.Column}>
+                <Label>Heartbeat window (minutes)</Label>
+                <Input
+                    type="Number"
+                    value={heartbeatValue}
+                    onInput={(e) => setHeartbeatValue(e.target.value)}
+                    style={{ width: "150px" }}
+                />
+            </FlexBox>
+            <Button
+                icon="save"
+                onClick={() => {
+                    const minutes = Number(heartbeatValue);
+                    if (!Number.isFinite(minutes) || minutes < 1) return;
+                    heartbeatMutation.mutate(minutes);
+                }}
+            >
+                Save
+            </Button>
+            <ObjectStatus state="Information">
+                Current: {heartbeatSettings?.online_window_minutes ?? 2} minute(s)
+            </ObjectStatus>
+          </FlexBox>
+      </Section>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Online Indicator Window</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3 md:flex-row md:items-center">
-          <div className="w-full md:max-w-xs">
-            <Label>Heartbeat window (minutes)</Label>
-            <Input
-              type="number"
-              min={1}
-              max={60}
-              value={heartbeatValue}
-              onChange={(e) => setHeartbeatValue(e.target.value)}
-            />
-          </div>
-          <Button
-            className="md:mt-6"
-            onClick={() => {
-              const minutes = Number(heartbeatValue);
-              if (!Number.isFinite(minutes) || minutes < 1) return;
-              heartbeatMutation.mutate(minutes);
-            }}
-          >
-            <Save className="h-4 w-4" />
-            Save
-          </Button>
-          <p className="text-xs text-muted-foreground md:mt-6">
-            Current: {heartbeatSettings?.online_window_minutes ?? 2} minute(s)
-          </p>
-        </CardContent>
-      </Card>
-
-      <DataTable data={approvals} columns={columns} filterPlaceholder="Search workflow by code/status..." />
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Status Transitions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <Section title="Approval Rules" variant="card">
+        <DataTable 
+            data={approvals} 
+            columns={columns} 
+            filterPlaceholder="Search workflow by code/status..." 
+            actions={
+                <Button
+                    icon="add"
+                    design="Emphasized"
+                    onClick={() => {
+                        setEditing(null);
+                        reset({
+                          flow_code: "MATERIAL_REQUEST_APPROVAL",
+                          flow_name: "Material Request Approval",
+                          from_status: "REQUESTED",
+                          to_status: "APPROVED",
+                          level: 1,
+                          approver_role_id: "",
+                          active: true,
+                        });
+                        setApproverRows([{ ...EMPTY_APPROVER_ROW }]);
+                        setOpen(true);
+                    }}
+                >
+                    Add Rule
+                </Button>
+            }
+        />
+      </Section>
+      
+      <Section title="Status Transitions" variant="card">
+         <div style={{ display: "flex", flexDirection: "column" }}>
           {transitionGroups.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No transition rules configured.</p>
+            <div style={{ textAlign: "center", padding: "2rem", color: "var(--sapContent_LabelColor)" }}>No transition rules configured.</div>
           ) : (
-            transitionGroups.map((group) => (
-              <div key={group.flowCode + group.flowName} className="rounded-xl border bg-slate-50 p-4">
-                <p className="text-sm font-semibold">{group.flowCode}</p>
-                <p className="text-xs text-muted-foreground">{group.flowName}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-                  {group.rows.map((row) => (
-                    <div key={row.id} className="rounded-md border bg-white px-2 py-1">
-                      <span className="font-medium">L{row.level}</span>
-                      <span className="mx-1">{row.from_status}</span>
-                      <span className="text-primary">?</span>
-                      <span className="mx-1">{row.to_status}</span>
-                      <span className="text-muted-foreground">({row.approver_role_name || "Unassigned"})</span>
-                      <span className="ml-1 text-muted-foreground">
-                        {row.approver_users?.find((approver) => approver.is_default)?.display_name
-                          ? `- ${row.approver_users?.find((approver) => approver.is_default)?.display_name}`
-                          : ""}
-                      </span>
+            transitionGroups.map((group, index) => (
+              <div key={group.flowCode + group.flowName} style={{ padding: "1rem", borderBottom: index < transitionGroups.length - 1 ? "1px solid var(--sapList_BorderColor)" : "none" }}>
+                    <FlexBox alignItems={FlexBoxAlignItems.Center} justifyContent={FlexBoxJustifyContent.SpaceBetween} style={{ marginBottom: "1rem" }}>
+                        <Title level="H5">{group.flowCode}</Title>
+                        <Label>{group.flowName}</Label>
+                    </FlexBox>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+                      {group.rows.map((row) => (
+                        <div key={row.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem", border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", background: "var(--sapList_Background)" }}>
+                          <ObjectStatus state="Indication05" inverted>L{row.level}</ObjectStatus>
+                          <span style={{ fontWeight: "bold" }}>{row.from_status}</span>
+                          <Icon name="slim-arrow-right" style={{ color: "var(--sapContent_IconColor)", width: "1rem", height: "1rem" }} />
+                          <span style={{ fontWeight: "bold" }}>{row.to_status}</span>
+                          <span style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem" }}>({row.approver_role_name || "Unassigned"})</span>
+                          {row.approver_users?.find((approver) => approver.is_default)?.display_name && (
+                              <span style={{ fontSize: "0.875rem", fontStyle: "italic" }}>
+                                - {row.approver_users?.find((approver) => approver.is_default)?.display_name}
+                              </span>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
               </div>
             ))
           )}
-        </CardContent>
-      </Card>
+         </div>
+      </Section>
 
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Approval Rule" : "Create Approval Rule"}
-        onSubmit={form.handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Flow Code</Label>
-            <Input {...form.register("flow_code")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Flow Name</Label>
-            <Input {...form.register("flow_name")} />
-          </div>
-          <div className="space-y-2">
-            <Label>From Status</Label>
-            <Input {...form.register("from_status")} />
-          </div>
-          <div className="space-y-2">
-            <Label>To Status</Label>
-            <Input {...form.register("to_status")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Approval Level</Label>
-            <Select value={String(form.watch("level"))} onValueChange={(v) => form.setValue("level", Number(v))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">L1</SelectItem>
-                <SelectItem value="2">L2</SelectItem>
-                <SelectItem value="3">L3</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Approver Role</Label>
-            <Select
-              value={form.watch("approver_role_id") || NONE}
-              onValueChange={(v) => form.setValue("approver_role_id", v === NONE ? "" : v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Unassigned</SelectItem>
-                {roles.map((row) => (
-                  <SelectItem key={row.id} value={row.id}>
-                    {row.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <div className="flex items-center justify-between">
-              <Label>Approver Users (User + Email + Default)</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setApproverRows((prev) => [...prev, { ...EMPTY_APPROVER_ROW }])}
-              >
-                Add Approver
-              </Button>
-            </div>
-            <div className="space-y-2 rounded-md border bg-slate-50 p-3">
-              {approverRows.map((row, idx) => (
-                <div key={`${row.user_id}-${idx}`} className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto_auto]">
-                  <Select
-                    value={row.user_id || NONE}
-                    onValueChange={(value) => {
-                      const userId = value === NONE ? "" : value;
-                      setApproverRows((prev) =>
-                        prev.map((current, currentIdx) => {
-                          if (currentIdx !== idx) return current;
-                          const selectedUser = users.find((user) => user.id === userId);
-                          return {
-                            ...current,
-                            user_id: userId,
-                            email: current.email || selectedUser?.email || "",
-                          };
-                        })
-                      );
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select user" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>Unassigned</SelectItem>
-                      {users.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.display_name} ({user.username})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    type="email"
-                    value={row.email}
-                    placeholder="approver@email"
-                    onChange={(event) =>
-                      setApproverRows((prev) =>
-                        prev.map((current, currentIdx) =>
-                          currentIdx === idx ? { ...current, email: event.target.value } : current
-                        )
-                      )
-                    }
-                  />
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={row.is_default}
-                      onCheckedChange={(value) =>
-                        setApproverRows((prev) =>
-                          prev.map((current, currentIdx) => ({
-                            ...current,
-                            is_default: currentIdx === idx ? Boolean(value) : false,
-                          }))
-                        )
-                      }
-                    />
-                    Default
-                  </label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setApproverRows((prev) => {
-                        const next = prev.filter((_, currentIdx) => currentIdx !== idx);
-                        return next.length ? next : [{ ...EMPTY_APPROVER_ROW }];
-                      })
-                    }
-                  >
-                    Remove
-                  </Button>
+        <FormDialog
+            open={open}
+            title={editing ? "Edit Approval Rule" : "Create Approval Rule"}
+            onClose={() => setOpen(false)}
+            onSubmit={() => handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))()}
+            submitting={createMutation.isPending || updateMutation.isPending}
+            contentClassName="approval-dialog"
+        >
+        <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
+            <FormItem labelContent={<Label required>Flow Code</Label>}>
+                <Controller
+                    name="flow_code"
+                    control={control}
+                    render={({ field }) => (
+                        <Input 
+                            {...field} 
+                            value={field.value || ""} 
+                            valueState={errors.flow_code ? "Negative" : "None"}
+                            valueStateMessage={errors.flow_code && <div>{errors.flow_code.message}</div>}
+                        />
+                    )}
+                />
+            </FormItem>
+            <FormItem labelContent={<Label required>Flow Name</Label>}>
+                <Controller
+                    name="flow_name"
+                    control={control}
+                    render={({ field }) => (
+                        <Input 
+                            {...field} 
+                            value={field.value || ""} 
+                            valueState={errors.flow_name ? "Negative" : "None"}
+                            valueStateMessage={errors.flow_name && <div>{errors.flow_name.message}</div>}
+                        />
+                    )}
+                />
+            </FormItem>
+            <FormItem labelContent={<Label required>From Status</Label>}>
+                <Controller
+                    name="from_status"
+                    control={control}
+                    render={({ field }) => (<Input {...field} value={field.value || ""} />)}
+                />
+            </FormItem>
+            <FormItem labelContent={<Label required>To Status</Label>}>
+                <Controller
+                    name="to_status"
+                    control={control}
+                    render={({ field }) => (<Input {...field} value={field.value || ""} />)}
+                />
+            </FormItem>
+            <FormItem labelContent={<Label>Approval Level</Label>}>
+                <Controller
+                    name="level"
+                    control={control}
+                    render={({ field }) => (
+                        <Select
+                            onChange={(e) => field.onChange(Number((e.target.selectedOption as any).dataset.value))}
+                            value={String(field.value)}
+                        >
+                            <Option value="1" data-value="1">L1</Option>
+                            <Option value="2" data-value="2">L2</Option>
+                            <Option value="3" data-value="3">L3</Option>
+                        </Select>
+                    )}
+                />
+            </FormItem>
+            <FormItem labelContent={<Label>Approver Role</Label>}>
+                <Controller
+                    name="approver_role_id"
+                    control={control}
+                    render={({ field }) => (
+                        <Select
+                            onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
+                            value={field.value || NONE}
+                        >
+                            <Option value={NONE} data-value={NONE}>Unassigned</Option>
+                            {roles.map((row) => (
+                                <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
+                                    {row.name}
+                                </Option>
+                            ))}
+                        </Select>
+                    )}
+                />
+            </FormItem>
+            <FormItem labelContent={<Label>Active</Label>}>
+                 <CheckBox
+                    checked={watch("active")}
+                    onChange={(e) => setValue("active", e.target.checked)}
+                 />
+            </FormItem>
+
+            <FormGroup title="Approver Users (User + Email + Default)">
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <Button
+                            icon="add"
+                            design="Transparent"
+                            onClick={() => setApproverRows((prev) => [...prev, { ...EMPTY_APPROVER_ROW }])}
+                        >
+                            Add Approver
+                        </Button>
+                    </div>
+                
+                    {approverRows.map((row, idx) => (
+                        <FlexBox key={`${idx}`} alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                        <div style={{ flex: 1 }}>
+                            <Select
+                                onChange={(e) => {
+                                const userId = (e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value;
+                                setApproverRows((prev) =>
+                                    prev.map((current, currentIdx) => {
+                                    if (currentIdx !== idx) return current;
+                                    const selectedUser = users.find((user) => user.id === userId);
+                                    return {
+                                        ...current,
+                                        user_id: userId,
+                                        email: current.email || selectedUser?.email || "",
+                                    };
+                                    })
+                                );
+                                }}
+                                value={row.user_id || NONE}
+                                style={{ width: "100%" }}
+                            >
+                                <Option value={NONE} data-value={NONE}>Unassigned</Option>
+                                {users.map((user) => (
+                                    <Option key={user.id} value={user.id} data-value={user.id} selected={user.id === row.user_id}>
+                                    {user.display_name} ({user.username})
+                                    </Option>
+                                ))}
+                            </Select>
+                        </div>
+                        <div style={{ flex: 1 }}>
+                            <Input
+                                type="Email"
+                                value={row.email}
+                                placeholder="approver@email"
+                                onInput={(e) =>
+                                setApproverRows((prev) =>
+                                    prev.map((current, currentIdx) =>
+                                    currentIdx === idx ? { ...current, email: e.target.value } : current
+                                    )
+                                )
+                                }
+                                style={{ width: "100%" }}
+                            />
+                        </div>
+                        <CheckBox
+                            text="Default"
+                            checked={row.is_default}
+                            onChange={(e) =>
+                            setApproverRows((prev) =>
+                                prev.map((current, currentIdx) => ({
+                                ...current,
+                                is_default: currentIdx === idx ? e.target.checked : false, 
+                                }))
+                            )
+                            }
+                        />
+                        <Button
+                            icon="delete"
+                            design="Transparent"
+                            style={{ color: "var(--sapNegativeColor)" }}
+                            onClick={() =>
+                            setApproverRows((prev) => {
+                                const next = prev.filter((_, currentIdx) => currentIdx !== idx);
+                                return next.length ? next : [{ ...EMPTY_APPROVER_ROW }];
+                            })
+                            }
+                        />
+                        </FlexBox>
+                    ))}
                 </div>
-              ))}
-            </div>
-          </div>
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.watch("active")} onCheckedChange={(v) => form.setValue("active", Boolean(v))} />
-              Active
-            </label>
-          </div>
-        </div>
+            </FormGroup>
+        </Form>
       </FormDialog>
-    </div>
+
+        <ConfirmDialog
+            open={Boolean(deleteTarget)}
+            title="Delete Approval Rule"
+            description="Are you sure you want to delete this approval rule?"
+            confirmText="Delete"
+            destructive
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={() => {
+                if (deleteTarget) {
+                    deleteMutation.mutate(deleteTarget);
+                }
+                setDeleteTarget(null);
+            }}
+        />
+    </PageLayout>
   );
 }

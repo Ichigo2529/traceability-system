@@ -8,15 +8,38 @@ import { sdk } from "../context/AuthContext";
 import { RevisionStatus, Variant, BomRow, RoutingStep, LabelBinding, LabelTemplate } from "@traceability/sdk";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
-import { ArrowLeft, Boxes, GitBranch, ListTree, Plus, Shuffle, Trash2 } from "lucide-react";
+import { 
+    Page, 
+    Bar, 
+    Title, 
+    Button, 
+    Dialog, 
+    FlexBox, 
+    FlexBoxAlignItems, 
+    FlexBoxDirection,
+    Label,
+    Input,
+    Select,
+    Option,
+    TabContainer,
+    Tab,
+    Table,
+    TableRow,
+    TableCell,
+    TableHeaderRow,
+    TableHeaderCell,
+    ObjectStatus,
+    CheckBox
+} from "@ui5/webcomponents-react";
 import { BomRowDialog, BomRowForm } from "../components/shared/BomRowDialog";
-import { FormDialog } from "../components/shared/FormDialog";
-import { Label } from "../components/ui/label";
-import { Input } from "../components/ui/input";
-import { Textarea } from "../components/ui/textarea";
-import { Checkbox } from "../components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
-import { UnderlineTabs } from "../components/shared/UnderlineTabs";
+import "@ui5/webcomponents-icons/dist/nav-back.js";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/action.js";
+import "@ui5/webcomponents-icons/dist/shipping-status.js";
+import "@ui5/webcomponents-icons/dist/list.js";
+import "@ui5/webcomponents-icons/dist/chain-link.js";
 
 const variantSchema = z.object({
   code: z.string().min(1),
@@ -320,181 +343,185 @@ export default function RevisionDetailsPage() {
   if (isLoading) return <div>Loading...</div>;
   if (!revision) return <div>Revision not found</div>;
 
+  const handleTabChange = (e: any) => {
+    setTab(e.detail.tab.dataset.key);
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(`/admin/models/${modelId}`)} className="p-2 rounded hover:bg-gray-100">
-            <ArrowLeft size={18} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold">Revision {revision.revision_code}</h1>
-            <p className="text-sm text-gray-500">Status: {revision.status}</p>
-          </div>
-        </div>
-        {isReadOnly && <span className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800">Read-only (ACTIVE)</span>}
-      </div>
+    <Page
+      backgroundDesign="List"
+      header={
+        <Bar
+          startContent={
+            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+              <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)} />
+              <FlexBox direction="Column">
+                <Title level="H2">Revision {revision.revision_code}</Title>
+                <span style={{ fontSize: "0.875rem", color: "var(--sapContent_LabelColor)" }}>
+                  Status: {revision.status}
+                </span>
+              </FlexBox>
+            </FlexBox>
+          }
+          endContent={
+            isReadOnly && <ObjectStatus state="Critical">Read-only (ACTIVE)</ObjectStatus>
+          }
+        />
+      }
+      style={{ height: "100%" }}
+    >
+      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
+        <ApiErrorBanner message={errorMessage} />
 
-      <ApiErrorBanner message={errorMessage} />
-
-      <UnderlineTabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: "variants", label: "Variants", icon: Shuffle },
-          { key: "bom", label: "BOM", icon: Boxes },
-          { key: "routing", label: "Routing", icon: ListTree },
-          { key: "bindings", label: "Bindings", icon: GitBranch },
-        ]}
-      />
-
-      <div className="bg-white border rounded-lg p-4">
-        {tab === "variants" && (
-          <Section
-            title="Variants"
-            onAdd={
-              !isReadOnly
-                ? () => {
-                    setEditingVariant(null);
-                    variantForm.reset({ code: "", description: "", is_default: variants.length === 0 });
-                    setVariantDialogOpen(true);
-                  }
-                : undefined
-            }
-          >
-            <SimpleTable
-              rows={(variants as Variant[]).map((v) => ({
-                id: v.id,
-                col1: v.code,
-                col2: v.is_default ? "DEFAULT" : "",
-                onEdit: !isReadOnly
+        <TabContainer onTabSelect={handleTabChange} contentBackgroundDesign="Translucent">
+          <Tab text="Variants" icon="action" selected={tab === "variants"} data-key="variants">
+            <Section
+              title="Variants"
+              onAdd={
+                !isReadOnly
                   ? () => {
-                      setEditingVariant(v);
-                      variantForm.reset({ code: v.code, description: v.description || "", is_default: Boolean(v.is_default) });
+                      setEditingVariant(null);
+                      variantForm.reset({ code: "", description: "", is_default: variants.length === 0 });
                       setVariantDialogOpen(true);
                     }
-                  : undefined,
-                onDelete: !isReadOnly ? () => deleteVariant.mutate(v.id) : undefined,
-                onExtra: !isReadOnly ? () => setDefaultVariant.mutate(v.id) : undefined,
-                extraLabel: "Set Default",
-              }))}
-              headers={["Code", "Default"]}
-            />
-          </Section>
-        )}
+                  : undefined
+              }
+            >
+              <SimpleTable
+                rows={(variants as Variant[]).map((v) => ({
+                  id: v.id,
+                  col1: v.code,
+                  col2: v.is_default ? "DEFAULT" : "",
+                  onEdit: !isReadOnly
+                    ? () => {
+                        setEditingVariant(v);
+                        variantForm.reset({ code: v.code, description: v.description || "", is_default: Boolean(v.is_default) });
+                        setVariantDialogOpen(true);
+                      }
+                    : undefined,
+                  onDelete: !isReadOnly ? () => { if(confirm("Delete this variant?")) deleteVariant.mutate(v.id); } : undefined,
+                  onExtra: !isReadOnly ? () => setDefaultVariant.mutate(v.id) : undefined,
+                  extraLabel: "Set Default",
+                }))}
+                headers={["Code", "Default"]}
+              />
+            </Section>
+          </Tab>
 
-        {tab === "bom" && (
-          <Section
-            title="BOM"
-            onAdd={
-              !isReadOnly
-                ? () => {
-                    setEditingBomRow(null);
-                    setBomDialogOpen(true);
-                  }
-                : undefined
-            }
-          >
-            <SimpleTable
-              rows={(bom as BomRow[]).map((b) => ({
-                id: b.id,
-                col1: b.component_name || b.component_unit_type,
-                col2: `${b.component_part_number || "-"} | loc ${b.rm_location || "-"} | qty ${b.qty_per_assy} ${b.required ? "(required)" : "(optional)"}`,
-                onEdit: !isReadOnly ? () => {
-                  setEditingBomRow(b);
-                  setBomDialogOpen(true);
-                } : undefined,
-                onDelete: !isReadOnly ? () => deleteBom.mutate(b.id) : undefined,
-              }))}
-              headers={["Component", "RM PN / Location / Qty"]}
-            />
-          </Section>
-        )}
-
-        {tab === "routing" && (
-          <Section
-            title="Routing"
-            onAdd={
-              !isReadOnly
-                ? () => {
-                    setEditingRouting(null);
-                    routingForm.reset({
-                      step_code: "",
-                      sequence: routing.length + 1,
-                      mandatory: true,
-                      description: "",
-                      component_type: "",
-                    });
-                    setRoutingDialogOpen(true);
-                  }
-                : undefined
-            }
-          >
-            <SimpleTable
-              rows={(routing as RoutingStep[]).map((r) => ({
-                id: r.id,
-                col1: `${r.sequence} - ${r.step_code}`,
-                col2: r.mandatory ? "Mandatory" : "Optional",
-                onEdit: !isReadOnly
+          <Tab text="BOM" icon="shipping-status" selected={tab === "bom"} data-key="bom">
+            <Section
+              title="BOM"
+              onAdd={
+                !isReadOnly
                   ? () => {
-                      setEditingRouting(r);
+                      setEditingBomRow(null);
+                      setBomDialogOpen(true);
+                    }
+                  : undefined
+              }
+            >
+              <SimpleTable
+                rows={(bom as BomRow[]).map((b) => ({
+                  id: b.id,
+                  col1: b.component_name || b.component_unit_type,
+                  col2: `${b.component_part_number || "-"} | loc ${b.rm_location || "-"} | qty ${b.qty_per_assy} ${b.required ? "(required)" : "(optional)"}`,
+                  onEdit: !isReadOnly ? () => {
+                    setEditingBomRow(b);
+                    setBomDialogOpen(true);
+                  } : undefined,
+                  onDelete: !isReadOnly ? () => { if(confirm("Delete this row?")) deleteBom.mutate(b.id); } : undefined,
+                }))}
+                headers={["Component", "RM PN / Location / Qty"]}
+              />
+            </Section>
+          </Tab>
+
+          <Tab text="Routing" icon="list" selected={tab === "routing"} data-key="routing">
+            <Section
+              title="Routing"
+              onAdd={
+                !isReadOnly
+                  ? () => {
+                      setEditingRouting(null);
                       routingForm.reset({
-                        step_code: r.step_code,
-                        sequence: r.sequence,
-                        mandatory: r.mandatory,
-                        description: r.description || "",
-                        component_type: r.component_type || "",
+                        step_code: "",
+                        sequence: routing.length + 1,
+                        mandatory: true,
+                        description: "",
+                        component_type: "",
                       });
                       setRoutingDialogOpen(true);
                     }
-                  : undefined,
-                onDelete: !isReadOnly ? () => deleteRouting.mutate(r.id) : undefined,
-              }))}
-              headers={["Step", "Mandatory"]}
-            />
-          </Section>
-        )}
+                  : undefined
+              }
+            >
+              <SimpleTable
+                rows={(routing as RoutingStep[]).map((r) => ({
+                  id: r.id,
+                  col1: `${r.sequence} - ${r.step_code}`,
+                  col2: r.mandatory ? "Mandatory" : "Optional",
+                  onEdit: !isReadOnly
+                    ? () => {
+                        setEditingRouting(r);
+                        routingForm.reset({
+                          step_code: r.step_code,
+                          sequence: r.sequence,
+                          mandatory: r.mandatory,
+                          description: r.description || "",
+                          component_type: r.component_type || "",
+                        });
+                        setRoutingDialogOpen(true);
+                      }
+                    : undefined,
+                  onDelete: !isReadOnly ? () => { if(confirm("Delete this routing step?")) deleteRouting.mutate(r.id); } : undefined,
+                }))}
+                headers={["Step", "Mandatory"]}
+              />
+            </Section>
+          </Tab>
 
-        {tab === "bindings" && (
-          <Section
-            title="Label Bindings"
-            onAdd={
-              !isReadOnly
-                ? () => {
-                    setEditingBinding(null);
-                    bindingForm.reset({
-                      unit_type: "FOF_TRAY_20",
-                      process_point: "POST_FVMI_LABEL",
-                      label_template_id: templates[0]?.id || "",
-                    });
-                    setBindingDialogOpen(true);
-                  }
-                : undefined
-            }
-          >
-            <SimpleTable
-              rows={(bindings as LabelBinding[]).map((b) => ({
-                id: b.id,
-                col1: `${b.unit_type} @ ${b.process_point}`,
-                col2: templates.find((t: LabelTemplate) => t.id === b.label_template_id)?.name || b.label_template_id,
-                onEdit: !isReadOnly
+          <Tab text="Bindings" icon="chain-link" selected={tab === "bindings"} data-key="bindings">
+            <Section
+              title="Label Bindings"
+              onAdd={
+                !isReadOnly
                   ? () => {
-                      setEditingBinding(b);
+                      setEditingBinding(null);
                       bindingForm.reset({
-                        unit_type: b.unit_type,
-                        process_point: b.process_point,
-                        label_template_id: b.label_template_id,
+                        unit_type: "FOF_TRAY_20",
+                        process_point: "POST_FVMI_LABEL",
+                        label_template_id: templates[0]?.id || "",
                       });
                       setBindingDialogOpen(true);
                     }
-                  : undefined,
-                onDelete: !isReadOnly ? () => deleteBinding.mutate(b.id) : undefined,
-              }))}
-              headers={["Binding Key", "Template"]}
-            />
-          </Section>
-        )}
+                  : undefined
+              }
+            >
+              <SimpleTable
+                rows={(bindings as LabelBinding[]).map((b) => ({
+                  id: b.id,
+                  col1: `${b.unit_type} @ ${b.process_point}`,
+                  col2: templates.find((t: LabelTemplate) => t.id === b.label_template_id)?.name || b.label_template_id,
+                  onEdit: !isReadOnly
+                    ? () => {
+                        setEditingBinding(b);
+                        bindingForm.reset({
+                          unit_type: b.unit_type,
+                          process_point: b.process_point,
+                          label_template_id: b.label_template_id,
+                        });
+                        setBindingDialogOpen(true);
+                      }
+                    : undefined,
+                  onDelete: !isReadOnly ? () => { if(confirm("Delete this binding?")) deleteBinding.mutate(b.id); } : undefined,
+                }))}
+                headers={["Binding Key", "Template"]}
+              />
+            </Section>
+          </Tab>
+        </TabContainer>
       </div>
+
       <BomRowDialog
         open={bomDialogOpen}
         row={editingBomRow}
@@ -510,135 +537,181 @@ export default function RevisionDetailsPage() {
           else createBom.mutate(values);
         }}
       />
-      <FormDialog
+      
+      <Dialog
+        headerText={editingVariant ? "Edit Variant" : "Create Variant"}
         open={variantDialogOpen}
         onClose={() => {
           setVariantDialogOpen(false);
           setEditingVariant(null);
         }}
-        title={editingVariant ? "Edit Variant" : "Create Variant"}
-        onSubmit={variantForm.handleSubmit((values) => {
-          if (editingVariant) editVariant.mutate(values);
-          else createVariant.mutate(values);
-        })}
-        submitting={createVariant.isPending || editVariant.isPending}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Variant Code</Label>
-            <Input {...variantForm.register("code")} placeholder="WITH_SHROUD" />
-          </div>
-          <div className="space-y-2">
-            <Label>Description</Label>
-            <Textarea {...variantForm.register("description")} />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={variantForm.watch("is_default")}
-              onCheckedChange={(v) => variantForm.setValue("is_default", Boolean(v))}
+        footer={
+            <Bar
+                endContent={
+                    <>
+                        <Button onClick={() => setVariantDialogOpen(false)}>Cancel</Button>
+                        <Button
+                            design="Emphasized"
+                            onClick={() => variantForm.handleSubmit((values) => {
+                                if (editingVariant) editVariant.mutate(values);
+                                else createVariant.mutate(values);
+                            })()}
+                            disabled={createVariant.isPending || editVariant.isPending}
+                        >
+                            {createVariant.isPending || editVariant.isPending ? "Submitting..." : (editingVariant ? "Save Changes" : "Create Variant")}
+                        </Button>
+                    </>
+                }
             />
-            Set as default variant
-          </label>
-        </div>
-      </FormDialog>
-      <FormDialog
+        }
+      >
+        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "320px" }}>
+          <FlexBox direction={FlexBoxDirection.Column}>
+            <Label required>Variant Code</Label>
+            <Input {...variantForm.register("code")} placeholder="WITH_SHROUD" />
+          </FlexBox>
+          <FlexBox direction={FlexBoxDirection.Column}>
+            <Label>Description</Label>
+            <Input {...variantForm.register("description")} />
+          </FlexBox>
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+            <CheckBox 
+              checked={variantForm.watch("is_default")}
+              onChange={(e) => variantForm.setValue("is_default", e.target.checked)}
+            />
+            <Label>Set as default variant</Label>
+          </FlexBox>
+        </FlexBox>
+      </Dialog>
+
+      <Dialog
+        headerText={editingRouting ? "Edit Routing Step" : "Create Routing Step"}
         open={routingDialogOpen}
         onClose={() => {
           setRoutingDialogOpen(false);
           setEditingRouting(null);
         }}
-        title={editingRouting ? "Edit Routing Step" : "Create Routing Step"}
-        onSubmit={routingForm.handleSubmit((values) => {
-          if (editingRouting) editRouting.mutate(values);
-          else createRouting.mutate(values);
-        })}
-        submitting={createRouting.isPending || editRouting.isPending}
+        footer={
+            <Bar
+                endContent={
+                    <>
+                        <Button onClick={() => setRoutingDialogOpen(false)}>Cancel</Button>
+                        <Button
+                            design="Emphasized"
+                            onClick={() => routingForm.handleSubmit((values) => {
+                                if (editingRouting) editRouting.mutate(values);
+                                else createRouting.mutate(values);
+                            })()}
+                            disabled={createRouting.isPending || editRouting.isPending}
+                        >
+                            {createRouting.isPending || editRouting.isPending ? "Submitting..." : (editingRouting ? "Save Changes" : "Create Step")}
+                        </Button>
+                    </>
+                }
+            />
+        }
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Step Code</Label>
-            <Input {...routingForm.register("step_code")} placeholder="PRESS_FIT_PIN430_DONE" />
-          </div>
-          <div className="space-y-2">
-            <Label>Sequence</Label>
-            <Input type="number" {...routingForm.register("sequence")} />
-          </div>
-          <div className="space-y-2 md:col-span-2">
+        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "400px" }}>
+          <FlexBox style={{ gap: "1rem" }}>
+            <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
+                <Label required>Step Code</Label>
+                <Input {...routingForm.register("step_code")} placeholder="PRESS_FIT" />
+            </FlexBox>
+            <FlexBox direction={FlexBoxDirection.Column} style={{ width: "100px" }}>
+                <Label required>Sequence</Label>
+                <Input type="Number" {...routingForm.register("sequence")} />
+            </FlexBox>
+          </FlexBox>
+          
+          <FlexBox direction={FlexBoxDirection.Column}>
             <Label>Component Type</Label>
             <Input {...routingForm.register("component_type")} placeholder="PIN430_JIG" />
-          </div>
-          <div className="space-y-2 md:col-span-2">
+          </FlexBox>
+          
+          <FlexBox direction={FlexBoxDirection.Column}>
             <Label>Description</Label>
-            <Textarea {...routingForm.register("description")} />
-          </div>
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
+            <Input {...routingForm.register("description")} />
+          </FlexBox>
+          
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+            <CheckBox 
                 checked={routingForm.watch("mandatory")}
-                onCheckedChange={(v) => routingForm.setValue("mandatory", Boolean(v))}
-              />
-              Mandatory step
-            </label>
-          </div>
-        </div>
-      </FormDialog>
-      <FormDialog
+                onChange={(e) => routingForm.setValue("mandatory", e.target.checked)}
+            />
+            <Label>Mandatory step</Label>
+          </FlexBox>
+        </FlexBox>
+      </Dialog>
+
+      <Dialog
+        headerText={editingBinding ? "Edit Label Binding" : "Create Label Binding"}
         open={bindingDialogOpen}
         onClose={() => {
           setBindingDialogOpen(false);
           setEditingBinding(null);
         }}
-        title={editingBinding ? "Edit Label Binding" : "Create Label Binding"}
-        onSubmit={bindingForm.handleSubmit((values) => {
-          if (editingBinding) editBinding.mutate(values);
-          else createBinding.mutate(values);
-        })}
-        submitting={createBinding.isPending || editBinding.isPending}
+        footer={
+            <Bar
+                endContent={
+                    <>
+                        <Button onClick={() => setBindingDialogOpen(false)}>Cancel</Button>
+                        <Button
+                            design="Emphasized"
+                            onClick={() => bindingForm.handleSubmit((values) => {
+                                if (editingBinding) editBinding.mutate(values);
+                                else createBinding.mutate(values);
+                            })()}
+                            disabled={createBinding.isPending || editBinding.isPending}
+                        >
+                            {createBinding.isPending || editBinding.isPending ? "Submitting..." : (editingBinding ? "Save Changes" : "Create Binding")}
+                        </Button>
+                    </>
+                }
+            />
+        }
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Unit Type</Label>
-            <Input {...bindingForm.register("unit_type")} placeholder="FOF_TRAY_20" />
-          </div>
-          <div className="space-y-2">
-            <Label>Process Point</Label>
-            <Input {...bindingForm.register("process_point")} placeholder="POST_FVMI_LABEL" />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Label Template</Label>
+        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "400px" }}>
+          <FlexBox style={{ gap: "1rem" }}>
+            <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
+                <Label required>Unit Type</Label>
+                <Input {...bindingForm.register("unit_type")} placeholder="FOF_TRAY_20" />
+            </FlexBox>
+            <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
+                <Label required>Process Point</Label>
+                <Input {...bindingForm.register("process_point")} placeholder="POST_FVMI" />
+            </FlexBox>
+          </FlexBox>
+          
+          <FlexBox direction={FlexBoxDirection.Column}>
+            <Label required>Label Template</Label>
             <Select
               value={bindingForm.watch("label_template_id")}
-              onValueChange={(v) => bindingForm.setValue("label_template_id", v)}
+              onChange={(e) => bindingForm.setValue("label_template_id", (e.target.selectedOption as any).value)}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select template" />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((t: LabelTemplate) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+              {templates.map((t: LabelTemplate) => (
+                <Option key={t.id} value={t.id} selected={bindingForm.watch("label_template_id") === t.id}>
+                  {t.name}
+                </Option>
+              ))}
             </Select>
-          </div>
-        </div>
-      </FormDialog>
-    </div>
+          </FlexBox>
+        </FlexBox>
+      </Dialog>
+    </Page>
   );
 }
 
 function Section({ title, onAdd, children }: { title: string; onAdd?: () => void; children: React.ReactNode }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold">{title}</h2>
+    <div style={{ padding: "1rem", borderBottom: "1px solid var(--sapGroup_ContentBorderColor)" }}>
+      <FlexBox alignItems={FlexBoxAlignItems.Center} justifyContent="SpaceBetween" style={{ marginBottom: "1rem" }}>
+        <Title level="H3">{title}</Title>
         {onAdd && (
-          <button onClick={onAdd} className="text-sm inline-flex items-center gap-1 px-3 py-1 rounded border hover:bg-gray-50">
-            <Plus size={14} /> Add
-          </button>
+          <Button onClick={onAdd} icon="add" design="Transparent">
+            Add
+          </Button>
         )}
-      </div>
+      </FlexBox>
       {children}
     </div>
   );
@@ -659,42 +732,39 @@ function SimpleTable({
     extraLabel?: string;
   }>;
 }) {
-  if (!rows.length) return <div className="text-sm text-gray-500">No data</div>;
+  if (!rows.length) return <Label style={{ fontStyle: "italic", padding: "1rem", display: "block" }}>No data available</Label>;
 
   return (
-    <table className="w-full text-sm">
-      <thead className="bg-gray-50 text-gray-600">
-        <tr>
-          <th className="px-3 py-2 text-left">{headers[0]}</th>
-          <th className="px-3 py-2 text-left">{headers[1]}</th>
-          <th className="px-3 py-2 text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table
+        headerRow={
+            <TableHeaderRow>
+                <TableHeaderCell><Label style={{ fontWeight: "bold" }}>{headers[0]}</Label></TableHeaderCell>
+                <TableHeaderCell><Label style={{ fontWeight: "bold" }}>{headers[1]}</Label></TableHeaderCell>
+                <TableHeaderCell style={{ textAlign: "right" }}><Label style={{ fontWeight: "bold" }}>Actions</Label></TableHeaderCell>
+            </TableHeaderRow>
+        }
+    >
         {rows.map((r) => (
-          <tr key={r.id} className="border-t">
-            <td className="px-3 py-2">{r.col1}</td>
-            <td className="px-3 py-2">{r.col2}</td>
-            <td className="px-3 py-2 text-right space-x-2">
-              {r.onExtra && (
-                <button onClick={r.onExtra} className="text-xs px-2 py-1 rounded border hover:bg-gray-50">
-                  {r.extraLabel || "Action"}
-                </button>
-              )}
-              {r.onEdit && (
-                <button onClick={r.onEdit} className="text-xs px-2 py-1 rounded border hover:bg-gray-50">
-                  Edit
-                </button>
-              )}
-              {r.onDelete && (
-                <button onClick={r.onDelete} className="text-red-600 hover:text-red-800 inline-flex items-center">
-                  <Trash2 size={14} />
-                </button>
-              )}
-            </td>
-          </tr>
+            <TableRow key={r.id}>
+                <TableCell><Label style={{ fontWeight: "bold" }}>{r.col1}</Label></TableCell>
+                <TableCell><Label>{r.col2}</Label></TableCell>
+                <TableCell style={{ textAlign: "right" }}>
+                    <FlexBox justifyContent="End" style={{ gap: "0.25rem" }}>
+                        {r.onExtra && (
+                            <Button onClick={r.onExtra} design="Transparent" style={{ fontSize: "0.75rem" }}>
+                                {r.extraLabel || "Action"}
+                            </Button>
+                        )}
+                        {r.onEdit && (
+                            <Button onClick={r.onEdit} icon="edit" design="Transparent" />
+                        )}
+                        {r.onDelete && (
+                            <Button onClick={r.onDelete} icon="delete" design="Transparent" style={{ color: "var(--sapNegativeColor)" }} />
+                        )}
+                    </FlexBox>
+                </TableCell>
+            </TableRow>
         ))}
-      </tbody>
-    </table>
+    </Table>
   );
 }

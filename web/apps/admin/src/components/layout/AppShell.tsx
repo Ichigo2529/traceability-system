@@ -1,63 +1,123 @@
-import { Factory, MonitorCog, ShieldCheck, Users, Workflow, Boxes, Cpu, GitBranch, ScanLine, History, LogOut, Wrench, FileCheck2, ScrollText, PackageSearch, TestTube2, Waves, Link2, ListChecks, ListTodo, Building2, PackagePlus, Activity, ClipboardList, ClipboardPen, ClipboardCheck, Gauge, ScanBarcode } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
-import { useLocation } from "react-router-dom";
-import { cn } from "../../lib/utils";
+import {
+  Factory,
+} from "lucide-react";
+import { useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  ShellBar,
+  ShellBarBranding,
+  ShellBarItem,
+  ShellBarSpacer,
+  SideNavigation,
+  SideNavigationItem,
+  SideNavigationSubItem,
+  Avatar,
+  Button,
+  Input,
+  
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/home.js";
+import "@ui5/webcomponents-icons/dist/group.js";
+import "@ui5/webcomponents-icons/dist/employee.js";
+import "@ui5/webcomponents-icons/dist/role.js";
+import "@ui5/webcomponents-icons/dist/product.js";
+import "@ui5/webcomponents-icons/dist/dimension.js";
+import "@ui5/webcomponents-icons/dist/number-sign.js";
+import "@ui5/webcomponents-icons/dist/org-chart.js";
+import "@ui5/webcomponents-icons/dist/customer.js";
+import "@ui5/webcomponents-icons/dist/supplier.js";
+import "@ui5/webcomponents-icons/dist/attachment-html.js";
+import "@ui5/webcomponents-icons/dist/bar-code.js";
+import "@ui5/webcomponents-icons/dist/process.js";
+import "@ui5/webcomponents-icons/dist/factory.js";
+import "@ui5/webcomponents-icons/dist/list.js";
+import "@ui5/webcomponents-icons/dist/measure.js";
+import "@ui5/webcomponents-icons/dist/survey.js";
+import "@ui5/webcomponents-icons/dist/request.js";
+import "@ui5/webcomponents-icons/dist/shipping-status.js";
+import "@ui5/webcomponents-icons/dist/settings.js";
+import "@ui5/webcomponents-icons/dist/machine.js";
+import "@ui5/webcomponents-icons/dist/laptop.js";
+import "@ui5/webcomponents-icons/dist/customer-and-supplier.js";
+import "@ui5/webcomponents-icons/dist/approvals.js";
+import "@ui5/webcomponents-icons/dist/heart.js";
+import "@ui5/webcomponents-icons/dist/sys-monitor.js";
+import "@ui5/webcomponents-icons/dist/history.js";
+import "@ui5/webcomponents-icons/dist/log.js";
+import "@ui5/webcomponents-icons/dist/bbyd-dashboard.js";
+import "@ui5/webcomponents-icons/dist/bbyd-dashboard.js";
+// Valid webcomponents-icons
+import "@ui5/webcomponents-icons/dist/key-user-settings.js"; // Governance/Shield replacement
+import "@ui5/webcomponents-icons/dist/wrench.js";
+import "@ui5/webcomponents-icons/dist/official-service.js"; // Operations replacement
+import "@ui5/webcomponents-icons/dist/accept.js";
+import "@ui5/webcomponents-icons/dist/action.js";
+import "@ui5/webcomponents-icons/dist/qr-code.js";
+import "@ui5/webcomponents-icons/dist/grid.js"; // Master Data
+import "@ui5/webcomponents-icons/dist/table-view.js"; // Alternative for grid/database
 import { useAuth } from "../../context/AuthContext";
-import { Button } from "../ui/button";
+import { useTheme } from "../../context/ThemeContext";
 
 type NavItem = {
   to: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon?: string;
   group?: "overview" | "master-data" | "engineering" | "operations" | "governance";
   roles?: string[];
 };
 
 const adminNav: NavItem[] = [
-  { to: "/admin", label: "Dashboard", icon: MonitorCog, group: "overview" },
-  { to: "/admin/users", label: "Users", icon: Users, group: "master-data" },
-  { to: "/admin/roles", label: "Roles & Permissions", icon: ShieldCheck, group: "master-data" },
-  { to: "/admin/models", label: "Models", icon: Boxes, group: "master-data" },
-  { to: "/admin/component-types", label: "Component Types", icon: ListChecks, group: "master-data" },
-  { to: "/admin/part-numbers", label: "Part Numbers", icon: PackageSearch, group: "master-data" },
-  { to: "/admin/departments", label: "Departments", icon: Building2, group: "master-data" },
-  { to: "/admin/suppliers", label: "Vendors", icon: Building2, group: "master-data" },
-  { to: "/admin/supplier-part-profiles", label: "Vendor Part Profiles", icon: PackageSearch, group: "master-data" },
-  { to: "/admin/barcode-templates", label: "Barcode Templates", icon: ScanBarcode, group: "master-data" },
-  { to: "/admin/processes", label: "Processes", icon: Workflow, group: "engineering" },
-  { to: "/admin/stations", label: "Stations", icon: Factory, group: "engineering" },
-  { to: "/admin/bom", label: "BOM", icon: ListChecks, group: "engineering" },
-  { to: "/admin/templates", label: "Label Templates", icon: Boxes, group: "engineering" },
-  { to: "/admin/readiness", label: "Readiness Validator", icon: FileCheck2, group: "engineering" },
-  { to: "/admin/material-requests", label: "Material Requests", icon: ClipboardList, group: "operations" },
-  { to: "/admin/inbound-packs", label: "Inbound Vendor Packs", icon: PackagePlus, group: "operations" },
-  { to: "/admin/machines", label: "Machines", icon: Wrench, group: "operations" },
-  { to: "/admin/devices", label: "Devices", icon: Cpu, group: "operations" },
-  { to: "/admin/approvals", label: "Workflow Approvals", icon: GitBranch, group: "governance" },
-  { to: "/admin/heartbeat", label: "Device Heartbeat", icon: Activity, group: "governance" },
-  { to: "/admin/system-health", label: "System Health", icon: Gauge, group: "governance" },
-  { to: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText, group: "governance" },
+  { to: "/admin", label: "Dashboard", icon: "bbyd-dashboard", group: "overview" },
+  { to: "/admin/users", label: "Users", icon: "employee", group: "master-data" },
+  { to: "/admin/roles", label: "Roles & Permissions", icon: "role", group: "master-data" },
+  { to: "/admin/models", label: "Models", icon: "product", group: "master-data" },
+  { to: "/admin/component-types", label: "Component Types", icon: "dimension", group: "master-data" },
+  { to: "/admin/part-numbers", label: "Part Numbers", icon: "number-sign", group: "master-data" },
+  { to: "/admin/departments", label: "Departments", icon: "org-chart", group: "master-data" },
+  { to: "/admin/suppliers", label: "Vendors", icon: "supplier", group: "master-data" },
+  { to: "/admin/supplier-part-profiles", label: "Vendor Part Profiles", icon: "attachment-html", group: "master-data" },
+  { to: "/admin/barcode-templates", label: "Barcode Templates", icon: "bar-code", group: "master-data" },
+  { to: "/admin/processes", label: "Processes", icon: "process", group: "engineering" },
+  { to: "/admin/stations", label: "Stations", icon: "factory", group: "engineering" },
+  { to: "/admin/bom", label: "BOM", icon: "list", group: "engineering" },
+  { to: "/admin/templates", label: "Label Templates", icon: "measure", group: "engineering" },
+  { to: "/admin/readiness", label: "Readiness Validator", icon: "survey", group: "engineering" },
+  { to: "/admin/material-requests", label: "Material Requests", icon: "request", group: "operations" },
+  { to: "/admin/inbound-packs", label: "Inbound Vendor Packs", icon: "shipping-status", group: "operations" },
+  { to: "/admin/machines", label: "Machines", icon: "machine", group: "operations" },
+  { to: "/admin/devices", label: "Devices", icon: "laptop", group: "operations" },
+  { to: "/admin/approvals", label: "Workflow Approvals", icon: "approvals", group: "governance" },
+  { to: "/admin/heartbeat", label: "Device Heartbeat", icon: "heart", group: "governance" },
+  { to: "/admin/system-health", label: "System Health", icon: "sys-monitor", group: "governance" },
+  { to: "/admin/audit-logs", label: "Audit Logs", icon: "log", group: "governance" },
 ];
 
 const stationNav: NavItem[] = [
-  { to: "/station/register", label: "Device Register", icon: Cpu },
-  { to: "/station/login", label: "Operator Login", icon: Users },
-  { to: "/station/jigging", label: "Jigging / Wash", icon: Waves },
-  { to: "/station/bonding", label: "Bonding", icon: Link2 },
-  { to: "/station/magnetize-flux", label: "Magnetize / Flux", icon: TestTube2 },
-  { to: "/station/scan", label: "Assembly", icon: ScanLine },
-  { to: "/station/label", label: "Label", icon: ListChecks },
-  { to: "/station/packing", label: "Packing", icon: Boxes },
-  { to: "/station/fg", label: "FG / Shipping", icon: PackageSearch },
-  { to: "/station/queue", label: "Queue Monitor", icon: ListTodo },
-  { to: "/station/material/request", label: "Prod Request", icon: ClipboardPen, roles: ["PRODUCTION", "OPERATOR"] },
-  { to: "/station/material/store", label: "Store Approvals", icon: ClipboardCheck, roles: ["STORE", "SUPERVISOR"] },
-  { to: "/station/history", label: "Trace History", icon: History },
+  { to: "/station/register", label: "Device Register", icon: "laptop" },
+  { to: "/station/login", label: "Operator Login", icon: "employee" },
+  { to: "/station/jigging", label: "Jigging / Wash", icon: "wrench" },
+  { to: "/station/bonding", label: "Bonding", icon: "attachment" },
+  { to: "/station/magnetize-flux", label: "Magnetize / Flux", icon: "action" },
+  { to: "/station/scan", label: "Assembly", icon: "factory" },
+  { to: "/station/label", label: "Label", icon: "qr-code" },
+  { to: "/station/packing", label: "Packing", icon: "product" },
+  { to: "/station/fg", label: "FG / Shipping", icon: "shipping-status" },
+  { to: "/station/queue", icon: "sys-monitor", label: "Queue Monitor" },
+  { to: "/station/material/request", icon: "request", label: "Prod Request", roles: ["PRODUCTION", "OPERATOR"] },
+  { to: "/station/material/store", icon: "approvals", label: "Store Approvals", roles: ["STORE", "SUPERVISOR"] },
+  { to: "/station/history", icon: "history", label: "Trace History" },
 ];
 
 export function AppShell({ mode }: { mode: "admin" | "station" }) {
   const { logout, user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchValue, setSearchValue] = useState("");
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  // Filter navigation items based on role
   const nav =
     mode === "admin"
       ? adminNav
@@ -66,102 +126,201 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
           if (!neededRoles?.length) return true;
           return neededRoles.some((role) => user?.roles?.includes(role));
         });
-  const isKioskLayout = mode === "station" && location.pathname === "/station/register";
 
-  if (isKioskLayout) {
-    return (
-      <main className="factory-shell min-h-screen p-6 lg:p-8">
-        <Outlet />
-      </main>
+  const isKioskLayout = mode === "station" && location.pathname === "/station/register";
+  const navSections = [
+    { key: "overview", title: "Overview", icon: "home" },
+    { key: "master-data", title: "Master Data", icon: "grid" },
+    { key: "engineering", title: "Engineering", icon: "wrench" },
+    { key: "operations", title: "Operations", icon: "official-service" },
+    { key: "governance", title: "Governance", icon: "key-user-settings" },
+  ] as const;
+
+  const handleLogoClick = () => {
+    navigate(mode === "admin" ? "/admin" : "/station/login");
+  };
+
+  const handleMenuItemClick = (e: any) => {
+    const item = e.detail.item;
+    const text = item.text;
+    
+    const found = nav.find(n => n.label === text);
+    if (found) {
+      navigate(found.to);
+    }
+  };
+
+  // Search functionality
+  const handleSearch = (query: string) => {
+    if (!query.trim()) return;
+    
+    const lowerQuery = query.toLowerCase();
+    const searchResult = nav.find(
+      (item) =>
+        item.label.toLowerCase().includes(lowerQuery) ||
+        item.to.toLowerCase().includes(lowerQuery)
     );
+    
+    if (searchResult) {
+      navigate(searchResult.to);
+      setSearchValue("");
+    }
+  };
+  
+  if (isKioskLayout) {
+    return <Outlet />;
   }
 
   return (
-    <div className="factory-shell grid min-h-screen grid-cols-1 md:grid-cols-[280px_1fr]">
-      <aside className="sticky top-0 flex h-screen flex-col border-r border-slate-300/90 bg-white/95 p-4 backdrop-blur-sm">
-        <div className="mb-6 flex items-center gap-3 rounded-md border border-primary/40 bg-gradient-to-r from-primary to-[#2c87bf] px-3 py-3 text-white shadow-enterprise">
-          <Factory className="h-5 w-5" />
-          <div>
-            <p className="text-xs uppercase tracking-wide opacity-80">Traceability</p>
-            <p className="font-semibold">{mode === "admin" ? "Admin Console" : "Shopfloor Station"}</p>
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+      <ShellBar
+        logo={<img src="/logo.png" alt="MMI Logo" style={{ maxHeight: "1.5rem", marginRight: "0.5rem" }} />}
+        primaryTitle={`Traceability System | ${mode === "admin" ? "Admin Console" : "Station Interface"}`}
+        onLogoClick={handleLogoClick}
+        searchField={
+          <Input
+            placeholder="Search pages..."
+            value={searchValue}
+            onInput={(e: any) => setSearchValue(e.target.value)}
+            onKeyDown={(e: any) => {
+              if (e.key === "Enter") {
+                handleSearch(searchValue);
+              }
+            }}
+            style={{
+              maxWidth: "300px",
+              backgroundColor: "var(--sapShell_Background)",
+              color: "var(--sapShell_TextColor)",
+              borderRadius: "4px",
+              padding: "0.5rem",
+              border: "1px solid var(--sapShell_BorderColor)",
+            }}
+            aria-label="Search navigation pages"
+          />
+        }
+        profile={
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Button
+              icon={theme === "sap_horizon" ? "moon" : "sun"}
+              design="Transparent"
+              onClick={toggleTheme}
+              title={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+              aria-label={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            />
+            <Avatar 
+               id="shellbar-avatar"
+               initials={user?.display_name?.[0] ?? "U"}
+               colorScheme="Accent6"
+               aria-label={`User profile: ${user?.display_name}`}
+            />
+          </div>
+        }
+        onProfileClick={() => setProfileOpen(true)}
+      >
+        <ShellBarSpacer />
+        <ShellBarItem id="shellbar-notifications" icon="bell" text="Notifications" onClick={() => setNotificationsOpen(true)} aria-label="Open notifications" />
+        <ShellBarItem icon="add" text="Quick Create" onClick={() => {/* quick create stub */}} aria-label="Quick create" />
+      </ShellBar>
+      
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", boxSizing: "border-box" }}>
+        <SideNavigation
+          collapsed={false}
+          onSelectionChange={handleMenuItemClick}
+          style={{ height: "100%", minWidth: "250px" }}
+          aria-label="Main navigation menu"
+        >
+          {mode === "admin" ? (
+             navSections.map(section => {
+               const items = nav.filter(n => n.group === section.key);
+               if (items.length === 0) return null;
+               
+               return (
+                 <SideNavigationItem 
+                   key={section.key} 
+                   text={section.title} 
+                   icon={section.icon} 
+                   expanded
+                   aria-label={`${section.title} navigation section`}
+                 >
+                   {items.map(item => (
+                     <SideNavigationSubItem 
+                        key={item.to} 
+                        text={item.label} 
+                        icon={item.icon}
+                        selected={location.pathname === item.to || location.pathname.startsWith(item.to + "/")}
+                        aria-label={`Navigate to ${item.label}`}
+                        aria-current={location.pathname === item.to ? "page" : undefined}
+                     />
+                   ))}
+                 </SideNavigationItem>
+               );
+             })
+          ) : (
+            nav.map(item => (
+               <SideNavigationItem
+                 key={item.to}
+                 text={item.label}
+                 icon={item.icon}
+                 selected={location.pathname === item.to}
+                 aria-label={`Navigate to ${item.label}`}
+                 aria-current={location.pathname === item.to ? "page" : undefined}
+               />
+            ))
+          )}
+          
+          <SideNavigationItem 
+            slot="fixedItems" 
+            text="Sign Out" 
+            icon="log" 
+            onClick={logout}
+            aria-label="Sign out of the system"
+          />
+        </SideNavigation>
+
+        <div 
+          style={{ 
+            flex: 1, 
+            overflow: "hidden", 
+            position: "relative", 
+            boxSizing: "border-box", 
+            height: "100%" 
+          }}
+          role="main"
+          aria-label="Main content area"
+        >
+          <div style={{ 
+            width: "100%", 
+            boxSizing: "border-box", 
+            height: "100%", 
+            display: "flex", 
+            flexDirection: "column" 
+          }}>
+            <Outlet />
           </div>
         </div>
+      </div>
 
-        <div className="app-menu-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-        {mode === "admin" ? (
-          <nav className="space-y-4">
-            {[
-              { key: "overview", title: "Overview" },
-              { key: "master-data", title: "Master Data" },
-              { key: "engineering", title: "Engineering" },
-              { key: "operations", title: "Operations" },
-              { key: "governance", title: "Governance" },
-            ].map((section) => {
-              const sectionItems = nav.filter((item) => item.group === section.key);
-              if (!sectionItems.length) return null;
-              return (
-                <div key={section.key} className="space-y-1.5">
-                  <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{section.title}</p>
-                  {sectionItems.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      className={({ isActive }) =>
-                        cn(
-                          "group flex items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                          isActive
-                            ? "border-primary/25 bg-primary/[0.1] text-primary shadow-enterprise-soft"
-                            : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-                        )
-                      }
-                    >
-                      <item.icon className="h-4 w-4 text-slate-500 transition-colors group-hover:text-slate-700" />
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
-              );
-            })}
-          </nav>
-        ) : (
-          <nav className="space-y-1.5">
-            {nav.map((item) => (
-            <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    "group flex items-center gap-2 rounded-md border px-3 py-2.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                    isActive
-                      ? "border-primary/25 bg-primary/[0.1] text-primary shadow-enterprise-soft"
-                      : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900"
-                  )
-                }
-              >
-                <item.icon className="h-4 w-4 text-slate-500 transition-colors group-hover:text-slate-700" />
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        )}
+      {/* Notifications popover (lightweight) */}
+      {notificationsOpen && (
+        <div style={{ position: "fixed", top: 56, right: 120, width: 320, background: "var(--sapCard_Background)", border: "1px solid var(--sapContent_BorderColor)", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", zIndex: 1000, borderRadius: 6, padding: "0.5rem" }}>
+          <div style={{ padding: "0.5rem 0", borderBottom: "1px solid var(--sapContent_BorderColor)", fontWeight: 600 }}>Notifications</div>
+          <div style={{ maxHeight: 300, overflow: "auto" }}>
+            <div style={{ padding: "0.5rem 0", borderBottom: "1px solid var(--sapContent_BorderColor)" }}>Sample notification 1</div>
+            <div style={{ padding: "0.5rem 0" }}>Sample notification 2</div>
+          </div>
         </div>
+      )}
 
-        <div className="mt-6 rounded-md border border-slate-300 bg-slate-50 p-3 shadow-enterprise-soft">
-          <p className="text-xs text-muted-foreground">Signed in</p>
-          <p className="text-sm font-semibold">{user?.display_name}</p>
-          <p className="text-xs text-muted-foreground">{user?.roles?.join(", ")}</p>
-          <Button className="mt-3 w-full" variant="outline" onClick={logout}>
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
+      {/* Profile popover (lightweight) */}
+      {profileOpen && (
+        <div style={{ position: "fixed", top: 56, right: 24, width: 220, background: "var(--sapCard_Background)", border: "1px solid var(--sapContent_BorderColor)", borderRadius: 6, padding: "1rem", zIndex: 1000 }}>
+          <div style={{ marginBottom: "0.5rem" }}>{user?.display_name}</div>
+          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+            <Button design="Transparent" onClick={() => { setProfileOpen(false); navigate('/admin'); }}>Profile</Button>
+            <Button design="Transparent" onClick={() => { setProfileOpen(false); logout(); }}>Sign out</Button>
+          </div>
         </div>
-      </aside>
-
-      <main className="min-h-screen bg-slate-50/70 p-6 lg:p-8">
-        <div key={location.pathname} className="route-transition route-surface">
-          <Outlet />
-        </div>
-      </main>
+      )}
     </div>
   );
 }

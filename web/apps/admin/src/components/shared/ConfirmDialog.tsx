@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { Button } from "../ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Dialog, Button, Bar } from "@ui5/webcomponents-react";
 
 export function ConfirmDialog({
   open,
@@ -26,22 +25,38 @@ export function ConfirmDialog({
   confirmDisabled?: boolean;
 }) {
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+    <Dialog
+      open={open}
+      {...({ onAfterClose: (e: any) => {
+        e.stopPropagation();
+        onCancel();
+      }} as any)}
+      headerText={title}
+      state={destructive ? "Negative" : "None"}
+      footer={
+        <Bar
+          design="Footer"
+          endContent={
+            <>
+              <Button design="Transparent" onClick={onCancel}>
+                {cancelText}
+              </Button>
+              <Button
+                design={destructive ? "Negative" : "Emphasized"}
+                onClick={onConfirm}
+                disabled={confirmDisabled}
+              >
+                {confirmText}
+              </Button>
+            </>
+          }
+        />
+      }
+    >
+      <div style={{ padding: "1rem" }}>
+        <p style={{ margin: 0, color: "var(--sapTextColor)" }}>{description}</p>
         {children}
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
-            {cancelText}
-          </Button>
-          <Button variant={destructive ? "destructive" : "default"} onClick={onConfirm} disabled={confirmDisabled}>
-            {confirmText}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+      </div>
     </Dialog>
   );
 }

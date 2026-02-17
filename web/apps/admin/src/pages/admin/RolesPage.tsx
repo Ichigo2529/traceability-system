@@ -2,18 +2,25 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
 import { Role } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Button } from "../../components/ui/button";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Input,
+  CheckBox,
+  Label,
+  Form,
+  FormItem,
+  Title
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/role.js";
 
 const roleSchema = z.object({
   name: z.string().min(2),
@@ -36,6 +43,7 @@ export function RolesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
       setOpen(false);
+      form.reset({ name: "", permissions: [] });
     },
   });
 
@@ -52,13 +60,13 @@ export function RolesPage() {
     () => [
       { header: "Role", accessorKey: "name" },
       { header: "Description", accessorKey: "description", cell: ({ row }) => row.original.description || "-" },
-      { header: "Permissions", cell: ({ row }) => <span className="text-xs">{(row.original.permissions || []).length}</span> },
+      { header: "Permissions", cell: ({ row }) => <span style={{ fontWeight: "bold" }}>{(row.original.permissions || []).length}</span> },
       {
         header: "Actions",
         cell: ({ row }) => (
           <Button
-            variant="outline"
-            size="sm"
+            icon="edit"
+            design="Transparent"
             onClick={() => {
               setEditing(row.original);
               form.reset({
@@ -68,9 +76,8 @@ export function RolesPage() {
               });
               setOpen(true);
             }}
-          >
-            Edit
-          </Button>
+            tooltip="Edit Role"
+          />
         ),
       },
     ],
@@ -84,73 +91,84 @@ export function RolesPage() {
   }, {});
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Roles & Permissions"
-        description="Role CRUD and permission matrix."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({ name: "", permissions: [] });
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Role
-          </Button>
-        }
-      />
-      <DataTable data={roles} columns={columns} filterPlaceholder="Search roles..." />
+    <PageLayout
+      title="Roles & Permissions"
+      subtitle="Role CRUD and permission matrix"
+      icon="role"
+    >
+      <Section variant="card">
+        <DataTable 
+            data={roles} 
+            columns={columns} 
+            filterPlaceholder="Search roles..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    setEditing(null);
+                    form.reset({ name: "", permissions: [] });
+                    setOpen(true);
+                  }}
+                >
+                  Add Role
+                </Button>
+            }
+        />
 
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Role" : "Create Role"}
-        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Name</Label>
-            <Input {...form.register("name")} disabled={Boolean(editing?.name === "ADMIN")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Description</Label>
-            <Input {...form.register("description")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Permission Matrix</Label>
-            <div className="space-y-3 rounded-lg border p-3">
-              {Object.entries(grouped).map(([module, modulePermissions]) => (
-                <div key={module}>
-                  <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">{module}</p>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    {modulePermissions.map((permission) => {
-                      const checked = form.watch("permissions").includes(permission.code);
-                      return (
-                        <label key={permission.id} className="flex items-center gap-2 text-sm">
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(v) => {
-                              const current = form.getValues("permissions");
-                              form.setValue(
-                                "permissions",
-                                v ? [...current, permission.code] : current.filter((p) => p !== permission.code)
-                              );
+        <FormDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          title={editing ? "Edit Role" : "Create Role"}
+          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+          submitting={createMutation.isPending || updateMutation.isPending}
+        >
+          <Form layout="S1 M1 L1 XL1">
+            <FormItem labelContent={<Label>Name</Label>}>
+              <Input {...form.register("name")} disabled={Boolean(editing?.name === "ADMIN")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Description</Label>}>
+              <Input {...form.register("description")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Permission Matrix</Label>}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%" }}>
+                {Object.entries(grouped).map(([module, modulePermissions]) => (
+                  <div key={module} style={{ border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", padding: "1rem" }}>
+                    <Title level="H5" style={{ marginBottom: "0.5rem", textTransform: "capitalize" }}>{module}</Title>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.5rem" }}>
+                      {modulePermissions.map((permission) => (
+                          <Controller
+                            key={permission.id}
+                            control={form.control}
+                            name="permissions"
+                            render={({ field }) => {
+                                const checked = field.value.includes(permission.code);
+                                return (
+                                  <CheckBox
+                                    text={permission.name}
+                                    checked={checked}
+                                    onChange={(e) => {
+                                        const isChecked = e.target.checked;
+                                        const current = field.value;
+                                        field.onChange(
+                                            isChecked
+                                            ? [...current, permission.code]
+                                            : current.filter((p) => p !== permission.code)
+                                        );
+                                    }}
+                                  />
+                                );
                             }}
                           />
-                          {permission.name}
-                        </label>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </FormDialog>
-    </div>
+                ))}
+              </div>
+            </FormItem>
+          </Form>
+        </FormDialog>
+      </Section>
+    </PageLayout>
   );
 }

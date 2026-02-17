@@ -14,6 +14,7 @@ import { Button } from "../../components/ui/button";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { ApiError } from "@traceability/sdk";
+import { PageStack } from "@traceability/ui";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -86,31 +87,31 @@ export function LabelStationPage() {
   if (heartbeatQuery.data?.status === "disabled") return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
 
   return (
-    <div className="space-y-6">
+    <PageStack>
       <PageHeader title="Label Station" description="Generate and confirm tray labels before packing." />
       <StationHeader
         stationName={heartbeatQuery.data?.station?.name || "Unassigned"}
         processName={heartbeatQuery.data?.process?.name || "Unassigned"}
         deviceStatus={heartbeatQuery.data?.status || "active"}
       />
-      <div className="grid gap-4 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="admin-label-layout">
+        <Card className="admin-label-main-card">
           <CardHeader>
             <CardTitle>Label Generation</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="admin-label-content">
             <ScanInput value={assyId} onChange={setAssyId} onSubmit={() => generateMutation.mutate(assyId.trim())} placeholder="Scan ASSY ID" />
-            <div className="space-y-2 rounded-lg border bg-slate-50 p-3 text-sm">
-              <p className="font-medium">Checklist</p>
-              <label className="flex items-center gap-2">
+            <div className="admin-label-checklist">
+              <p className="admin-label-checklist-title">Checklist</p>
+              <label className="admin-label-checklist-row">
                 <Checkbox checked={Boolean(checked.component)} onCheckedChange={(v) => setChecked((prev) => ({ ...prev, component: Boolean(v) }))} />
                 Components validated
               </label>
-              <label className="flex items-center gap-2">
+              <label className="admin-label-checklist-row">
                 <Checkbox checked={Boolean(checked.qty)} onCheckedChange={(v) => setChecked((prev) => ({ ...prev, qty: Boolean(v) }))} />
                 Quantity verified (6 trays)
               </label>
-              <label className="flex items-center gap-2">
+              <label className="admin-label-checklist-row">
                 <Checkbox checked={Boolean(checked.layout)} onCheckedChange={(v) => setChecked((prev) => ({ ...prev, layout: Boolean(v) }))} />
                 Label layout confirmed
               </label>
@@ -119,21 +120,21 @@ export function LabelStationPage() {
               {generateMutation.isPending ? "Generating..." : "Generate Labels"}
             </Button>
             {labels.length ? (
-              <div className="rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50">
+              <div className="admin-label-table-shell">
+                <table className="admin-label-table">
+                  <thead className="admin-label-table-head">
                     <tr>
-                      <th className="px-3 py-2 text-left">Tray</th>
-                      <th className="px-3 py-2 text-left">Serial</th>
-                      <th className="px-3 py-2 text-left">Payload</th>
+                      <th className="admin-label-th">Tray</th>
+                      <th className="admin-label-th">Serial</th>
+                      <th className="admin-label-th">Payload</th>
                     </tr>
                   </thead>
                   <tbody>
                     {labels.map((label) => (
-                      <tr key={label.tray_id} className="border-t">
-                        <td className="px-3 py-2 font-mono text-xs">{label.tray_id}</td>
-                        <td className="px-3 py-2">{label.serial}</td>
-                        <td className="px-3 py-2 font-mono text-xs">{label.payload}</td>
+                      <tr key={label.tray_id} className="admin-label-row">
+                        <td className="admin-label-td admin-label-td--mono">{label.tray_id}</td>
+                        <td className="admin-label-td">{label.serial}</td>
+                        <td className="admin-label-td admin-label-td--mono">{label.payload}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -147,7 +148,7 @@ export function LabelStationPage() {
           <CardHeader>
             <CardTitle>Station Summary</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="admin-label-summary-content">
             <p>
               Device status: <StatusBadge status={heartbeatQuery.data?.status || "active"} />
             </p>
@@ -165,6 +166,6 @@ export function LabelStationPage() {
         description={overlay.description}
         onClose={() => setOverlay((prev) => ({ ...prev, open: false }))}
       />
-    </div>
+    </PageStack>
   );
 }

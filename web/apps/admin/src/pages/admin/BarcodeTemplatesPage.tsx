@@ -1,24 +1,37 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { BarcodeTemplate } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import { Button } from "../../components/ui/button";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
-import { Textarea } from "../../components/ui/textarea";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Input,
+  CheckBox,
+  Label,
+  Form,
+  FormItem,
+  TextArea,
+  Card,
+  CardHeader,
+  FlexBox,
+  FlexBoxAlignItems,
+  FlexBoxDirection
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/bar-code.js";
+import "@ui5/webcomponents-icons/dist/simulate.js";
 
 const schema = z.object({
   key: z.string().min(1),
@@ -106,6 +119,18 @@ export function BarcodeTemplatesPage() {
       queryClient.invalidateQueries({ queryKey: ["barcode-templates"] });
       queryClient.invalidateQueries({ queryKey: ["vendor-pack-parsers"] });
       setOpen(false);
+      form.reset({
+          key: "",
+          name: "",
+          identifiers: "P,Q,V,PD,PT,PL,D,R",
+          lot_identifiers: "LOT,PT,PL",
+          quantity_identifiers: "Q",
+          part_identifiers: "P",
+          vendor_identifiers: "V",
+          production_date_identifiers: "PD,D,TD,MD",
+          notes: "",
+          is_active: true,
+      });
     },
   });
 
@@ -174,10 +199,10 @@ export function BarcodeTemplatesPage() {
       {
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
-              variant="outline"
-              size="sm"
+              icon="edit"
+              design="Transparent"
               onClick={() => {
                 const item = row.original;
                 setEditing(item);
@@ -195,12 +220,14 @@ export function BarcodeTemplatesPage() {
                 });
                 setOpen(true);
               }}
-            >
-              Edit
-            </Button>
-            <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(row.original)}>
-              Delete
-            </Button>
+              tooltip="Edit Template"
+            />
+            <Button 
+                icon="delete" 
+                design="Transparent" 
+                onClick={() => setDeleteTarget(row.original)} 
+                tooltip="Delete Template"
+            />
           </div>
         ),
       },
@@ -209,127 +236,140 @@ export function BarcodeTemplatesPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Barcode Template Master"
-        description="Configurable 2D barcode parsing templates by vendor/component without code changes."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({
-                key: "",
-                name: "",
-                identifiers: "P,Q,V,PD,PT,PL,D,R",
-                lot_identifiers: "LOT,PT,PL",
-                quantity_identifiers: "Q",
-                part_identifiers: "P",
-                vendor_identifiers: "V",
-                production_date_identifiers: "PD,D,TD,MD",
-                notes: "",
-                is_active: true,
-              });
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Template
-          </Button>
-        }
-      />
+    <PageLayout
+      title="Barcode Template Master"
+      subtitle="Configurable 2D barcode parsing templates by vendor/component without code changes"
+      icon="bar-code"
+    >
+      <Section variant="card">
+        <ApiErrorBanner message={errorMessage} />
 
-      <ApiErrorBanner message={errorMessage} />
+        <DataTable 
+            data={rows} 
+            columns={columns} 
+            filterPlaceholder="Search template..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    setEditing(null);
+                    form.reset({
+                      key: "",
+                      name: "",
+                      identifiers: "P,Q,V,PD,PT,PL,D,R",
+                      lot_identifiers: "LOT,PT,PL",
+                      quantity_identifiers: "Q",
+                      part_identifiers: "P",
+                      vendor_identifiers: "V",
+                      production_date_identifiers: "PD,D,TD,MD",
+                      notes: "",
+                      is_active: true,
+                    });
+                    setOpen(true);
+                  }}
+                >
+                  Add Template
+                </Button>
+            }
+        />
 
-      <DataTable data={rows} columns={columns} filterPlaceholder="Search template..." />
+        <Card header={<CardHeader titleText="Parse Tester" subtitleText="Test your barcode templates in real-time" />}>
+          <div style={{ padding: "1rem" }}>
+              <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: "1rem", alignItems: "end" }}>
+                   <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        <Label>Parser Key</Label>
+                        <Input placeholder="MARLIN_PLATE_V1" {...parserForm.register("parser_key")} />
+                   </div>
+                   <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        <Label>Raw Barcode</Label>
+                        <Input placeholder="Raw 2D barcode text" {...parserForm.register("pack_barcode_raw")} />
+                   </div>
+                   <Button icon="simulate" onClick={parserForm.handleSubmit((values) => testParseMutation.mutate(values))} disabled={testParseMutation.isPending}>Test Parse</Button>
+                </div>
 
-      <div className="rounded-lg border bg-white p-4">
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-600">Parse Tester</h3>
-        <form
-          className="space-y-3"
-          onSubmit={parserForm.handleSubmit((values) => testParseMutation.mutate(values))}
+                {parseResult && (
+                    <div style={{ marginTop: "1rem" }}>
+                        <Label style={{ marginBottom: "0.5rem", display: "block" }}>Result</Label>
+                        <TextArea 
+                            rows={10} 
+                            readonly 
+                            value={JSON.stringify(parseResult, null, 2)} 
+                            style={{ width: "100%", fontFamily: "monospace" }} 
+                        />
+                    </div>
+                )}
+              </FlexBox>
+          </div>
+        </Card>
+
+        <FormDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          title={editing ? "Edit Barcode Template" : "Create Barcode Template"}
+          onSubmit={form.handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
+          submitting={createMutation.isPending || updateMutation.isPending}
         >
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-[260px_1fr_auto]">
-            <Input placeholder="PARSER KEY (e.g. MARLIN_PLATE_V1)" {...parserForm.register("parser_key")} />
-            <Input placeholder="Raw 2D barcode text" {...parserForm.register("pack_barcode_raw")} />
-            <Button type="submit" disabled={testParseMutation.isPending}>
-              Test Parse
-            </Button>
-          </div>
-        </form>
-        {parseResult ? (
-          <pre className="mt-3 max-h-80 overflow-auto rounded-md border bg-slate-50 p-3 text-xs text-slate-700">
-            {JSON.stringify(parseResult, null, 2)}
-          </pre>
-        ) : null}
-      </div>
+          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+            <FormItem labelContent={<Label>Template Key</Label>}>
+              <Input {...form.register("key")} placeholder="MARLIN_MAGNET_V2" />
+            </FormItem>
+            <FormItem labelContent={<Label>Template Name</Label>}>
+              <Input {...form.register("name")} placeholder="Marlin Magnet v2" />
+            </FormItem>
+            <FormItem labelContent={<Label>Identifiers</Label>}>
+              <Input {...form.register("identifiers")} placeholder="K,3S,P,E,Q,V,PD,PL,D,PT,R" />
+            </FormItem>
+            <FormItem labelContent={<Label>Lot Identifiers</Label>}>
+              <Input {...form.register("lot_identifiers")} placeholder="PT,PL,LOT" />
+            </FormItem>
+            <FormItem labelContent={<Label>Quantity Identifiers</Label>}>
+              <Input {...form.register("quantity_identifiers")} placeholder="Q" />
+            </FormItem>
+            <FormItem labelContent={<Label>Part Identifiers</Label>}>
+              <Input {...form.register("part_identifiers")} placeholder="P" />
+            </FormItem>
+            <FormItem labelContent={<Label>Vendor Identifiers</Label>}>
+              <Input {...form.register("vendor_identifiers")} placeholder="V" />
+            </FormItem>
+            <FormItem labelContent={<Label>Production Date Identifiers</Label>}>
+              <Input {...form.register("production_date_identifiers")} placeholder="PD,D,TD,MD" />
+            </FormItem>
+            <FormItem labelContent={<Label>Notes</Label>} style={{ gridColumn: "span 2" }}>
+              <TextArea rows={3} {...form.register("notes")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Status</Label>}>
+                <Controller
+                    name="is_active"
+                    control={form.control}
+                    render={({ field }) => (
+                        <CheckBox
+                            text="Active"
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                    )}
+                />
+            </FormItem>
+          </Form>
+        </FormDialog>
 
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Barcode Template" : "Create Barcode Template"}
-        onSubmit={form.handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Template Key</Label>
-            <Input {...form.register("key")} placeholder="MARLIN_MAGNET_V2" />
-          </div>
-          <div className="space-y-2">
-            <Label>Template Name</Label>
-            <Input {...form.register("name")} placeholder="Marlin Magnet v2" />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Identifiers (comma-separated)</Label>
-            <Input {...form.register("identifiers")} placeholder="K,3S,P,E,Q,V,PD,PL,D,PT,R" />
-          </div>
-          <div className="space-y-2">
-            <Label>Lot Identifiers</Label>
-            <Input {...form.register("lot_identifiers")} placeholder="PT,PL,LOT" />
-          </div>
-          <div className="space-y-2">
-            <Label>Quantity Identifiers</Label>
-            <Input {...form.register("quantity_identifiers")} placeholder="Q" />
-          </div>
-          <div className="space-y-2">
-            <Label>Part Identifiers</Label>
-            <Input {...form.register("part_identifiers")} placeholder="P" />
-          </div>
-          <div className="space-y-2">
-            <Label>Vendor Identifiers</Label>
-            <Input {...form.register("vendor_identifiers")} placeholder="V" />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Production Date Identifiers</Label>
-            <Input {...form.register("production_date_identifiers")} placeholder="PD,D,TD,MD" />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Notes</Label>
-            <Textarea rows={3} {...form.register("notes")} />
-          </div>
-          <div className="flex items-end pb-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.watch("is_active")} onCheckedChange={(v) => form.setValue("is_active", Boolean(v))} />
-              Active
-            </label>
-          </div>
-        </div>
-      </FormDialog>
-
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Delete barcode template"
-        description={deleteTarget ? `Delete template ${deleteTarget.key}?` : ""}
-        confirmText="Delete"
-        destructive
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-      />
-    </div>
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title="Delete barcode template"
+          description={deleteTarget ? `Delete template ${deleteTarget.key}?` : ""}
+          confirmText="Delete"
+          destructive
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            if (!deleteTarget) return;
+            deleteMutation.mutate(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
+      </Section>
+    </PageLayout>
   );
 }
 

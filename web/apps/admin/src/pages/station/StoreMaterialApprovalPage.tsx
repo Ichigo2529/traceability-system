@@ -2,24 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { MaterialRequest, MaterialRequestDetail, MaterialRequestIssueOptionsResponse } from "@traceability/sdk";
-import { ArrowLeft, ClipboardCheck, History } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
-import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
-import { Textarea } from "../../components/ui/textarea";
-import { formatApiError } from "../../lib/errors";
 import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
 import { useDelayedBusy } from "../../hooks/useDelayedBusy";
-import { LoadingSkeleton } from "../../components/shared/States";
-import { UnderlineTabs } from "../../components/shared/UnderlineTabs";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import { IssueAllocationWorkbench } from "../../components/material/IssueAllocationWorkbench";
-import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { FormDialog } from "../../components/shared/FormDialog";
 import {
   approveMaterialRequest,
   getMaterialIssueOptions,
@@ -29,6 +20,26 @@ import {
   issueMaterialRequestWithAllocation,
   rejectMaterialRequest,
 } from "../../lib/material-api";
+
+import { 
+    Page, 
+    Bar, 
+    Title, 
+    TabContainer, 
+    Tab, 
+    TabSeparator,
+    Button,
+    Card,
+    CardHeader,
+    MessageStrip,
+    TextArea,
+    Label,
+    BusyIndicator,
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/form.js";
+import "@ui5/webcomponents-icons/dist/history.js";
+import "@ui5/webcomponents-icons/dist/nav-back.js";
+import "@ui5/webcomponents-icons/dist/print.js";
 
 type TabKey = "PENDING" | "HISTORY";
 
@@ -55,18 +66,12 @@ export function StoreMaterialApprovalPage() {
     enabled: canUsePage,
   });
 
-  const realtimeQueryKeys = useMemo(
-    () => [
-      ["station-store-material-pending"],
-      ["station-store-material-history"],
-      ["station-store-material-detail"],
-    ],
-    []
-  );
-
   useMaterialRequestsRealtime({
     enabled: canUsePage,
-    queryKeys: realtimeQueryKeys,
+    queryKeys: [
+      ["station-store-material-pending"],
+      ["station-store-material-history"],
+    ],
   });
 
   const detailsQuery = useQuery<MaterialRequestDetail>({
@@ -134,6 +139,7 @@ export function StoreMaterialApprovalPage() {
         allocations,
       }),
     onSuccess: async () => {
+      setConfirmIssueOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["station-store-material-pending"] });
       await queryClient.invalidateQueries({ queryKey: ["station-store-material-history"] });
       await queryClient.invalidateQueries({ queryKey: ["station-store-material-detail"] });
@@ -155,8 +161,7 @@ export function StoreMaterialApprovalPage() {
         header: "Actions",
         cell: ({ row }) => (
           <Button
-            size="sm"
-            variant="outline"
+            design="Transparent"
             onClick={() => {
               setSelectedId(row.original.id);
               setDetailsOpen(true);
@@ -167,206 +172,149 @@ export function StoreMaterialApprovalPage() {
         ),
       },
     ],
-    [approveMutation, issueMutation, rejectMutation]
+    []
   );
 
-  const anyError =
-    pendingQuery.error ??
-    historyQuery.error ??
-    detailsQuery.error ??
-    issueOptionsQuery.error ??
-    approveMutation.error ??
-    rejectMutation.error ??
-    issueMutation.error;
-  const showPendingLoading = useDelayedBusy(
-    pendingQuery.isLoading || (pendingQuery.isFetching && !pendingQuery.data),
-    250
-  );
-  const showHistoryLoading = useDelayedBusy(
-    historyQuery.isLoading || (historyQuery.isFetching && !historyQuery.data),
-    250
-  );
   const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
   const showIssueOptionsLoading = useDelayedBusy(Boolean(selectedId) && issueOptionsQuery.isLoading, 250);
 
-  useEffect(() => {
-    if (!detailsOpen) return;
-    if (tab !== "PENDING" && tab !== "HISTORY") {
-      setDetailsOpen(false);
-    }
-  }, [tab, detailsOpen]);
-
   if (!canUsePage) {
-    return <Card><CardContent className="p-6 text-sm text-slate-600">Role นี้ไม่มีสิทธิ์อนุมัติ/จ่ายของ (ต้องมี STORE หรือ SUPERVISOR)</CardContent></Card>;
+    return <MessageStrip design="Negative">Role Access Denied. Requires STORE or SUPERVISOR role.</MessageStrip>;
+  }
+
+  if (detailsOpen && selectedId) {
+      return (
+          <Page
+            header={
+                <Bar 
+                    startContent={
+                        <Button design="Transparent" icon="nav-back" onClick={() => { setDetailsOpen(false); setSelectedId(null); }}>Back</Button>
+                    }
+                    endContent={
+                        detailsQuery.data?.status === "ISSUED" ? (
+                            <Button design="Transparent" icon="print" onClick={() => window.print()}>Print</Button>
+                        ) : null
+                    }
+                >
+                    <Title level="H3">Request Detail</Title>
+                </Bar>
+            }
+            backgroundDesign="Solid"
+            style={{ height: "100%" }}
+          >
+              <div style={{ padding: "1rem", maxWidth: "1200px", margin: "0 auto" }}>
+                  {showDetailsLoading ? <BusyIndicator active /> : detailsQuery.data ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                          <MaterialRequestVoucherView detail={detailsQuery.data} />
+                          
+                          {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
+                              <Card header={<CardHeader titleText="Issue & Allocation" />}>
+                                  <div style={{ padding: "1rem" }}>
+                                    <IssueAllocationWorkbench
+                                        issueOptions={issueOptionsQuery.data}
+                                        isLoading={showIssueOptionsLoading}
+                                        issueRemarks={workbench.issueRemarks}
+                                        onIssueRemarksChange={workbench.setIssueRemarks}
+                                        manualAllocations={workbench.manualAllocations}
+                                        setManualAllocations={workbench.setManualAllocations}
+                                        allocationTotalsByItem={workbench.allocationTotalsByItem}
+                                        addAllocationLine={workbench.addAllocationLine}
+                                        issueValidationError={workbench.issueValidationError}
+                                    />
+                                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
+                                        {detailsQuery.data.status === "REQUESTED" && (
+                                            <Button 
+                                                design="Negative" 
+                                                onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
+                                                disabled={approveMutation.isPending || rejectMutation.isPending}
+                                            >
+                                                Reject
+                                            </Button>
+                                        )}
+                                        <Button 
+                                            design="Emphasized"
+                                            onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
+                                            disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || issueMutation.isPending)}
+                                        >
+                                            {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue" : "Issue Material"}
+                                        </Button>
+                                    </div>
+                                  </div>
+                              </Card>
+                          )}
+                      </div>
+                  ) : <div>No details found</div>}
+              </div>
+
+              <FormDialog
+                open={confirmIssueOpen}
+                title="Confirm Issue"
+                description={`Are you sure you want to issue ${workbench.manualAllocations.length} allocation lines?`}
+                onClose={() => setConfirmIssueOpen(false)}
+                onSubmit={() => {
+                    if (!detailsQuery.data) return;
+                    issueMutation.mutate({
+                        id: detailsQuery.data.id,
+                        remarks: workbench.issueRemarks || undefined,
+                        allocations: workbench.buildAllocationsPayload(),
+                    });
+                }}
+                submitting={issueMutation.isPending}
+              >
+                  <p>Confirmation required to process stock deduction.</p>
+              </FormDialog>
+
+              <FormDialog
+                open={confirmRejectOpen}
+                title="Confirm Reject"
+                description="Reject this material request?"
+                onClose={() => setConfirmRejectOpen(false)}
+                onSubmit={() => {
+                    if (!detailsQuery.data) return;
+                    setConfirmRejectOpen(false);
+                    rejectMutation.mutate({ id: detailsQuery.data.id, reason: rejectReason });
+                }}
+                submitting={rejectMutation.isPending}
+                submitText="Reject Request"
+              >
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                      <Label>Reason for rejection:</Label>
+                      <TextArea value={rejectReason} onInput={(e) => setRejectReason(e.target.value)} />
+                  </div>
+              </FormDialog>
+          </Page>
+      );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Store Material Approval" description="Store queue, approval and issue history" />
-      <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
-
-      <UnderlineTabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: "PENDING", label: "Waiting Approval", icon: ClipboardCheck },
-          { key: "HISTORY", label: "History", icon: History },
-        ]}
-      />
-
-      {detailsOpen ? (
-        <div className="space-y-3 motion-safe:animate-panel-slide-in-left">
-          <div className="flex items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 shadow-enterprise-soft">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setDetailsOpen(false);
-                  setSelectedId(null);
-                }}
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-              <p className="text-sm font-semibold text-slate-800">
-                Store Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}
-              </p>
+    <Page
+      header={<Bar startContent={<Title level="H2">Store Material Approval</Title>} />}
+      backgroundDesign="List"
+      style={{ height: "100%" }}
+    >
+        <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <TabContainer tabLayout="Standard" collapsed onTabSelect={(e) => setTab(e.detail.tab.getAttribute("data-key") as TabKey)}>
+                <Tab text="Waiting Approval" icon="clipboard" selected={tab === "PENDING"} data-key="PENDING" />
+                <TabSeparator />
+                <Tab text="History" icon="history" selected={tab === "HISTORY"} data-key="HISTORY" />
+            </TabContainer>
+            
+            <div style={{ padding: "1rem", flex: 1, overflow: "auto" }}>
+                {tab === "PENDING" ? (
+                    <DataTable
+                        data={pendingQuery.data ?? []}
+                        columns={columns}
+                        filterPlaceholder="Search waiting requests..."
+                    />
+                ) : (
+                    <DataTable
+                        data={historyQuery.data ?? []}
+                        columns={columns}
+                        filterPlaceholder="Search history..."
+                    />
+                )}
             </div>
-            <div className="flex items-center gap-2">
-              <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-              {detailsQuery.data?.status === "ISSUED" ? (
-                <Button size="sm" variant="outline" onClick={() => window.print()}>
-                  Print
-                </Button>
-              ) : null}
-            </div>
-          </div>
-          {showDetailsLoading ? (
-            <LoadingSkeleton label="Loading request details..." />
-          ) : detailsQuery.data ? (
-            <div className="space-y-3">
-              <MaterialRequestVoucherView detail={detailsQuery.data} />
-              {detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED" ? (
-                <IssueAllocationWorkbench
-                  issueOptions={issueOptionsQuery.data}
-                  isLoading={showIssueOptionsLoading}
-                  issueRemarks={workbench.issueRemarks}
-                  onIssueRemarksChange={workbench.setIssueRemarks}
-                  manualAllocations={workbench.manualAllocations}
-                  setManualAllocations={workbench.setManualAllocations}
-                  allocationTotalsByItem={workbench.allocationTotalsByItem}
-                  addAllocationLine={workbench.addAllocationLine}
-                  issueValidationError={workbench.issueValidationError}
-                />
-              ) : null}
-              {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") ? (
-                <div className="enterprise-surface flex flex-wrap justify-end gap-2 p-3">
-                  {detailsQuery.data.status === "REQUESTED" ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setRejectReason("");
-                        setConfirmRejectOpen(true);
-                      }}
-                      disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
-                    >
-                      Reject
-                    </Button>
-                  ) : null}
-                  <Button
-                    size="sm"
-                    onClick={() => {
-                      if (workbench.issueValidationError) return;
-                      setConfirmIssueOpen(true);
-                    }}
-                    disabled={Boolean(
-                      workbench.issueValidationError ||
-                        issueOptionsQuery.isLoading ||
-                        approveMutation.isPending ||
-                        rejectMutation.isPending ||
-                        issueMutation.isPending
-                    )}
-                  >
-                    {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">No details loaded.</p>
-          )}
         </div>
-      ) : tab === "PENDING" ? (
-        showPendingLoading ? (
-          <LoadingSkeleton label="Loading waiting approvals..." />
-        ) : (
-          <DataTable
-            data={pendingQuery.data ?? []}
-            columns={columns}
-            filterPlaceholder="Search waiting requests"
-          />
-        )
-      ) : showHistoryLoading ? (
-        <LoadingSkeleton label="Loading issue history..." />
-      ) : (
-        <DataTable
-          data={historyQuery.data ?? []}
-          columns={columns}
-          filterPlaceholder="Search by request / section / status"
-        />
-      )}
-      <ConfirmDialog
-        open={confirmIssueOpen}
-        title={detailsQuery.data?.status === "REQUESTED" ? "Confirm approve + issue" : "Confirm issue material"}
-        description={
-          detailsQuery.data?.status === "REQUESTED"
-            ? "Approve and issue this request now?"
-            : "Issue this approved request now?"
-        }
-        confirmText={detailsQuery.data?.status === "REQUESTED" ? "Approve + Issue" : "Issue"}
-        onCancel={() => setConfirmIssueOpen(false)}
-        onConfirm={() => {
-          if (!detailsQuery.data) return;
-          setConfirmIssueOpen(false);
-          issueMutation.mutate({
-            id: detailsQuery.data.id,
-            remarks: workbench.issueRemarks || undefined,
-            allocations: workbench.buildAllocationsPayload(),
-          });
-        }}
-      />
-      <ConfirmDialog
-        open={confirmRejectOpen}
-        title="Confirm reject request"
-        description="Reject this material request? Please provide reason if needed."
-        confirmText="Reject"
-        destructive
-        onCancel={() => {
-          setConfirmRejectOpen(false);
-          setRejectReason("");
-        }}
-        onConfirm={() => {
-          if (!detailsQuery.data) return;
-          setConfirmRejectOpen(false);
-          rejectMutation.mutate({ id: detailsQuery.data.id, reason: rejectReason.trim() || undefined });
-          setRejectReason("");
-        }}
-      >
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700" htmlFor="store-reject-reason">
-            Reject reason (optional)
-          </label>
-          <Textarea
-            id="store-reject-reason"
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Enter reason for rejection"
-            className="min-h-[88px]"
-          />
-        </div>
-      </ConfirmDialog>
-    </div>
+    </Page>
   );
 }

@@ -1,25 +1,27 @@
-import { cva, type VariantProps } from "class-variance-authority";
+import type * as React from "react";
+import { Tag } from "@ui5/webcomponents-react";
 import { cn } from "../../lib/utils";
 
-const badgeVariants = cva("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide", {
-  variants: {
-    variant: {
-      default: "border-transparent bg-primary text-primary-foreground",
-      secondary: "border-transparent bg-secondary text-secondary-foreground",
-      outline: "text-foreground",
-      success: "border-green-200 bg-green-50 text-green-700",
-      warning: "border-amber-200 bg-amber-50 text-amber-700",
-      danger: "border-red-200 bg-red-50 text-red-700",
-      muted: "border-slate-200 bg-slate-100 text-slate-600",
-    },
-  },
-  defaultVariants: {
-    variant: "default",
-  },
-});
+type BadgeVariant = "default" | "secondary" | "outline" | "success" | "warning" | "danger" | "muted";
 
-export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
+const variantToDesign: Record<BadgeVariant, "Information" | "Neutral" | "Positive" | "Critical" | "Negative"> = {
+  default: "Information",
+  secondary: "Neutral",
+  outline: "Neutral",
+  success: "Positive",
+  warning: "Critical",
+  danger: "Negative",
+  muted: "Neutral",
+};
 
-export function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+export interface BadgeProps extends React.HTMLAttributes<HTMLElement> {
+  variant?: BadgeVariant;
+}
+
+export function Badge({ className, variant = "default", children, ...props }: BadgeProps) {
+  return (
+    <Tag className={cn("admin-ui5-badge", `is-${variant}`, className)} design={variantToDesign[variant]} {...(props as any)}>
+      {children}
+    </Tag>
+  );
 }

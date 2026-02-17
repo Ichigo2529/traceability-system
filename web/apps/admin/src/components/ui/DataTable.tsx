@@ -1,10 +1,16 @@
 import React from 'react';
-import { cn } from '../../lib/utils';
+import {
+  AnalyticalTable,
+  AnalyticalTableSelectionMode,
+  AnalyticalTableScaleWidthMode,
+  BusyIndicator 
+} from "@ui5/webcomponents-react";
 
 interface Column<T> {
   header: string;
   accessorKey?: keyof T;
   cell?: (item: T) => React.ReactNode;
+  width?: string;
   className?: string;
 }
 
@@ -13,50 +19,54 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   isLoading?: boolean;
   onRowClick?: (item: T) => void;
+  emptyText?: string;
 }
 
-export function DataTable<T extends { id: string | number }>({ data, columns, isLoading, onRowClick }: DataTableProps<T>) {
+export function DataTable<T extends { id: string | number }>({
+  data,
+  columns,
+  isLoading,
+  onRowClick,
+  emptyText = "No records found"
+}: DataTableProps<T>) {
+
   if (isLoading) {
-    return <div className="p-8 text-center text-gray-500">Loading data...</div>;
+    return (
+      <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}>
+        <BusyIndicator active />
+      </div>
+    );
   }
 
-  if (data.length === 0) {
-    return <div className="p-8 text-center text-gray-500 bg-white rounded-lg border border-dashed border-gray-300">No records found</div>;
-  }
+  // Map our columns definition to AnalyticalTable columns
+  const tableColumns = columns.map((col) => ({
+    Header: col.header,
+    accessor: col.accessorKey as string, 
+    Cell: (instance: any) => {
+        if (col.cell) {
+            return col.cell(instance.row.original);
+        }
+        return instance.cell.value;
+    },
+    width: col.width ? parseInt(col.width) : undefined, 
+  }));
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm text-left">
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-            <tr>
-              {columns.map((col, i) => (
-                <th key={i} className={cn("px-6 py-3 font-medium", col.className)}>
-                  {col.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((item) => (
-              <tr 
-                key={item.id} 
-                onClick={() => onRowClick?.(item)}
-                className={cn(
-                    "bg-white border-b hover:bg-gray-50 transition-colors",
-                    onRowClick && "cursor-pointer"
-                )}
-              >
-                {columns.map((col, i) => (
-                  <td key={i} className={cn("px-6 py-4", col.className)}>
-                    {col.cell ? col.cell(item) : (item as any)[col.accessorKey!]}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="admin-table-card" style={{ height: "100%", width: "100%" }}> 
+    <AnalyticalTable
+        data={data}
+        columns={tableColumns}
+        selectionMode={onRowClick ? AnalyticalTableSelectionMode.Single : AnalyticalTableSelectionMode.None}
+        scaleWidthMode={AnalyticalTableScaleWidthMode.Grow}
+        onRowClick={(e) => {
+            if (onRowClick) {
+                // e.detail.row.original contains the data item
+                onRowClick(e.detail.row.original as T);
+            }
+        }}
+        noDataText={emptyText}
+        minRows={1}
+    />
     </div>
   );
 }

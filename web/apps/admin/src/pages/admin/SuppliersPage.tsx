@@ -2,23 +2,31 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { useNavigate } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
 import { SupplierPartProfile, Vendor } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Button } from "../../components/ui/button";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Input,
+  CheckBox,
+  Label,
+  Form,
+  FormItem
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/supplier.js";
+import "@ui5/webcomponents-icons/dist/marketing-campaign.js";
 
 const schema = z.object({
   code: z.string().min(1),
@@ -64,6 +72,7 @@ export function SuppliersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
       setOpen(false);
+      form.reset({ code: "", name: "", vendor_id: "", is_active: true });
     },
   });
 
@@ -91,17 +100,17 @@ export function SuppliersPage() {
         header: "Part Profiles",
         cell: ({ row }) => {
           const count = profileCountByVendor.get(row.original.id) ?? 0;
-          return <span className="inline-flex min-w-8 justify-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{count}</span>;
+          return <span className="admin-supplier-profile-count">{count}</span>;
         },
       },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
       {
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
-              variant="outline"
-              size="sm"
+              icon="edit"
+              design="Transparent"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -112,27 +121,24 @@ export function SuppliersPage() {
                 });
                 setOpen(true);
               }}
-            >
-              Edit
-            </Button>
+              tooltip="Edit Vendor"
+            />
             <Button
-              variant="outline"
-              size="sm"
+              icon="marketing-campaign"
+              design="Transparent"
               onClick={() => {
                 navigate(`/admin/supplier-part-profiles?vendorId=${encodeURIComponent(row.original.id)}`);
               }}
-            >
-              Profiles
-            </Button>
+              tooltip="View Profiles"
+            />
             <Button
-              variant="destructive"
-              size="sm"
+              icon="delete"
+              design="Transparent"
               onClick={() => {
                 setDeleteTarget(row.original);
               }}
-            >
-              Delete
-            </Button>
+              tooltip="Delete Vendor"
+            />
           </div>
         ),
       },
@@ -141,77 +147,88 @@ export function SuppliersPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Vendors"
-        description="Vendor master for inbound pack traceability."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({ code: "", name: "", vendor_id: "", is_active: true });
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Vendor
-          </Button>
-        }
-      />
-      <ApiErrorBanner
-        message={
-          createMutation.error
-            ? formatApiError(createMutation.error)
-            : updateMutation.error
-              ? formatApiError(updateMutation.error)
-              : deleteMutation.error
-                ? formatApiError(deleteMutation.error)
-                : undefined
-        }
-      />
-      <DataTable data={rows} columns={columns} filterPlaceholder="Search vendor..." />
+    <PageLayout
+      title="Vendors"
+      subtitle="Vendor master for inbound pack traceability"
+      icon="supplier"
+    >
+      <Section variant="card">
+        <ApiErrorBanner
+          message={
+            createMutation.error
+              ? formatApiError(createMutation.error)
+              : updateMutation.error
+                ? formatApiError(updateMutation.error)
+                : deleteMutation.error
+                  ? formatApiError(deleteMutation.error)
+                  : undefined
+          }
+        />
+        <DataTable 
+            data={rows} 
+            columns={columns} 
+            filterPlaceholder="Search vendor..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    setEditing(null);
+                    form.reset({ code: "", name: "", vendor_id: "", is_active: true });
+                    setOpen(true);
+                  }}
+                >
+                  Add Vendor
+                </Button>
+            }
+        />
 
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Vendor" : "Create Vendor"}
-        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Vendor Code</Label>
-            <Input {...form.register("code")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Vendor ID</Label>
-            <Input {...form.register("vendor_id")} placeholder="P / F / I / C / R" />
-          </div>
-          <div className="space-y-2">
-            <Label>Name</Label>
-            <Input {...form.register("name")} />
-          </div>
-          <div className="flex items-end pb-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.watch("is_active")} onCheckedChange={(v) => form.setValue("is_active", Boolean(v))} />
-              Active
-            </label>
-          </div>
-        </div>
-      </FormDialog>
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Delete vendor"
-        description={deleteTarget ? `Delete vendor ${deleteTarget.code}?` : ""}
-        confirmText="Delete"
-        destructive
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-      />
-    </div>
+        <FormDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          title={editing ? "Edit Vendor" : "Create Vendor"}
+          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+          submitting={createMutation.isPending || updateMutation.isPending}
+        >
+          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+            <FormItem labelContent={<Label>Vendor Code</Label>}>
+              <Input {...form.register("code")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Vendor ID</Label>}>
+              <Input {...form.register("vendor_id")} placeholder="P / F / I / C / R" />
+            </FormItem>
+            <FormItem labelContent={<Label>Name</Label>}>
+              <Input {...form.register("name")} />
+            </FormItem>
+            <FormItem labelContent={<Label>Status</Label>}>
+                <Controller
+                    name="is_active"
+                    control={form.control}
+                    render={({ field }) => (
+                        <CheckBox
+                            text="Active"
+                            checked={field.value}
+                            onChange={(e) => field.onChange(e.target.checked)}
+                        />
+                    )}
+                />
+            </FormItem>
+          </Form>
+        </FormDialog>
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title="Delete vendor"
+          description={deleteTarget ? `Delete vendor ${deleteTarget.code}?` : ""}
+          confirmText="Delete"
+          destructive
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            if (!deleteTarget) return;
+            deleteMutation.mutate(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
+      </Section>
+    </PageLayout>
   );
 }

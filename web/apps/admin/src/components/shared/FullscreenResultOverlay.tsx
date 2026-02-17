@@ -17,15 +17,19 @@ export function FullscreenResultOverlay({
   if (!open) return null;
   const isPass = mode === "PASS";
   return (
-    <div className={`fixed inset-0 z-[60] flex items-center justify-center ${isPass ? "bg-green-700/95" : "bg-red-700/95"}`}>
-      <div className="rounded-xl bg-white/95 p-10 text-center shadow-lg">
-        <div className="mb-3 flex justify-center">
-          {isPass ? <CheckCircle2 className="h-16 w-16 text-green-700" /> : <AlertTriangle className="h-16 w-16 text-red-700" />}
+    <div className={`admin-result-overlay ${isPass ? "is-pass" : "is-ng"}`}>
+      <div className="admin-result-overlay-panel">
+        <div className="admin-result-overlay-icon-shell">
+          {isPass ? (
+            <CheckCircle2 className="admin-result-overlay-icon is-pass" />
+          ) : (
+            <AlertTriangle className="admin-result-overlay-icon is-ng" />
+          )}
         </div>
-        <h2 className="text-4xl font-bold">{title}</h2>
-        {description ? <p className="mt-2 text-sm text-muted-foreground">{description}</p> : null}
+        <h2 className="admin-result-overlay-title">{title}</h2>
+        {description ? <p className="admin-result-overlay-description">{description}</p> : null}
         {!isPass ? (
-          <Button className="mt-6" variant="secondary" onClick={onClose}>
+          <Button className="admin-result-overlay-action" variant="secondary" onClick={onClose}>
             Acknowledge
           </Button>
         ) : null}

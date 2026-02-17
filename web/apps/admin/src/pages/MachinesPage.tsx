@@ -2,21 +2,39 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "../context/AuthContext";
 import { Machine } from "@traceability/sdk";
-import { DataTable } from "../components/ui/DataTable";
-import { Modal } from "../components/ui/Modal";
-import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
+import { DataTable } from "../components/shared/DataTable";
 import { formatApiError } from "../lib/errors";
-import { Server, Plus, Trash2, Pencil } from "lucide-react";
+import { PageLayout, Section } from "@traceability/ui";
+import { 
+    Button,
+    Input,
+    Label,
+    Select,
+    Option,
+    FlexBox,
+    FlexBoxAlignItems,
+    Avatar,
+    ObjectStatus,
+    Form,
+    FormItem
+} from "@ui5/webcomponents-react";
+import { FormDialog } from "../components/shared/FormDialog";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/it-system.js";
 
 const EMPTY_FORM = { name: "", station_type: "SCANNER", line_code: "", supported_variants: "" };
+const STATION_TYPES = ["SCANNER", "PRINTER", "TESTER", "ASSEMBLY", "PACKING"];
 
 export default function MachinesPage() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [error, setError] = useState<string | undefined>();
 
-  const { data: machines = [], isLoading } = useQuery({
+  const { data: machines = [] } = useQuery({
     queryKey: ["machines"],
     queryFn: () => sdk.admin.getMachines(),
   });
@@ -28,7 +46,9 @@ export default function MachinesPage() {
       setIsModalOpen(false);
       setFormData(EMPTY_FORM);
       setEditingId(null);
+      setError(undefined);
     },
+    onError: (err) => setError(formatApiError(err))
   });
 
   const updateMachine = useMutation({
@@ -38,7 +58,9 @@ export default function MachinesPage() {
       setIsModalOpen(false);
       setFormData(EMPTY_FORM);
       setEditingId(null);
+      setError(undefined);
     },
+    onError: (err) => setError(formatApiError(err))
   });
 
   const deleteMachine = useMutation({
@@ -49,6 +71,7 @@ export default function MachinesPage() {
   const openCreate = () => {
     setEditingId(null);
     setFormData(EMPTY_FORM);
+    setError(undefined);
     setIsModalOpen(true);
   };
 
@@ -60,11 +83,11 @@ export default function MachinesPage() {
       line_code: m.line_code || "",
       supported_variants: (m.supported_variants || []).join(","),
     });
+    setError(undefined);
     setIsModalOpen(true);
   };
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = () => {
     const payload = {
       name: formData.name,
       station_type: formData.station_type,
@@ -83,105 +106,114 @@ export default function MachinesPage() {
     {
       header: "Name",
       accessorKey: "name" as any,
-      cell: (machine: Machine) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-[#D8E2FA] flex items-center justify-center text-[#1134A6]">
-            <Server size={16} />
-          </div>
-          <span className="font-medium text-gray-900">{machine.name}</span>
-        </div>
+      cell: ({ row }: { row: any }) => (
+        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+          <Avatar icon="it-system" size="XS" colorScheme="Accent6" />
+          <span style={{ fontWeight: "bold" }}>{row.original.name}</span>
+        </FlexBox>
       ),
     },
     { header: "Station Type", accessorKey: "station_type" as any },
     {
       header: "Line Code",
       accessorKey: "line_code" as any,
-      cell: (machine: Machine) => (machine.line_code ? <span className="font-mono text-sm">{machine.line_code}</span> : <span className="text-gray-400">-</span>),
+      cell: ({ row }: { row: any }) => (row.original.line_code ? <span style={{ fontFamily: "monospace" }}>{row.original.line_code}</span> : "-"),
     },
     {
       header: "Supported Variants",
       accessorKey: "supported_variants" as any,
-      cell: (machine: Machine) => (machine.supported_variants?.length ? machine.supported_variants.join(", ") : "-"),
+      cell: ({ row }: { row: any }) => <div style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.original.supported_variants?.length ? row.original.supported_variants.join(", ") : "-"}</div>,
     },
     {
-      header: "Action",
-      cell: (machine: Machine) => (
-        <div className="flex items-center gap-2">
-          <button onClick={(e) => { e.stopPropagation(); openEdit(machine); }} className="text-[#1134A6] hover:text-[#0A1F66] p-1" title="Edit Machine">
-            <Pencil size={16} />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm("Deactivate this machine?")) deleteMachine.mutate(machine.id);
-            }}
-            className="text-red-600 hover:text-red-800 p-1"
-            title="Deactivate Machine"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
+      header: "Actions",
+      accessorKey: "id" as any,
+      cell: ({ row }: { row: any }) => (
+        <FlexBox>
+          <Button icon="edit" design="Transparent" onClick={() => openEdit(row.original)} />
+          <Button 
+            icon="delete" 
+            design="Transparent" 
+            style={{ color: "var(--sapNegativeColor)" }}
+            onClick={() => {
+              if (confirm("Deactivate this machine?")) deleteMachine.mutate(row.original.id);
+            }} 
+          />
+        </FlexBox>
       ),
     },
   ];
 
-  const mutationError = createMachine.isError
-    ? formatApiError(createMachine.error)
-    : updateMachine.isError
-      ? formatApiError(updateMachine.error)
-      : undefined;
+  const isSubmitting = createMachine.isPending || updateMachine.isPending;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Machines</h1>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#1134A6] text-white rounded hover:bg-[#0D2A84] transition">
-          <Plus size={18} />
-          <span>Add Machine</span>
-        </button>
-      </div>
+    <PageLayout
+      title="Machines"
+      subtitle="Manage machine configurations and line assignments."
+      icon="it-system"
+    >
+      <Section variant="card">
+        <DataTable 
+            data={machines} 
+            columns={columns}
+            actions={
+                <Button icon="add" design="Emphasized" onClick={openCreate}>
+                    Add Machine
+                </Button>
+            }
+        />
 
-      <DataTable data={machines as any} columns={columns} isLoading={isLoading} />
+        <FormDialog
+            open={isModalOpen}
+            title={editingId ? "Edit Machine" : "Create Machine"}
+            onClose={() => setIsModalOpen(false)}
+            onSubmit={submit}
+            submitting={isSubmitting}
+        >
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: "400px", padding: "1rem" }}>
+                {error && (
+                    <ObjectStatus state="Negative" inverted>
+                        {error}
+                    </ObjectStatus>
+                )}
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Machine" : "Create Machine"}>
-        <form onSubmit={submit} className="space-y-4">
-          <ApiErrorBanner message={mutationError} />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Machine Name</label>
-            <input type="text" required className="w-full px-3 py-2 border rounded-md" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-          </div>
+                <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
+                    <FormItem labelContent={<Label required>Machine Name</Label>}>
+                        <Input 
+                            value={formData.name}
+                            onInput={(e) => setFormData({...formData, name: e.target.value})}
+                        />
+                    </FormItem>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Station Type</label>
-            <select className="w-full px-3 py-2 border rounded-md" value={formData.station_type} onChange={(e) => setFormData({ ...formData, station_type: e.target.value })}>
-              <option value="SCANNER">SCANNER</option>
-              <option value="PRINTER">PRINTER</option>
-              <option value="TESTER">TESTER</option>
-              <option value="ASSEMBLY">ASSEMBLY</option>
-              <option value="PACKING">PACKING</option>
-            </select>
-          </div>
+                    <FormItem labelContent={<Label required>Station Type</Label>}>
+                        <Select
+                            onChange={(e) => setFormData({...formData, station_type: (e.target.selectedOption as any).dataset.value!})}
+                        >
+                            {STATION_TYPES.map(type => (
+                                <Option key={type} selected={formData.station_type === type} data-value={type}>
+                                    {type}
+                                </Option>
+                            ))}
+                        </Select>
+                    </FormItem>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Line Code</label>
-            <input type="text" className="w-full px-3 py-2 border rounded-md" value={formData.line_code} onChange={(e) => setFormData({ ...formData, line_code: e.target.value })} />
-          </div>
+                    <FormItem labelContent={<Label>Line Code</Label>}>
+                        <Input 
+                            value={formData.line_code}
+                            onInput={(e) => setFormData({...formData, line_code: e.target.value})}
+                        />
+                    </FormItem>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Supported Variants (comma separated)</label>
-            <input type="text" className="w-full px-3 py-2 border rounded-md" value={formData.supported_variants} onChange={(e) => setFormData({ ...formData, supported_variants: e.target.value })} placeholder="WITH_SHROUD, NO_SHROUD" />
-          </div>
-
-          <div className="flex justify-end pt-2">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="mr-3 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
-              Cancel
-            </button>
-            <button type="submit" disabled={createMachine.isPending || updateMachine.isPending} className="px-4 py-2 bg-[#1134A6] text-white rounded-md hover:bg-[#0D2A84] disabled:opacity-50">
-              {createMachine.isPending || updateMachine.isPending ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
-      </Modal>
-    </div>
+                    <FormItem labelContent={<Label>Supported Variants (comma separated)</Label>}>
+                        <Input 
+                            value={formData.supported_variants}
+                            onInput={(e) => setFormData({...formData, supported_variants: e.target.value})}
+                            placeholder="WITH_SHROUD, NO_SHROUD"
+                        />
+                    </FormItem>
+                </Form>
+            </div>
+        </FormDialog>
+      </Section>
+    </PageLayout>
   );
 }

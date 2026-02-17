@@ -1,19 +1,30 @@
-import { Button } from '@traceability/ui';
 import { ApiClient } from '@traceability/sdk';
+import { Button, Card, CardHeader, Text } from '@ui5/webcomponents-react';
 
 const api = new ApiClient(import.meta.env.VITE_API_BASE_URL);
 
 function App() {
   console.log('API Client initialized:', api); // Suppress unused var
   return (
-    <div className="mes-shell">
-      <div className="mes-panel max-w-3xl p-8">
-        <h1 className="text-3xl font-bold mb-2">Station: Label Printing</h1>
-        <p className="text-sm text-gray-500 mb-6">Generate production labels with controlled revision templates.</p>
-        <Button variant="secondary">Generate Labels</Button>
-      </div>
+    <div className="station-shell">
+      <Card
+        className="station-card"
+        header={
+          <CardHeader
+            titleText="Station: Label Printing"
+            subtitleText="Generate production labels with controlled revision templates."
+          />
+        }
+      >
+        <div className="station-content">
+          <Text className="station-description">
+            Ready to print labels using the approved template revision.
+          </Text>
+          <Button design="Default">Generate Labels</Button>
+        </div>
+      </Card>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

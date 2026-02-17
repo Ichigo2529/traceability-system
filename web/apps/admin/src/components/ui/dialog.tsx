@@ -1,69 +1,152 @@
 import * as React from "react";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { Dialog as Ui5Dialog } from "@ui5/webcomponents-react";
 import { cn } from "../../lib/utils";
+import { Button } from "./button";
 
-const Dialog = DialogPrimitive.Root;
-const DialogTrigger = DialogPrimitive.Trigger;
-const DialogPortal = DialogPrimitive.Portal;
-const DialogClose = DialogPrimitive.Close;
+type DialogContextValue = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
 
-const DialogOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    className={cn("fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=closed]:animate-out", className)}
-    {...props}
-  />
-));
-DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
+const DialogContext = React.createContext<DialogContextValue>({
+  open: false,
+  onOpenChange: () => undefined,
+});
 
-const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
-  <DialogPortal>
-    <DialogOverlay />
-    <DialogPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-2xl translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border border-slate-200 bg-card p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out",
-        className
-      )}
+const Dialog = ({
+  open,
+  defaultOpen,
+  onOpenChange,
+  children,
+}: {
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children: React.ReactNode;
+}) => {
+  const [internalOpen, setInternalOpen] = React.useState(defaultOpen ?? false);
+  const isControlled = open !== undefined;
+  const resolvedOpen = isControlled ? Boolean(open) : internalOpen;
+
+  const handleOpenChange = React.useCallback(
+    (nextOpen: boolean) => {
+      if (!isControlled) setInternalOpen(nextOpen);
+      onOpenChange?.(nextOpen);
+    },
+    [isControlled, onOpenChange]
+  );
+
+  return <DialogContext.Provider value={{ open: resolvedOpen, onOpenChange: handleOpenChange }}>{children}</DialogContext.Provider>;
+};
+
+const DialogTrigger = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>(({ children, onClick, ...props }, ref) => {
+  const { onOpenChange } = React.useContext(DialogContext);
+
+  return (
+    <span
+      ref={ref as React.Ref<HTMLSpanElement>}
+      onClick={(event) => {
+        onClick?.(event);
+        onOpenChange(true);
+      }}
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm text-muted-foreground hover:text-foreground">
-        <X className="h-4 w-4" />
-      </DialogPrimitive.Close>
-    </DialogPrimitive.Content>
-  </DialogPortal>
-));
-DialogContent.displayName = DialogPrimitive.Content.displayName;
+    </span>
+  );
+});
+DialogTrigger.displayName = "DialogTrigger";
+
+const DialogPortal = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
+const DialogOverlay = () => null;
+
+const DialogContent = React.forwardRef<
+  HTMLElement,
+  React.HTMLAttributes<HTMLElement>
+>(({ className, children, ...props }, ref) => {
+  const { open, onOpenChange } = React.useContext(DialogContext);
+
+  const nodes = React.Children.toArray(children);
+  let headerNode: React.ReactNode = null;
+  let footerNode: React.ReactNode = null;
+  const bodyNodes: React.ReactNode[] = [];
+
+  for (const node of nodes) {
+    if (React.isValidElement(node) && node.type === DialogHeader) {
+      headerNode = (node.props as { children?: React.ReactNode }).children;
+      continue;
+    }
+    if (React.isValidElement(node) && node.type === DialogFooter) {
+      footerNode = (node.props as { children?: React.ReactNode }).children;
+      continue;
+    }
+    bodyNodes.push(node);
+  }
+
+  return (
+    <Ui5Dialog
+      ref={ref as React.Ref<any>}
+      open={open}
+      onClose={() => onOpenChange(false)}
+      className="admin-ui5-dialog"
+      header={
+        <div className="admin-ui5-dialog-header-shell">
+          <div className="admin-ui5-dialog-header-content">{headerNode}</div>
+          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+        </div>
+      }
+      footer={footerNode ? <div className="admin-ui5-dialog-footer-shell">{footerNode}</div> : undefined}
+      {...(props as any)}
+    >
+      <div className={cn("admin-ui5-dialog-body", className)}>{bodyNodes}</div>
+    </Ui5Dialog>
+  );
+});
+DialogContent.displayName = "DialogContent";
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col space-y-1.5 text-left", className)} {...props} />
+  <div className={cn("admin-ui5-dialog-header", className)} {...props} />
 );
+DialogHeader.displayName = "DialogHeader";
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex items-center justify-end gap-2", className)} {...props} />
+  <div className={cn("admin-ui5-dialog-footer", className)} {...props} />
 );
+DialogFooter.displayName = "DialogFooter";
 
 const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => <DialogPrimitive.Title ref={ref} className={cn("text-lg font-semibold", className)} {...props} />);
-DialogTitle.displayName = DialogPrimitive.Title.displayName;
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => <div ref={ref} className={cn("admin-ui5-dialog-title", className)} {...props} />);
+DialogTitle.displayName = "DialogTitle";
 
 const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  <p ref={ref} className={cn("admin-ui5-dialog-description", className)} {...props} />
 ));
-DialogDescription.displayName = DialogPrimitive.Description.displayName;
+DialogDescription.displayName = "DialogDescription";
+
+const DialogClose = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>(({ children, onClick, ...props }, ref) => {
+  const { onOpenChange } = React.useContext(DialogContext);
+
+  return (
+    <span
+      ref={ref as React.Ref<HTMLSpanElement>}
+      onClick={(event) => {
+        onClick?.(event);
+        onOpenChange(false);
+      }}
+      {...props}
+    >
+      {children}
+    </span>
+  );
+});
+DialogClose.displayName = "DialogClose";
 
 export {
   Dialog,

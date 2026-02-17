@@ -1,23 +1,37 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, RotateCcw, ShieldAlert } from "lucide-react";
 import { DeviceInfo } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
+import { StatusBadge } from "../../components/shared/StatusBadge";
+import { formatDateTime } from "../../lib/datetime";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Label,
+  Input,
+  Select,
+  Option,
+  FlexBox,
+  Form,
+  FormItem,
+  MessageBox,
+  FlexBoxDirection
+} from "@ui5/webcomponents-react";
 import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { StatusBadge } from "../../components/shared/StatusBadge";
-import { Card, CardContent } from "../../components/ui/card";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { Button } from "../../components/ui/button";
-import { formatDateTime } from "../../lib/datetime";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/refresh.js";
+import "@ui5/webcomponents-icons/dist/shield.js";
+import "@ui5/webcomponents-icons/dist/wrench.js";
+import "@ui5/webcomponents-icons/dist/cancel.js";
+import "@ui5/webcomponents-icons/dist/accept.js";
 
 const NONE = "__none__";
 
@@ -54,7 +68,7 @@ export function DevicesPage() {
 
   const onlineWindowMin = heartbeatSettings?.online_window_minutes ?? 2;
 
-  const form = useForm<DeviceForm>({
+  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<DeviceForm>({
     resolver: zodResolver(schema),
     defaultValues: {
       device_type: "pi",
@@ -150,8 +164,16 @@ export function DevicesPage() {
           const seen = hb ? Date.now() - new Date(hb).getTime() : Number.MAX_SAFE_INTEGER;
           const online = seen <= onlineWindowMin * 60 * 1000 && row.original.status === "active";
           return (
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-full ${online ? "bg-green-600" : "bg-slate-400"}`} aria-label={online ? "online" : "offline"} />
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <span
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  background: online ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)",
+                  display: "inline-block"
+                }}
+              />
               <StatusBadge status={row.original.status || "disabled"} />
             </div>
           );
@@ -161,236 +183,290 @@ export function DevicesPage() {
       {
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex flex-wrap gap-2">
+          <FlexBox>
             <Button
-              variant="outline"
-              size="sm"
+              icon="edit"
+              design="Transparent"
               onClick={() => {
                 setEditing(row.original);
-                form.reset({
+                reset({
                   device_code: row.original.device_code || "",
                   name: row.original.name || "",
-                  device_type: row.original.device_type || "pi",
+                  device_type: (row.original.device_type as any) || "pi",
                   station_id: row.original.station_id || "",
                   process_id: row.original.process_id || "",
                   ip_address: row.original.ip_address || "",
-                  status: row.original.status || "active",
+                  status: (row.original.status as any) || "active",
                   activation_pin: "000000",
                 });
                 setOpen(true);
               }}
-            >
-              Edit
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setStatusTarget({ device: row.original, status: "maintenance" })}>
-              Maintenance
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setStatusTarget({ device: row.original, status: row.original.status === "disabled" ? "active" : "disabled" })}>
-              {row.original.status === "disabled" ? "Enable" : "Disable"}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setSecretTarget(row.original)}>
-              <RotateCcw className="h-3.5 w-3.5" />
-              Secret
-            </Button>
+              tooltip="Edit"
+            />
+            <Button 
+                icon="wrench" 
+                design="Transparent"
+                onClick={() => setStatusTarget({ device: row.original, status: "maintenance" })}
+                tooltip="Maintenance"
+            />
+            <Button 
+                icon={row.original.status === "disabled" ? "accept" : "cancel"}
+                design="Transparent"
+                onClick={() => setStatusTarget({ device: row.original, status: row.original.status === "disabled" ? "active" : "disabled" })}
+                tooltip={row.original.status === "disabled" ? "Enable" : "Disable"}
+            />
+            <Button 
+                icon="refresh"
+                design="Transparent"
+                onClick={() => setSecretTarget(row.original)}
+                tooltip="Regenerate Secret"
+            />
             <Button
-              variant="destructive"
-              size="sm"
+              icon="delete"
+              design="Transparent"
+              style={{ color: "var(--sapNegativeColor)" }}
               onClick={() => {
                 if (!row.original.id) return;
                 setDeleteTarget(row.original);
               }}
-            >
-              Delete
-            </Button>
-          </div>
+              tooltip="Delete"
+            />
+          </FlexBox>
         ),
       },
     ],
-    [deleteMutation, form, onlineWindowMin, processMap, stationMap]
+    [deleteMutation, reset, onlineWindowMin, processMap, stationMap]
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Devices"
-        description="Manage registered edge devices and trust identities."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({
-                device_code: "",
-                name: "",
-                device_type: "pi",
-                station_id: "",
-                process_id: "",
-                ip_address: "",
-                status: "active",
-                activation_pin: "123456",
-              });
-              setOpen(true);
+    <PageLayout
+      title="Devices"
+      subtitle="Manage registered edge devices and trust identities."
+      icon="laptop"
+    >
+      <Section variant="card">
+        {newSecret && (
+            <div style={{ margin: "1rem", padding: "1rem", border: "1px solid var(--sapInformationBorderColor)", background: "var(--sapInformationBackground)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
+                <FlexBox direction={FlexBoxDirection.Column}>
+                    <Label style={{ fontWeight: "bold" }}>Latest secret key:</Label>
+                    <code style={{ fontSize: "1.2rem", color: "var(--sapContent_MonospaceFontFamily)" }}>{newSecret}</code>
+                </FlexBox>
+            </div>
+        )}
+
+        <DataTable 
+            data={devices} 
+            columns={columns} 
+            filterPlaceholder="Search device code, station, IP..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    setEditing(null);
+                    reset({
+                      device_code: "",
+                      name: "",
+                      device_type: "pi",
+                      station_id: "",
+                      process_id: "",
+                      ip_address: "",
+                      status: "active",
+                      activation_pin: "123456",
+                    });
+                    setOpen(true);
+                  }}
+                >
+                  Add Device
+                </Button>
+            }
+        />
+
+        {/* Create/Edit Dialog */}
+        <FormDialog
+            open={open}
+            title={editing ? "Edit Device" : "Create Device"}
+            onClose={() => setOpen(false)}
+            onSubmit={handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
+            submitting={createMutation.isPending || updateMutation.isPending}
+        >
+                <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+                    <FormItem labelContent={<Label required>Device Code</Label>}>
+                        <Controller
+                            name="device_code"
+                            control={control}
+                            render={({ field }) => (
+                                <Input 
+                                    {...field} 
+                                    value={field.value || ""} 
+                                    placeholder="PI5-ASM-01" 
+                                    valueState={errors.device_code ? "Negative" : "None"}
+                                    valueStateMessage={errors.device_code && <div>{errors.device_code.message}</div>}
+                                />
+                            )}
+                        />
+                    </FormItem>
+                    <FormItem labelContent={<Label required>Name</Label>}>
+                        <Controller
+                            name="name"
+                            control={control}
+                            render={({ field }) => (
+                                <Input 
+                                    {...field} 
+                                    value={field.value || ""} 
+                                    placeholder="ASM Scanner 01" 
+                                    valueState={errors.name ? "Negative" : "None"}
+                                    valueStateMessage={errors.name && <div>{errors.name.message}</div>}
+                                />
+                            )}
+                        />
+                    </FormItem>
+
+                    <FormItem labelContent={<Label>Device Type</Label>} style={{ gridColumn: "span 2" }}>
+                        <Controller
+                            name="device_type"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
+                                    value={field.value}
+                                >
+                                    <Option value="pi" data-value="pi" selected={field.value === "pi"}>pi</Option>
+                                    <Option value="pc" data-value="pc" selected={field.value === "pc"}>pc</Option>
+                                    <Option value="tablet" data-value="tablet" selected={field.value === "tablet"}>tablet</Option>
+                                    <Option value="kiosk" data-value="kiosk" selected={field.value === "kiosk"}>kiosk</Option>
+                                </Select>
+                            )}
+                        />
+                    </FormItem>
+
+                    <FormItem labelContent={<Label>IP Address</Label>} style={{ gridColumn: "span 2" }}>
+                        <Controller
+                            name="ip_address"
+                            control={control}
+                            render={({ field }) => (<Input {...field} value={field.value || ""} placeholder="192.168.10.35" />)}
+                        />
+                    </FormItem>
+
+                    <FormItem labelContent={<Label>Station</Label>}>
+                        <Controller
+                            name="station_id"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
+                                    value={field.value || NONE}
+                                >
+                                    <Option value={NONE} data-value={NONE}>Unassigned</Option>
+                                    {stations.map((row) => (
+                                        <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
+                                            {row.station_code} - {row.name}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            )}
+                        />
+                    </FormItem>
+
+                    <FormItem labelContent={<Label>Process</Label>}>
+                        <Controller
+                            name="process_id"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
+                                    value={field.value || NONE}
+                                >
+                                    <Option value={NONE} data-value={NONE}>Unassigned</Option>
+                                    {processes.map((row) => (
+                                        <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
+                                            {row.process_code} - {row.name}
+                                        </Option>
+                                    ))}
+                                </Select>
+                            )}
+                        />
+                    </FormItem>
+
+                     <FormItem labelContent={<Label>Status</Label>}>
+                        <Controller
+                            name="status"
+                            control={control}
+                            render={({ field }) => (
+                                <Select
+                                    onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
+                                    value={field.value}
+                                >
+                                    <Option value="active" data-value="active" selected={field.value === "active"}>active</Option>
+                                    <Option value="maintenance" data-value="maintenance" selected={field.value === "maintenance"}>maintenance</Option>
+                                    <Option value="disabled" data-value="disabled" selected={field.value === "disabled"}>disabled</Option>
+                                </Select>
+                            )}
+                        />
+                    </FormItem>
+
+                    <FormItem labelContent={<Label>Activation PIN</Label>}>
+                        <Controller
+                            name="activation_pin"
+                            control={control}
+                            render={({ field }) => (<Input {...field} value={field.value || ""} disabled={Boolean(editing)} />)}
+                        />
+                    </FormItem>
+                </Form>
+        </FormDialog>
+
+        {/* Status Confirmation */}
+        <MessageBox
+            open={Boolean(statusTarget)}
+            type="Confirm"
+            titleText="Confirm status change"
+            onClose={(action: string | undefined) => {
+                if (action === "OK" && statusTarget?.device.id) {
+                    statusMutation.mutate({ id: statusTarget.device.id, status: statusTarget.status });
+                }
+                setStatusTarget(null);
             }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Device
-          </Button>
-        }
-      />
+        >
+            {statusTarget ? `Set ${statusTarget.device.device_code} to ${statusTarget.status.toUpperCase()} status?` : ""}
+        </MessageBox>
+        
+        {/* Secret Confirmation */}
+        <MessageBox
+            open={Boolean(secretTarget)}
+            type="Confirm"
+            titleText="Regenerate device secret"
+            onClose={(action: string | undefined) => {
+                if (action === "OK" && secretTarget?.id) {
+                    secretMutation.mutate(secretTarget.id);
+                }
+                setSecretTarget(null);
+            }}
+        >
+            Existing signatures will be invalid until station is re-activated with new secret.
+        </MessageBox>
 
-      {newSecret ? (
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="py-4 text-sm">
-            <p className="font-semibold">Latest secret key</p>
-            <p className="font-mono text-xs text-muted-foreground">{newSecret}</p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <DataTable data={devices} columns={columns} filterPlaceholder="Search device code, station, IP..." />
-
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Device" : "Create Device"}
-        submitText={editing ? "Update" : "Create"}
-        onSubmit={form.handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Device Code</Label>
-            <Input {...form.register("device_code")} placeholder="PI5-ASM-01" />
-          </div>
-          <div className="space-y-2">
-            <Label>Name</Label>
-            <Input {...form.register("name")} placeholder="ASM Scanner 01" />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Device Type</Label>
-            <Select value={form.watch("device_type")} onValueChange={(v) => form.setValue("device_type", v as DeviceForm["device_type"])}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pi">pi</SelectItem>
-                <SelectItem value="pc">pc</SelectItem>
-                <SelectItem value="tablet">tablet</SelectItem>
-                <SelectItem value="kiosk">kiosk</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>IP Address</Label>
-            <Input {...form.register("ip_address")} placeholder="192.168.10.35" />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Station</Label>
-            <Select value={form.watch("station_id") || NONE} onValueChange={(v) => form.setValue("station_id", v === NONE ? "" : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select station" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Unassigned</SelectItem>
-                {stations.map((row) => (
-                  <SelectItem key={row.id} value={row.id}>
-                    {row.station_code} - {row.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Process</Label>
-            <Select value={form.watch("process_id") || NONE} onValueChange={(v) => form.setValue("process_id", v === NONE ? "" : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select process" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Unassigned</SelectItem>
-                {processes.map((row) => (
-                  <SelectItem key={row.id} value={row.id}>
-                    {row.process_code} - {row.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={form.watch("status")} onValueChange={(v) => form.setValue("status", v as DeviceForm["status"])}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">active</SelectItem>
-                <SelectItem value="maintenance">maintenance</SelectItem>
-                <SelectItem value="disabled">disabled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Activation PIN</Label>
-            <Input {...form.register("activation_pin")} disabled={Boolean(editing)} />
-          </div>
-        </div>
-      </FormDialog>
-
-      <ConfirmDialog
-        open={Boolean(statusTarget)}
-        title="Confirm status change"
-        description={
-          statusTarget
-            ? `Set ${statusTarget.device.device_code} to ${statusTarget.status.toUpperCase()} status?`
-            : ""
-        }
-        confirmText="Apply"
-        onCancel={() => setStatusTarget(null)}
-        onConfirm={() => {
-          if (!statusTarget?.device.id) return;
-          statusMutation.mutate({ id: statusTarget.device.id, status: statusTarget.status });
-        }}
-      />
-
-      <ConfirmDialog
-        open={Boolean(secretTarget)}
-        title="Regenerate device secret"
-        description="Existing signatures will be invalid until station is re-activated with new secret."
-        confirmText="Regenerate"
-        destructive
-        onCancel={() => setSecretTarget(null)}
-        onConfirm={() => {
-          if (!secretTarget?.id) return;
-          secretMutation.mutate(secretTarget.id);
-        }}
-      />
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Delete device"
-        description={deleteTarget ? `Delete device ${deleteTarget.device_code}?` : ""}
-        confirmText="Delete"
-        destructive
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (!deleteTarget?.id) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-      />
-
-      {(createMutation.error || updateMutation.error || statusMutation.error || secretMutation.error || deleteMutation.error) ? (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex items-center gap-2 py-3 text-sm text-red-700">
-            <ShieldAlert className="h-4 w-4" />
-            Operation failed. Please verify payload and try again.
-          </CardContent>
-        </Card>
-      ) : null}
-    </div>
+        {/* Delete Confirmation */}
+        <ConfirmDialog
+            open={Boolean(deleteTarget)}
+            title="Delete device"
+            description={deleteTarget ? `Delete device ${deleteTarget.device_code}?` : ""}
+            confirmText="Delete"
+            destructive
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={() => {
+                if (deleteTarget?.id) {
+                    deleteMutation.mutate(deleteTarget.id);
+                }
+                setDeleteTarget(null);
+            }}
+        />
+        
+        {(createMutation.error || updateMutation.error || statusMutation.error || secretMutation.error || deleteMutation.error) && (
+             <MessageBox open type="Error" onClose={() => {}}>
+                Operation failed. Please verify payload and try again.
+             </MessageBox>
+        )}
+      </Section>
+    </PageLayout>
   );
 }

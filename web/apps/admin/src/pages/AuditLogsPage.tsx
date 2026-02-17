@@ -5,6 +5,16 @@ import { sdk } from "../context/AuthContext";
 import { ConfigAuditLog } from "@traceability/sdk";
 import { DataTable } from "../components/shared/DataTable";
 import { formatDateTime } from "../lib/datetime";
+import { 
+    Select, 
+    Option, 
+    BusyIndicator,
+    Label,
+    FlexBox,
+    FlexBoxAlignItems,
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/history.js";
+import { PageLayout, Section } from "@traceability/ui";
 
 export default function AuditLogsPage() {
   const [entityType, setEntityType] = useState("");
@@ -31,62 +41,55 @@ export default function AuditLogsPage() {
       {
         header: "Entity ID",
         accessorKey: "entity_id",
-        cell: ({ row }) => <span className="font-mono text-xs">{row.original.entity_id}</span>,
+        cell: ({ row }) => <span style={{ fontFamily: "monospace", fontSize: "0.875rem" }}>{row.original.entity_id}</span>,
       },
     ],
     []
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-800">Config Audit Logs</h1>
-        <select className="px-3 py-2 border rounded-md" value={entityType} onChange={(e) => setEntityType(e.target.value)}>
-          <option value="">All Entities</option>
-          <option value="MODEL">MODEL</option>
-          <option value="REVISION">REVISION</option>
-          <option value="VARIANT">VARIANT</option>
-          <option value="BOM">BOM</option>
-          <option value="ROUTING_STEP">ROUTING_STEP</option>
-          <option value="LABEL_TEMPLATE">LABEL_TEMPLATE</option>
-          <option value="LABEL_BINDING">LABEL_BINDING</option>
-          <option value="MACHINE">MACHINE</option>
-          <option value="DEVICE">DEVICE</option>
-          <option value="USER">USER</option>
-        </select>
-      </div>
-
-      {isLoading ? (
-        <AuditLogTableSkeleton />
-      ) : (
-        <DataTable data={logs} columns={columns} filterPlaceholder="Search audit logs..." initialPageSize={20} />
-      )}
-    </div>
-  );
-}
-
-function AuditLogTableSkeleton() {
-  return (
-    <div className="rounded-xl border bg-white p-4 shadow-sm">
-      <div className="mb-4 h-9 w-64 animate-pulse rounded-md bg-slate-200" />
-      <div className="overflow-hidden rounded-lg border">
-        <div className="grid grid-cols-5 bg-slate-50">
-          <div className="h-10 animate-pulse border-r bg-slate-100" />
-          <div className="h-10 animate-pulse border-r bg-slate-100" />
-          <div className="h-10 animate-pulse border-r bg-slate-100" />
-          <div className="h-10 animate-pulse border-r bg-slate-100" />
-          <div className="h-10 animate-pulse bg-slate-100" />
-        </div>
-        {Array.from({ length: 8 }).map((_, idx) => (
-          <div key={idx} className="grid grid-cols-5 border-t">
-            <div className="h-12 animate-pulse border-r bg-white" />
-            <div className="h-12 animate-pulse border-r bg-white" />
-            <div className="h-12 animate-pulse border-r bg-white" />
-            <div className="h-12 animate-pulse border-r bg-white" />
-            <div className="h-12 animate-pulse bg-white" />
-          </div>
-        ))}
-      </div>
-    </div>
+    <PageLayout
+      title="Configuration Audit Logs"
+      subtitle="System-wide configuration changes and user actions"
+      icon="history"
+    >
+      <Section
+        title="Audit Logs"
+        variant="card"
+      >
+        {isLoading ? (
+            <div style={{ padding: "3rem", display: "flex", justifyContent: "center" }}>
+                <BusyIndicator active text="Loading audit logs..." />
+            </div>
+        ) : (
+            <DataTable 
+                data={logs} 
+                columns={columns} 
+                filterPlaceholder="Search audit logs..." 
+                initialPageSize={20} 
+                actions={
+                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                        <Label>Filter by Entity Type:</Label>
+                        <div style={{ minWidth: "200px" }}>
+                            <Select onChange={(e) => setEntityType((e.target.selectedOption as any).dataset.value)}>
+                                <Option value="" data-value="" selected={entityType === ""}>All Entities</Option>
+                                <Option value="MODEL" data-value="MODEL" selected={entityType === "MODEL"}>MODEL</Option>
+                                <Option value="REVISION" data-value="REVISION" selected={entityType === "REVISION"}>REVISION</Option>
+                                <Option value="VARIANT" data-value="VARIANT" selected={entityType === "VARIANT"}>VARIANT</Option>
+                                <Option value="BOM" data-value="BOM" selected={entityType === "BOM"}>BOM</Option>
+                                <Option value="ROUTING_STEP" data-value="ROUTING_STEP" selected={entityType === "ROUTING_STEP"}>ROUTING_STEP</Option>
+                                <Option value="LABEL_TEMPLATE" data-value="LABEL_TEMPLATE" selected={entityType === "LABEL_TEMPLATE"}>LABEL_TEMPLATE</Option>
+                                <Option value="LABEL_BINDING" data-value="LABEL_BINDING" selected={entityType === "LABEL_BINDING"}>LABEL_BINDING</Option>
+                                <Option value="MACHINE" data-value="MACHINE" selected={entityType === "MACHINE"}>MACHINE</Option>
+                                <Option value="DEVICE" data-value="DEVICE" selected={entityType === "DEVICE"}>DEVICE</Option>
+                                <Option value="USER" data-value="USER" selected={entityType === "USER"}>USER</Option>
+                            </Select>
+                        </div>
+                    </FlexBox>
+                }
+            />
+        )}
+      </Section>
+    </PageLayout>
   );
 }

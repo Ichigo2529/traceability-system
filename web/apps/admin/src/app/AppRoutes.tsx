@@ -1,5 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { BusyIndicator, FlexBox, FlexBoxAlignItems, FlexBoxDirection, FlexBoxJustifyContent, Text } from "@ui5/webcomponents-react";
 import { AppShell } from "../components/layout/AppShell";
 import { RoleGuard } from "./RoleGuard";
 
@@ -23,8 +24,9 @@ const BarcodeTemplatesPage = lazy(() =>
   import("../pages/admin/BarcodeTemplatesPage").then((m) => ({ default: m.BarcodeTemplatesPage }))
 );
 const InboundPacksPage = lazy(() => import("../pages/admin/InboundPacksPage").then((m) => ({ default: m.InboundPacksPage })));
-const MaterialRequestsPage = lazy(() => import("../pages/admin/MaterialRequestsPage").then((m) => ({ default: m.MaterialRequestsPage })));
+const MaterialRequestsPage = lazy(() => import("../pages/admin/MaterialRequestsPage"));
 
+const Ui5SmokeTest = lazy(() => import("../pages/Ui5SmokeTest"));
 const MachinesPage = lazy(() => import("../pages/MachinesPage"));
 const ModelDetailsPage = lazy(() => import("../pages/ModelDetailsPage"));
 const RevisionDetailsPage = lazy(() => import("../pages/RevisionDetailsPage"));
@@ -59,13 +61,20 @@ export function AppRoutes() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-          Loading...
-        </div>
+        <FlexBox
+          className="admin-loading-screen"
+          alignItems={FlexBoxAlignItems.Center}
+          direction={FlexBoxDirection.Column}
+          justifyContent={FlexBoxJustifyContent.Center}
+        >
+          <BusyIndicator active delay={0} text="Loading..." />
+          <Text className="admin-loading-text">Preparing screen...</Text>
+        </FlexBox>
       }
     >
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/test-ui5" element={<Ui5SmokeTest />} />
 
         <Route
           path="/admin"

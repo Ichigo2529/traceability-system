@@ -1,13 +1,26 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "../context/AuthContext";
 import { LabelTemplate } from "@traceability/sdk";
-import { DataTable } from "../components/ui/DataTable";
-import { Modal } from "../components/ui/Modal";
-import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
+import { DataTable } from "../components/shared/DataTable";
+import { FormDialog } from "../components/shared/FormDialog";
 import { formatApiError } from "../lib/errors";
 import { formatDateTime } from "../lib/datetime";
-import { Plus, Trash2, Pencil, Code } from "lucide-react";
+import { PageLayout, Section } from "@traceability/ui";
+import { 
+    Button,
+    Input, 
+    Label,
+    TextArea,
+    Form,
+    FormItem,
+    ObjectStatus
+} from "@ui5/webcomponents-react";
+import { ColumnDef } from "@tanstack/react-table";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/tags.js";
 
 const EMPTY = { name: "", revision_id: "", template_body: "{}", description: "" };
 
@@ -16,8 +29,9 @@ export default function LabelTemplatesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<LabelTemplate | null>(null);
   const [form, setForm] = useState(EMPTY);
+  const [error, setError] = useState<string | undefined>();
 
-  const { data: templates = [], isLoading } = useQuery({
+  const { data: templates = [] } = useQuery({
     queryKey: ["templates"],
     queryFn: () => sdk.admin.getLabelTemplates(),
   });
@@ -29,7 +43,9 @@ export default function LabelTemplatesPage() {
       setIsModalOpen(false);
       setEditing(null);
       setForm(EMPTY);
+      setError(undefined);
     },
+    onError: (err) => setError(formatApiError(err))
   });
 
   const updateTemplate = useMutation({
@@ -39,7 +55,9 @@ export default function LabelTemplatesPage() {
       setIsModalOpen(false);
       setEditing(null);
       setForm(EMPTY);
+      setError(undefined);
     },
+    onError: (err) => setError(formatApiError(err))
   });
 
   const deleteTemplate = useMutation({
@@ -50,6 +68,7 @@ export default function LabelTemplatesPage() {
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY);
+    setError(undefined);
     setIsModalOpen(true);
   };
 
@@ -61,100 +80,116 @@ export default function LabelTemplatesPage() {
       template_body: t.template_body,
       description: t.description || "",
     });
+    setError(undefined);
     setIsModalOpen(true);
   };
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = () => {
     if (editing) updateTemplate.mutate();
     else createTemplate.mutate();
   };
 
-  const columns = [
-    { header: "Name", accessorKey: "name" as any },
-    { header: "Revision", accessorKey: "revision_id" as any, cell: (t: LabelTemplate) => t.revision_id || "GLOBAL" },
-    { header: "Updated", accessorKey: "updated_at" as any, cell: (t: LabelTemplate) => formatDateTime(t.updated_at) },
-    {
-      header: "Actions",
-      cell: (t: LabelTemplate) => (
-        <div className="flex gap-2">
-          <button onClick={() => openEdit(t)} className="p-1 hover:bg-gray-100 rounded text-[#1134A6]">
-            <Pencil size={16} />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm("Delete template?")) deleteTemplate.mutate(t.id);
-            }}
-            className="p-1 hover:bg-gray-100 rounded text-red-600"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      ),
-    },
-  ];
+  const columns = useMemo<ColumnDef<LabelTemplate>[]>(
+    () => [
+        { 
+            header: "Name", 
+            accessorKey: "name", 
+            cell: ({ row }) => <span style={{ fontWeight: "bold" }}>{row.original.name}</span> 
+        },
+        { 
+            header: "Revision", 
+            accessorKey: "revision_id", 
+            cell: ({ row }) => row.original.revision_id ? <span style={{ fontFamily: "monospace" }}>{row.original.revision_id}</span> : <span style={{ fontStyle: "italic", color: "gray" }}>GLOBAL</span> 
+        },
+        { 
+            header: "Updated", 
+            accessorKey: "updated_at", 
+            cell: ({ row }) => formatDateTime(row.original.updated_at) 
+        },
+        {
+          header: "Actions",
+          cell: ({ row }) => (
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <Button icon="edit" design="Transparent" onClick={() => openEdit(row.original)} tooltip="Edit" />
+              <Button 
+                icon="delete" 
+                design="Transparent" 
+                onClick={() => {
+                   deleteTemplate.mutate(row.original.id);
+                }} 
+                tooltip="Delete"
+              />
+            </div>
+          ),
+        },
+      ],
+      [deleteTemplate]
+  );
 
-  const errorMessage = createTemplate.isError
-    ? formatApiError(createTemplate.error)
-    : updateTemplate.isError
-      ? formatApiError(updateTemplate.error)
-      : deleteTemplate.isError
-        ? formatApiError(deleteTemplate.error)
-        : undefined;
+  const isSubmitting = createTemplate.isPending || updateTemplate.isPending;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Label Templates</h1>
-          <p className="text-sm text-gray-500">JSON template editor and template registry.</p>
-        </div>
-        <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-[#1134A6] text-white rounded hover:bg-[#0D2A84] transition">
-          <Plus size={18} />
-          <span>New Template</span>
-        </button>
-      </div>
+    <PageLayout
+      title="Label Templates"
+      subtitle="Manage ZPL label templates for printing"
+      icon="tags"
+    >
+      <Section variant="card">
+        <DataTable 
+            data={templates} 
+            columns={columns} 
+            filterPlaceholder="Search templates..."
+            actions={
+                <Button icon="add" design="Emphasized" onClick={openCreate}>
+                    New Template
+                </Button>
+            }
+        />
 
-      <ApiErrorBanner message={errorMessage} />
-
-      <DataTable data={templates as any} columns={columns} isLoading={isLoading} />
-
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editing ? "Edit Template" : "New Label Template"}>
-        <form onSubmit={submit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-            <input required className="w-full px-3 py-2 border rounded-md" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Revision ID (optional)</label>
-            <input className="w-full px-3 py-2 border rounded-md" value={form.revision_id} onChange={(e) => setForm({ ...form, revision_id: e.target.value })} />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-            <input className="w-full px-3 py-2 border rounded-md" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Template JSON</label>
-            <div className="relative">
-              <textarea required rows={10} className="w-full px-3 py-2 border rounded-md font-mono text-sm" value={form.template_body} onChange={(e) => setForm({ ...form, template_body: e.target.value })} />
-              <Code className="absolute top-2 right-2 text-gray-400" size={16} />
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-4">
-            <button type="button" onClick={() => setIsModalOpen(false)} className="mr-3 px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
-              Cancel
-            </button>
-            <button type="submit" disabled={createTemplate.isPending || updateTemplate.isPending} className="px-4 py-2 bg-[#1134A6] text-white rounded-md hover:bg-[#0D2A84] disabled:opacity-50">
-              {createTemplate.isPending || updateTemplate.isPending ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
-      </Modal>
-    </div>
+        <FormDialog 
+            open={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            onSubmit={submit}
+            title={editing ? "Edit Template" : "New Label Template"}
+            submitText={isSubmitting ? "Saving..." : "Save"}
+            submitting={isSubmitting}
+        >
+             {error && (
+                <ObjectStatus state="Negative" inverted style={{ marginBottom: "1rem", display: "block" }}>
+                    {error}
+                </ObjectStatus>
+            )}
+            <Form layout="S1 M1 L1 XL1">
+                <FormItem labelContent={<Label required>Name</Label>}>
+                    <Input 
+                        value={form.name}
+                        onInput={(e) => setForm({...form, name: e.target.value})}
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label>Revision ID (optional)</Label>}>
+                    <Input 
+                        value={form.revision_id}
+                        onInput={(e) => setForm({...form, revision_id: e.target.value})}
+                        placeholder="Leave empty for GLOBAL"
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label>Description</Label>}>
+                     <Input 
+                        value={form.description}
+                        onInput={(e) => setForm({...form, description: e.target.value})}
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label required>Template JSON</Label>}>
+                    <TextArea
+                        value={form.template_body}
+                        onInput={(e) => setForm({...form, template_body: e.target.value})}
+                        rows={10}
+                        style={{ fontFamily: "monospace", width: "100%" }}
+                    />
+                </FormItem>
+            </Form>
+        </FormDialog>
+      </Section>
+    </PageLayout>
   );
 }

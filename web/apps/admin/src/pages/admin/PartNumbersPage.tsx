@@ -1,25 +1,33 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
 import { ComponentType, PartNumberMaster } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Textarea } from "../../components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Button } from "../../components/ui/button";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { PageLayout, Section } from "@traceability/ui";
+import {
+  Button,
+  Input,
+  TextArea,
+  Select,
+  Option,
+  CheckBox,
+  Label,
+  Form,
+  FormItem
+} from "@ui5/webcomponents-react";
+import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
+import "@ui5/webcomponents-icons/dist/number-sign.js";
 
 const schema = z.object({
   part_number: z.string().min(1),
@@ -84,10 +92,10 @@ export function PartNumbersPage() {
       {
         header: "Actions",
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
-              variant="outline"
-              size="sm"
+              icon="edit"
+              design="Transparent"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -99,18 +107,16 @@ export function PartNumbersPage() {
                 });
                 setOpen(true);
               }}
-            >
-              Edit
-            </Button>
+              tooltip="Edit Part Number"
+            />
             <Button
-              variant="destructive"
-              size="sm"
+              icon="delete"
+              design="Transparent"
               onClick={() => {
                 setDeleteTarget(row.original);
               }}
-            >
-              Delete
-            </Button>
+              tooltip="Delete Part Number"
+            />
           </div>
         ),
       },
@@ -119,93 +125,114 @@ export function PartNumbersPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Part Numbers"
-        description="Master FG/RM part numbers mapped to component type."
-        actions={
-          <Button
-            onClick={() => {
-              setEditing(null);
-              form.reset({ part_number: "", component_type_id: undefined, description: "", default_pack_size: undefined, is_active: true });
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Part Number
-          </Button>
-        }
-      />
-      <ApiErrorBanner
-        message={
-          createMutation.error
-            ? formatApiError(createMutation.error)
-            : updateMutation.error
-              ? formatApiError(updateMutation.error)
-              : deleteMutation.error
-                ? formatApiError(deleteMutation.error)
-                : undefined
-        }
-      />
-      <DataTable data={rows} columns={columns} filterPlaceholder="Search part number..." />
+    <PageLayout
+      title="Part Numbers"
+      subtitle="Master FG/RM part numbers mapped to component type"
+      icon="number-sign"
+    >
+      <Section variant="card">
+        <ApiErrorBanner
+          message={
+            createMutation.error
+              ? formatApiError(createMutation.error)
+              : updateMutation.error
+                ? formatApiError(updateMutation.error)
+                : deleteMutation.error
+                  ? formatApiError(deleteMutation.error)
+                  : undefined
+          }
+        />
+        <DataTable 
+            data={rows} 
+            columns={columns} 
+            filterPlaceholder="Search part number..." 
+            actions={
+                <Button
+                  icon="add"
+                  design="Emphasized"
+                  onClick={() => {
+                    setEditing(null);
+                    form.reset({ part_number: "", component_type_id: undefined, description: "", default_pack_size: undefined, is_active: true });
+                    setOpen(true);
+                  }}
+                >
+                  Add Part Number
+                </Button>
+            }
+        />
 
-      <FormDialog
-        open={open}
-        onClose={() => setOpen(false)}
-        title={editing ? "Edit Part Number" : "Create Part Number"}
-        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-        submitting={createMutation.isPending || updateMutation.isPending}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Part Number</Label>
-            <Input {...form.register("part_number")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Default Pack Size</Label>
-            <Input type="number" {...form.register("default_pack_size")} />
-          </div>
-          <div className="space-y-2">
-            <Label>Component Type</Label>
-            <Select value={form.watch("component_type_id") || "NONE"} onValueChange={(v) => form.setValue("component_type_id", v === "NONE" ? "" : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select component type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NONE">Not assigned</SelectItem>
-                {componentTypes.map((ct: ComponentType) => (
-                  <SelectItem key={ct.id} value={ct.id}>
-                    {ct.code} - {ct.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <Label>Description</Label>
-            <Textarea {...form.register("description")} />
-          </div>
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.watch("is_active")} onCheckedChange={(v) => form.setValue("is_active", Boolean(v))} />
-              Active
-            </label>
-          </div>
-        </div>
-      </FormDialog>
-      <ConfirmDialog
-        open={Boolean(deleteTarget)}
-        title="Delete part number"
-        description={deleteTarget ? `Delete part number ${deleteTarget.part_number}?` : ""}
-        confirmText="Delete"
-        destructive
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
-        }}
-      />
-    </div>
+        <FormDialog
+          open={open}
+          onClose={() => setOpen(false)}
+          title={editing ? "Edit Part Number" : "Create Part Number"}
+          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+          submitting={createMutation.isPending || updateMutation.isPending}
+        >
+          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+            <FormItem labelContent={<Label>Part Number</Label>}>
+                <Input {...form.register("part_number")} />
+            </FormItem>
+            
+             <FormItem labelContent={<Label>Default Pack Size</Label>}>
+                <Input type="Number" {...form.register("default_pack_size")} />
+            </FormItem>
+
+             <FormItem labelContent={<Label>Component Type</Label>}>
+                 <Controller
+                    control={form.control}
+                    name="component_type_id"
+                    render={({ field }) => (
+                         <Select
+                            onChange={(e) => {
+                                const selected = e.detail.selectedOption as unknown as { value: string };
+                                field.onChange(selected.value === "NONE" ? "" : selected.value);
+                            }}
+                            value={field.value || "NONE"}
+                        >
+                             <Option value="NONE">Not assigned</Option>
+                             {componentTypes.map((ct: ComponentType) => (
+                                <Option key={ct.id} value={ct.id}>
+                                  {ct.code} - {ct.name}
+                                </Option>
+                              ))}
+                        </Select>
+                    )}
+                 />
+            </FormItem>
+            
+            <FormItem labelContent={<Label>Description</Label>} style={{ gridColumn: "span 2" }}>
+                 <TextArea {...form.register("description")} />
+            </FormItem>
+            
+            <FormItem labelContent={<Label>Status</Label>} style={{ gridColumn: "span 2" }}>
+                <Controller
+                    control={form.control}
+                    name="is_active"
+                    render={({ field }) => (
+                         <CheckBox
+                             checked={field.value}
+                             onChange={(e) => field.onChange(e.target.checked)}
+                             text="Active"
+                         />
+                    )}
+                />
+            </FormItem>
+          </Form>
+        </FormDialog>
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title="Delete part number"
+          description={deleteTarget ? `Delete part number ${deleteTarget.part_number}?` : ""}
+          confirmText="Delete"
+          destructive
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            if (!deleteTarget) return;
+            deleteMutation.mutate(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+        />
+      </Section>
+    </PageLayout>
   );
 }

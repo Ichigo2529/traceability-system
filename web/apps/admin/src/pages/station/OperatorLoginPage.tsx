@@ -2,14 +2,25 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
+
 import { ScanInput } from "../../components/shared/ScanInput";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Label } from "../../components/ui/label";
-import { Input } from "../../components/ui/input";
-import { Button } from "../../components/ui/button";
+import { 
+    Page,
+    Bar,
+    Title,
+    Card,
+    CardHeader,
+    Label,
+    Input,
+    Button,
+    InputDomRef,
+    FlexBox,
+    FlexBoxDirection,
+    FlexBoxAlignItems,
+    MessageStrip,
+    Grid
+} from "@ui5/webcomponents-react";
 
 function getShiftByTime(date: Date) {
   const h = date.getHours();
@@ -20,7 +31,7 @@ function getShiftByTime(date: Date) {
 
 export function OperatorLoginPage() {
   const navigate = useNavigate();
-  const badgeRef = useRef<HTMLInputElement>(null);
+  const badgeRef = useRef<InputDomRef>(null);
   const [badge, setBadge] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -63,18 +74,30 @@ export function OperatorLoginPage() {
       operatorQuery.refetch();
       setBadge("");
       setPassword("");
-      badgeRef.current?.focus();
+      // UI5 Input focus might need a slight delay or checking strict mode ref
+      setTimeout(() => {
+           // Accessing the custom element's focus method if exposed, or the underlying input
+           // InputDomRef isn't an HTMLInputElement directly, but UI5 web components usually have focus()
+           // We might need to cast to any if TS complains about specific UI5 methods not in standard types
+           // but InputDomRef should have it.
+           // However, for safety in this strict protocol:
+           (badgeRef.current as any)?.focus(); 
+      }, 100);
     },
   });
 
   const shift = useMemo(() => getShiftByTime(new Date()), []);
 
   if (heartbeatQuery.isLoading || operatorQuery.isLoading) {
-    return <LoadingSkeleton label="Preparing station..." />;
+    return <div style={{ padding: "2rem", textAlign: "center" }}>Loading station info...</div>;
   }
 
   if (heartbeatQuery.error) {
-    return <ErrorState title="Cannot load station" description="Device token missing or invalid. Please register this device first." />;
+    return (
+        <MessageStrip design="Negative">
+            Cannot load station. Device token missing or invalid. Please register this device first.
+        </MessageStrip>
+    );
   }
 
   const station = heartbeatQuery.data?.station?.name || "Unassigned";
@@ -82,62 +105,96 @@ export function OperatorLoginPage() {
   const status = heartbeatQuery.data?.status || "active";
 
   if (status === "disabled") {
-    return <ErrorState title="Device Disabled" description="This station is disabled by administrator." />;
+    return (
+        <MessageStrip design="Negative">
+            Device Disabled. This station is disabled by administrator.
+        </MessageStrip>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Operator Login" description="Badge scan login for station operation." />
+    <Page
+      backgroundDesign="List"
+      header={
+        <Bar
+          startContent={<Title level="H2">Operator Login</Title>}
+        />
+      }
+      style={{ height: "100%" }}
+    >
+      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
+          <Grid defaultSpan="XL6 L6 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%" }}>
+            
+            <Card header={<CardHeader titleText="Current Device" />}>
+                <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                        <Label>Station:</Label>
+                        <span style={{ fontWeight: "bold" }}>{station}</span>
+                    </FlexBox>
+                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                        <Label>Process:</Label>
+                        <span style={{ fontWeight: "bold" }}>{process}</span>
+                    </FlexBox>
+                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                        <Label>Shift:</Label>
+                        <span style={{ fontWeight: "bold" }}>{shift.code} ({shift.window})</span>
+                    </FlexBox>
+                    <div style={{ marginTop: "0.5rem" }}>
+                        <StatusBadge status={status} />
+                    </div>
+                </div>
+            </Card>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Current Device</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <p>
-              Station: <span className="font-semibold">{station}</span>
-            </p>
-            <p>
-              Process: <span className="font-semibold">{process}</span>
-            </p>
-            <p>
-              Shift: <span className="font-semibold">{shift.code}</span> ({shift.window})
-            </p>
-            <div className="pt-1">
-              <StatusBadge status={status} />
-            </div>
-          </CardContent>
-        </Card>
+            <Card header={<CardHeader titleText="Badge Authentication" />}>
+                <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                    <FlexBox direction={FlexBoxDirection.Column}>
+                        <Label>Badge / Employee ID</Label>
+                        <ScanInput 
+                            ref={badgeRef} 
+                            value={badge} 
+                            onChange={setBadge} 
+                            onSubmit={() => loginMutation.mutate()} 
+                            placeholder="Scan badge" 
+                        />
+                    </FlexBox>
 
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Badge Authentication</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Badge / Employee ID</Label>
-              <ScanInput ref={badgeRef} value={badge} onChange={setBadge} onSubmit={() => loginMutation.mutate()} placeholder="Scan badge" />
-            </div>
-            <div className="space-y-2">
-              <Label>Password / PIN</Label>
-              <Input type="password" className="h-12 text-xl" value={password} onChange={(e) => setPassword(e.target.value)} />
-            </div>
-            {error ? <p className="text-sm text-red-700">{error}</p> : null}
-            <div className="flex gap-2">
-              <Button onClick={() => loginMutation.mutate()} disabled={loginMutation.isPending || !badge || !password}>
-                {loginMutation.isPending ? "Signing in..." : "Login Operator"}
-              </Button>
-              <Button variant="outline" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending}>
-                Logout Current Operator
-              </Button>
-            </div>
-            {operatorQuery.data ? (
-              <p className="text-sm text-muted-foreground">Current operator session already active on this device.</p>
-            ) : null}
-          </CardContent>
-        </Card>
+                    <FlexBox direction={FlexBoxDirection.Column}>
+                        <Label>Password / PIN</Label>
+                        <Input
+                            type="Password"
+                            value={password}
+                            onInput={(e) => setPassword(e.target.value)}
+                        />
+                    </FlexBox>
+                    
+                    {error && <MessageStrip design="Negative">{error}</MessageStrip>}
+
+                    <FlexBox style={{ gap: "1rem", marginTop: "1rem" }}>
+                        <Button 
+                            design="Emphasized" 
+                            onClick={() => loginMutation.mutate()}
+                            disabled={loginMutation.isPending || !badge || !password}
+                        >
+                            {loginMutation.isPending ? "Signing in..." : "Login Operator"}
+                        </Button>
+                        <Button 
+                            design="Transparent"
+                            onClick={() => logoutMutation.mutate()}
+                            disabled={logoutMutation.isPending}
+                        >
+                            Logout Current Operator
+                        </Button>
+                    </FlexBox>
+
+                    {operatorQuery.data && (
+                       <div style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem" }}>
+                           Current operator session already active on this device.
+                       </div>
+                    )}
+                </div>
+            </Card>
+          </Grid>
       </div>
-    </div>
+    </Page>
   );
 }

@@ -2,15 +2,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
-import { StationHeader } from "../../components/shared/StationHeader";
-import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
+import { 
+    DynamicPage,
+    DynamicPageTitle,
+    DynamicPageHeader,
+    Title, 
+    Button, 
+    Card, 
+    CardHeader, 
+    Label, 
+    MessageStrip, 
+    FlexBox, 
+    FlexBoxAlignItems,
+    FlexBoxDirection,
+    Grid,
+    Table,
+    TableHeaderRow,
+    TableHeaderCell,
+    TableRow,
+    TableCell,
+    Text,
+    InputDomRef
+} from "@ui5/webcomponents-react";
 import { ScanInput } from "../../components/shared/ScanInput";
-import { BigCounter } from "../../components/shared/BigCounter";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
+import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { formatTime } from "../../lib/datetime";
@@ -55,7 +71,7 @@ function genEventId() {
 export function ScanStationPage() {
   const navigate = useNavigate();
   const { publishEvent } = useStationEvent();
-  const scanRef = useRef<HTMLInputElement>(null);
+  const scanRef = useRef<InputDomRef>(null);
   const [assyId, setAssyId] = useState("");
   const [step, setStep] = useState<(typeof ASSEMBLY_STEPS)[number]>("PRESS_FIT_PIN430_DONE");
   const [quantity, setQuantity] = useState(0);
@@ -109,7 +125,10 @@ export function ScanStationPage() {
       beep("pass");
       setTimeout(() => setOverlay((s) => ({ ...s, open: false })), 700);
       setAssyId("");
-      scanRef.current?.focus();
+      // UI5 Input focus might need a tick
+      setTimeout(() => {
+        (scanRef.current as any)?.focus();
+      }, 50);
     },
     onError: (err, targetAssyId) => {
       const reason = formatStationError(err, "Validation rejected");
@@ -151,104 +170,131 @@ export function ScanStationPage() {
     return { pass, ng };
   }, [history]);
 
-  if (heartbeatQuery.isLoading) return <LoadingSkeleton label="Connecting station..." />;
-  if (heartbeatQuery.error) return <ErrorState title="Station unavailable" description="Register device and verify assignment before scanning." />;
-  if (deviceStatus === "disabled") return <ErrorState title="Device Disabled" description="This terminal has been disabled by admin." />;
+  if (heartbeatQuery.isLoading) return <div style={{ padding: "2rem", textAlign: "center" }}>Connecting station...</div>;
+  if (heartbeatQuery.error) return <MessageStrip design="Negative">Station unavailable. Register device and verify assignment.</MessageStrip>;
+  if (deviceStatus === "disabled") return <MessageStrip design="Negative">Device Disabled. This terminal has been disabled by admin.</MessageStrip>;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Assembly Station" description={`${stationName} / ${processName}`} />
-      <StationHeader stationName={stationName} processName={processName} deviceStatus={deviceStatus} />
+    <DynamicPage
+      titleArea={
+        <DynamicPageTitle 
+          heading={<Title level="H2">Assembly Station</Title>}
+          actionsBar={<StatusBadge status={deviceStatus} />}
+        />
+      }
+      headerArea={
+        <DynamicPageHeader>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "2rem" }}>
+                    <FlexBox direction={FlexBoxDirection.Column}>
+                        <Label>Station</Label>
+                        <span style={{ fontWeight: "bold", fontSize: "1.1rem" }}>{stationName}</span>
+                    </FlexBox>
+                    <FlexBox direction={FlexBoxDirection.Column}>
+                        <Label>Process</Label>
+                        <span style={{ fontWeight: "bold", fontSize: "1.1rem" }}>{processName}</span>
+                    </FlexBox>
+                </FlexBox>
+                
+                <FlexBox direction={FlexBoxDirection.Column} alignItems={FlexBoxAlignItems.End}>
+                    <Label>Current Quantity</Label>
+                    <Title level="H1" style={{ fontSize: "3rem", lineHeight: "1", margin: 0 }}>{quantity}</Title>
+                </FlexBox>
+            </div>
+        </DynamicPageHeader>
+      }
+      style={{ height: "100vh" }}
+      showFooter={false}
+    >
+      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
+         <Grid defaultSpan="XL4 L4 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%" }}>
+             {/* Step Control */}
+             <Card header={<CardHeader titleText="Step Control" />} style={{ gridColumn: "span 4" }}>
+                 <div style={{ padding: "1rem" }}>
+                    <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem" }}>
+                        {ASSEMBLY_STEPS.map((item) => (
+                            <Button 
+                                key={item} 
+                                design={step === item ? "Emphasized" : "Transparent"} 
+                                onClick={() => setStep(item)}
+                                style={{ justifyContent: "flex-start" }}
+                            >
+                                {item}
+                            </Button>
+                        ))}
+                        <div style={{ marginTop: "1rem", fontSize: "0.875rem", color: "var(--sapContent_LabelColor)" }}>
+                            Selected step: {step}
+                        </div>
+                    </FlexBox>
+                 </div>
+             </Card>
 
-      <div className="grid gap-4 xl:grid-cols-4">
-        <div className="xl:col-span-3 space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Step Control</CardTitle>
-              <StatusBadge status={deviceStatus} />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-2 md:grid-cols-2">
-                {ASSEMBLY_STEPS.map((item) => (
-                  <Button key={item} variant={step === item ? "default" : "outline"} onClick={() => setStep(item)}>
-                    {item}
-                  </Button>
-                ))}
-              </div>
-              <p className="text-sm text-muted-foreground">Selected step: {step}</p>
-            </CardContent>
-          </Card>
+             {/* Main Scan Area */}
+             <div style={{ gridColumn: "span 8", display: "flex", flexDirection: "column", gap: "1rem" }}>
+                 <Card header={<CardHeader titleText="ASSY Scan" />}>
+                     <div style={{ padding: "1rem" }}>
+                        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem" }}>
+                            <FlexBox style={{ gap: "0.5rem" }} alignItems={FlexBoxAlignItems.Center}>
+                                <div style={{ flex: 1 }}>
+                                    <ScanInput 
+                                        ref={scanRef} 
+                                        value={assyId} 
+                                        onChange={setAssyId} 
+                                        onSubmit={submitScan} 
+                                        placeholder="Scan ASSY ID" 
+                                    />
+                                </div>
+                                <Button design="Emphasized" onClick={submitScan} disabled={eventMutation.isPending || !assyId}>
+                                    {eventMutation.isPending ? "Submitting..." : "Submit"}
+                                </Button>
+                                <Button design="Transparent" icon="delete" onClick={() => setAssyId("")}>Clear</Button>
+                            </FlexBox>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>ASSY Scan</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ScanInput ref={scanRef} value={assyId} onChange={setAssyId} onSubmit={submitScan} placeholder="Scan ASSY ID" />
-              <div className="flex gap-2">
-                <Button onClick={submitScan} disabled={eventMutation.isPending || !assyId}>
-                  {eventMutation.isPending ? "Submitting..." : "Submit Step"}
-                </Button>
-                <Button variant="outline" onClick={() => setAssyId("")}>Clear</Button>
-              </div>
-              {warnings.length ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                  {warnings.map((warning) => (
-                    <p key={warning}>{warning}</p>
-                  ))}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
+                            {warnings.length > 0 && (
+                                <MessageStrip design="Critical" hideCloseButton>
+                                    {warnings.map((w, i) => <div key={i}>{w}</div>)}
+                                </MessageStrip>
+                            )}
+                        </FlexBox>
+                     </div>
+                 </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Last 5 Scans</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto rounded-lg border">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Time</th>
-                      <th className="px-3 py-2 text-left">ASSY ID</th>
-                      <th className="px-3 py-2 text-left">Step</th>
-                      <th className="px-3 py-2 text-left">Result</th>
-                      <th className="px-3 py-2 text-left">Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((row) => (
-                      <tr key={`${row.assyId}-${row.step}-${row.at}`} className="border-t">
-                        <td className="px-3 py-2">{row.at}</td>
-                        <td className="px-3 py-2 font-mono text-xs">{row.assyId}</td>
-                        <td className="px-3 py-2 text-xs">{row.step}</td>
-                        <td className="px-3 py-2">
-                          <StatusBadge status={row.result === "PASS" ? "ok" : "ng"} />
-                        </td>
-                        <td className="px-3 py-2">{row.reason || "-"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                 {/* History Table */}
+                 <Card header={<CardHeader titleText="Last 5 Scans" />} style={{ width: "100%" }}>
+                     <Table
+                        headerRow={
+                            <TableHeaderRow>
+                                <TableHeaderCell><Label>Time</Label></TableHeaderCell>
+                                <TableHeaderCell><Label>ASSY ID</Label></TableHeaderCell>
+                                <TableHeaderCell><Label>Step</Label></TableHeaderCell>
+                                <TableHeaderCell><Label>Result</Label></TableHeaderCell>
+                                <TableHeaderCell><Label>Reason</Label></TableHeaderCell>
+                            </TableHeaderRow>
+                        }
+                     >
+                        {history.map((row) => (
+                            <TableRow key={`${row.assyId}-${row.step}-${row.at}`}>
+                                <TableCell><Label>{row.at}</Label></TableCell>
+                                <TableCell><Label style={{ fontFamily: "monospace" }}>{row.assyId}</Label></TableCell>
+                                <TableCell><Label>{row.step}</Label></TableCell>
+                                <TableCell><StatusBadge status={row.result} /></TableCell>
+                                <TableCell><Label>{row.reason || "-"}</Label></TableCell>
+                            </TableRow>
+                        ))}
+                     </Table>
+                 </Card>
 
-        <div className="space-y-4">
-          <BigCounter label="Current Quantity" value={quantity} />
-          <Card>
-            <CardHeader>
-              <CardTitle>Batch Result</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <p>PASS: {statusSummary.pass}</p>
-              <p>NG: {statusSummary.ng}</p>
-              <p className="text-muted-foreground">Events use catalog types and include device signature headers.</p>
-            </CardContent>
-          </Card>
-        </div>
+                 {/* Batch Result */}
+                 <Card header={<CardHeader titleText="Batch Result" />}>
+                     <div style={{ padding: "1rem" }}>
+                        <FlexBox style={{ gap: "2rem" }}>
+                            <Text>PASS: <span style={{ fontWeight: "bold", color: "var(--sapPositiveColor)" }}>{statusSummary.pass}</span></Text>
+                            <Text>NG: <span style={{ fontWeight: "bold", color: "var(--sapNegativeColor)" }}>{statusSummary.ng}</span></Text>
+                        </FlexBox>
+                     </div>
+                 </Card>
+             </div>
+         </Grid>
       </div>
 
       <FullscreenResultOverlay
@@ -258,6 +304,6 @@ export function ScanStationPage() {
         description={overlay.description}
         onClose={() => setOverlay((prev) => ({ ...prev, open: false }))}
       />
-    </div>
+    </DynamicPage>
   );
 }

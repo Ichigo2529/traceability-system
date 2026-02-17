@@ -2,24 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail } from "@traceability/sdk";
-import { ArrowLeft, ClipboardPen, History, ScanLine, Trash2 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { PageHeader } from "../../components/shared/PageHeader";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
-import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
-import { Button } from "../../components/ui/button";
-import { Card, CardContent } from "../../components/ui/card";
-import { Input } from "../../components/ui/input";
 import { formatApiError } from "../../lib/errors";
 import { formatDate, formatDateTime } from "../../lib/datetime";
 import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
 import { useDelayedBusy } from "../../hooks/useDelayedBusy";
-import { LoadingSkeleton } from "../../components/shared/States";
-import { UnderlineTabs } from "../../components/shared/UnderlineTabs";
 import { toast } from "sonner";
-import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import {
   confirmMaterialReceipt,
   createMaterialRequest,
@@ -28,6 +19,39 @@ import {
   getMaterialRequestNextNumbers,
   getMaterialRequests,
 } from "../../lib/material-api";
+import {
+    Page,
+    Bar,
+    Title,
+    TabContainer,
+    Tab,
+    TabSeparator,
+    Button,
+    Card,
+    CardHeader,
+    Input,
+    Label,
+    BusyIndicator,
+    MessageStrip,
+    Select,
+    Option,
+    TextArea,
+    Table,
+    TableHeaderRow,
+    TableHeaderCell,
+    TableRow,
+    TableCell,
+    Form,
+    FormGroup,
+    FormItem,
+    Text,
+    Dialog,
+    FlexBox,
+    FlexBoxDirection,
+    FlexBoxAlignItems,
+    FlexBoxJustifyContent,
+    Grid
+} from "@ui5/webcomponents-react";
 
 type LineForm = {
   item_no: number;
@@ -72,7 +96,7 @@ export function ProductionMaterialRequestPage() {
   const [scanQueue, setScanQueue] = useState<Array<{ part_number: string; do_number: string; scan_data: string }>>([]);
   const [scanInputError, setScanInputError] = useState<string | null>(null);
   const submittedScanCacheRef = useRef<Set<string>>(new Set());
-  const scanInputRef = useRef<HTMLInputElement | null>(null);
+  const scanInputRef = useRef<any>(null);
 
   const requestsQuery = useQuery({
     queryKey: ["station-production-material-requests"],
@@ -288,8 +312,8 @@ export function ProductionMaterialRequestPage() {
         header: "Actions",
         cell: ({ row }) => (
           <Button
-            size="sm"
-            variant="outline"
+            design="Transparent"
+            icon="search"
             onClick={() => {
               setSelectedId(row.original.id);
               setOpenDetails(true);
@@ -469,505 +493,508 @@ export function ProductionMaterialRequestPage() {
   if (!canUsePage) {
     return (
       <Card>
-        <CardContent className="p-6 text-sm text-slate-600">This role is not allowed to submit material request.</CardContent>
+        <CardHeader titleText="Authorized Access Required" />
+        <div style={{ padding: "1rem" }}>This role is not allowed to submit material request.</div>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader title="Production Material Request" description="Direct Material Issue Voucher" />
-      <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
-      <UnderlineTabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: "FORM", label: "Request Form", icon: ClipboardPen },
-          { key: "HISTORY", label: "History", icon: History },
-        ]}
-      />
-      {showFormLoading ? <LoadingSkeleton label="Loading form data..." /> : null}
+    <Page
+      header={<Bar startContent={<Title level="H2">Production Material Request</Title>} />}
+      backgroundDesign="List"
+      style={{ height: "100%" }}
+    >
+      {anyError ? <MessageStrip design="Negative" hideCloseButton>{formatApiError(anyError)}</MessageStrip> : null}
+      <TabContainer tabLayout="Standard" collapsed onTabSelect={(e) => setTab(e.detail.tab.getAttribute("data-key") as TabKey)}>
+        <Tab text="Request Form" icon="form" selected={tab === "FORM"} data-key="FORM" />
+        <TabSeparator />
+        <Tab text="History" icon="history" selected={tab === "HISTORY"} data-key="HISTORY" />
+      </TabContainer>
+      <div style={{ padding: "1rem" }}>
+      {showFormLoading ? <BusyIndicator active /> : null}
 
       {tab === "FORM" ? (
-        <Card className="ml-0 mr-auto w-full max-w-[1120px] rounded-md border-slate-300 bg-white shadow-sm">
-          <CardContent className="p-4">
-            <div className="rounded-sm border border-slate-300 p-3">
-              <div className="mb-3">
-                <div className="flex items-start gap-3">
-                  <img src="/logo.png" alt="MMI Logo" className="h-14 w-auto object-contain" />
-                  <div className="text-sm leading-5">
-                    <p className="text-2xl font-semibold italic tracking-wide text-slate-700">MMI Precision Assembly (Thailand) Co., Ltd.</p>
-                    <p>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</p>
-                    <p>TEL : (6644) 000188 &nbsp;&nbsp; FAX : (6644) 000199</p>
-                  </div>
-                </div>
-              </div>
+        <Card>
+            <div style={{ padding: "1rem" }}>
+                <div style={{ border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", padding: "1.5rem", width: "100%", boxSizing: "border-box" }}>
+                    <FlexBox style={{ gap: "1.5rem", marginBottom: "2rem", width: "100%" }} alignItems={FlexBoxAlignItems.Start}>
+                        <img src="/logo.png" alt="MMI Logo" style={{ height: "4rem", width: "auto", objectFit: "contain" }} />
+                        <FlexBox direction={FlexBoxDirection.Column}>
+                            <Title level="H3" style={{ fontStyle: "italic", marginBottom: "0.25rem" }}>MMI Precision Assembly (Thailand) Co., Ltd.</Title>
+                            <Text>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</Text>
+                            <FlexBox style={{ marginTop: "0.25rem" }}>
+                                <Text>TEL : (6644) 000188 &nbsp;&nbsp; FAX : (6644) 000199</Text>
+                            </FlexBox>
+                        </FlexBox>
+                    </FlexBox>
 
-              <p className="mb-3 text-2xl font-semibold tracking-tight text-slate-800">DIRECT MATERIAL ISSUE VOUCHER</p>
+                    <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ marginBottom: "1.5rem" }}>
+                        <Title level="H2" style={{ textDecoration: "underline" }}>DIRECT MATERIAL ISSUE VOUCHER</Title>
+                    </FlexBox>
 
-              <div className="mb-3 rounded-sm border border-slate-300 bg-slate-50 px-4 py-3">
-                <div className="grid grid-cols-[1fr_1fr_0.8fr] items-end gap-6 text-[15px] font-semibold text-slate-800">
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">NO.:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1 text-[#d92d20]">
-                      {nextNumbersQuery.data?.request_no ?? "-"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">DMI. NO.:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1 text-[#d92d20]">
-                      {nextNumbersQuery.data?.dmi_no ?? "-"}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">DATE:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1">
-                      {formatDate(nextNumbersQuery.data?.generated_at ?? new Date().toISOString())}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-4 rounded-sm border border-slate-300 bg-slate-50 px-4 py-3">
-                <div className="grid grid-cols-[1.2fr_1fr] items-end gap-6 text-[15px] font-semibold text-slate-800">
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">SECTION:</span>
-                    <span className="w-full border-b border-slate-300 px-1 pb-1">{sectionAuto || "-"}</span>
-                  </div>
-                  <div className="grid grid-cols-[auto_1fr] items-end gap-2">
-                    <span className="whitespace-nowrap">COST CENTER:</span>
-                    <Input
-                      value={costCenter}
-                      onChange={(e) => setCostCenter(e.target.value)}
-                      className="h-10 w-full rounded-none border-0 border-b border-slate-300 bg-transparent px-1 pb-1 text-[15px] font-semibold shadow-none focus-visible:ring-0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full table-fixed border-collapse text-sm">
-                  <colgroup>
-                    <col className="w-[56px]" />
-                    <col className="w-[160px]" />
-                    <col className="w-[200px]" />
-                    <col className="w-[280px]" />
-                    <col className="w-[110px]" />
-                    <col className="w-[76px]" />
-                    <col />
-                  </colgroup>
-                  <thead>
-                    <tr className="bg-slate-100 text-[13px] text-slate-700">
-                      <th className="border border-slate-300 px-2 py-2 text-center">ITEM</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">MODEL</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">COMPONENT PART NO.</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">DESCRIPTION</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">QTY</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">UOM</th>
-                      <th className="border border-slate-300 px-2 py-2 text-center">REMARKS</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lines.map((line, idx) => (
-                      <tr key={idx}>
-                        <td className="border border-slate-300 px-2 py-1 text-center">{idx + 1}</td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <select
-                            className="h-8 w-full rounded-none border border-slate-300 bg-white px-2 text-sm"
-                            value={line.model_id}
-                            onChange={(e) => onModelChange(idx, e.target.value)}
+                    <Form layout="S1 M2 L2 XL2" labelSpan="M4 L4 XL4">
+                        <FormGroup headerText="Document Details">
+                            <FormItem labelContent={<Label>NO.</Label>}>
+                                <Text style={{ color: "var(--sapNegativeElementColor)", fontWeight: "bold" }}>{nextNumbersQuery.data?.request_no ?? "-"}</Text>
+                            </FormItem>
+                            <FormItem labelContent={<Label>DMI. NO.</Label>}>
+                                <Text style={{ color: "var(--sapNegativeElementColor)", fontWeight: "bold" }}>{nextNumbersQuery.data?.dmi_no ?? "-"}</Text>
+                            </FormItem>
+                            <FormItem labelContent={<Label>DATE</Label>}>
+                                <Text>{formatDate(nextNumbersQuery.data?.generated_at ?? new Date().toISOString())}</Text>
+                            </FormItem>
+                        </FormGroup>
+                        <FormGroup headerText="Requestor Details">
+                            <FormItem labelContent={<Label>SECTION</Label>}>
+                                <Text>{sectionAuto || "-"}</Text>
+                            </FormItem>
+                            <FormItem labelContent={<Label>COST CENTER</Label>}>
+                                <Input
+                                    value={costCenter}
+                                    onInput={(e) => setCostCenter(e.target.value)}
+                                />
+                            </FormItem>
+                        </FormGroup>
+                    </Form> 
+                    
+                    <div style={{ marginTop: "1rem" }}>
+                        <Table
+                            headerRow={
+                                <TableHeaderRow>
+                                    <TableHeaderCell width="50px"><Label style={{ fontWeight: "bold" }}>ITEM</Label></TableHeaderCell>
+                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>MODEL</Label></TableHeaderCell>
+                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>COMPONENT PART NO.</Label></TableHeaderCell>
+                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>DESCRIPTION</Label></TableHeaderCell>
+                                    <TableHeaderCell width="100px"><Label style={{ fontWeight: "bold" }}>QTY</Label></TableHeaderCell>
+                                    <TableHeaderCell width="80px"><Label style={{ fontWeight: "bold" }}>UOM</Label></TableHeaderCell>
+                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>REMARKS</Label></TableHeaderCell>
+                                </TableHeaderRow>
+                            }
+                        >
+                            {lines.map((line, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell><Label>{idx + 1}</Label></TableCell>
+                        <TableCell>
+                          <Select
+                            onChange={(e) => onModelChange(idx, e.detail.selectedOption.getAttribute("data-value")!)}
                           >
-                            <option value="">Select Model</option>
+                            <Option data-value="">Select Model</Option>
                             {modelOptions.map((model) => (
-                              <option key={model.model_id} value={model.model_id}>
+                              <Option key={model.model_id} selected={line.model_id === model.model_id} data-value={model.model_id}>
                                 {model.model_code}
-                              </option>
+                              </Option>
                             ))}
-                          </select>
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <select
-                            className="h-8 w-full rounded-none border border-slate-300 bg-white px-2 text-sm"
-                            value={line.part_number}
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Select
                             disabled={!line.model_id}
-                            onChange={(e) => onPartNumberChange(idx, e.target.value)}
+                            onChange={(e) => onPartNumberChange(idx, e.detail.selectedOption.getAttribute("data-value")!)}
                           >
-                            <option value="">{line.model_id ? "Select Component Part Number" : "Select model first"}</option>
+                            <Option data-value="">{line.model_id ? "Select Component Part Number" : "Select model first"}</Option>
                             {(componentOptionsByModel.get(line.model_id) ?? []).map((item) => (
-                              <option key={`${item.model_id}-${item.part_number}`} value={item.part_number}>
+                              <Option key={`${item.model_id}-${item.part_number}`} selected={line.part_number === item.part_number} data-value={item.part_number}>
                                 {item.part_number} {item.component_name ? `- ${item.component_name}` : ""}
-                              </option>
+                              </Option>
                             ))}
-                          </select>
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <p className="h-8 border-b border-dotted border-slate-500/70 px-1 py-1.5 text-sm text-slate-700">{line.description || "-"}</p>
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Label>{line.description || "-"}</Label>
+                        </TableCell>
+                        <TableCell>
                           <Input
-                            type="number"
-                            min={1}
-                            step={1}
-                            value={line.requested_qty ?? ""}
-                            onChange={(e) => updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined })}
-                            className="h-8 rounded-none border border-slate-300 text-right text-sm"
+                            type="Number"
+                            value={line.requested_qty?.toString() ?? ""}
+                            onInput={(e) => updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined })}
                           />
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
-                          <p className="h-8 border-b border-dotted border-slate-500/70 px-1 py-1.5 text-center text-sm font-medium text-slate-700">{line.uom || "PCS"}</p>
-                        </td>
-                        <td className="border border-slate-300 px-2 py-1">
+                        </TableCell>
+                        <TableCell>
+                          <Label>{line.uom || "PCS"}</Label>
+                        </TableCell>
+                        <TableCell>
                           <Input
                             value={line.remarks}
-                            onChange={(e) => updateLine(idx, { remarks: e.target.value })}
-                            className="h-8 rounded-none border border-slate-300 text-sm"
+                            onInput={(e) => updateLine(idx, { remarks: e.target.value })}
                           />
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                </Table>
 
-              <div className="mt-2 flex gap-2">
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}
-                >
-                  + Add Item
-                </Button>
-                <Button
-                  size="sm"
-                  type="button"
-                  variant="outline"
-                  onClick={() => setLines((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)))}
-                >
-                  Remove Last
-                </Button>
-              </div>
+                <FlexBox style={{ marginTop: "0.5rem", gap: "0.5rem" }}>
+                    <Button
+                        icon="add"
+                        design="Transparent"
+                        onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}
+                    >
+                        Add Item
+                    </Button>
+                    <Button
+                        icon="less"
+                        design="Transparent"
+                        onClick={() => setLines((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)))}
+                    >
+                        Remove Last
+                    </Button>
+                </FlexBox>
 
-              <div className="mt-4 overflow-hidden rounded-sm border border-slate-300 md:grid md:grid-cols-2">
-                <div className="border-b border-slate-300 md:border-b-0 md:border-r">
-                  <div className="bg-slate-100 px-3 py-2 text-xs font-semibold tracking-wide text-slate-700">ISSUED BY</div>
-                  <div className="grid grid-cols-[56px_1fr] items-end gap-x-2 gap-y-3 px-3 py-3 text-sm">
-                    <p className="text-slate-600">NAME :</p>
-                    <p className="border-b border-dotted border-slate-400 pb-1">&nbsp;</p>
-                    <p className="text-slate-600">DATE :</p>
-                    <p className="border-b border-dotted border-slate-400 pb-1">&nbsp;</p>
-                  </div>
-                </div>
-                <div>
-                  <div className="bg-slate-100 px-3 py-2 text-xs font-semibold tracking-wide text-slate-700">RECEIVED BY</div>
-                  <div className="grid grid-cols-[56px_1fr] items-end gap-x-2 gap-y-3 px-3 py-3 text-sm">
-                    <p className="text-slate-600">NAME :</p>
-                    <p className="border-b border-dotted border-slate-400 pb-1">&nbsp;</p>
-                    <p className="text-slate-600">DATE :</p>
-                    <p className="border-b border-dotted border-slate-400 pb-1">&nbsp;</p>
-                  </div>
-                </div>
-              </div>
+                <Grid defaultSpan="XL6 L6 M6 S12" style={{ marginTop: "1.5rem", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", overflow: "hidden", width: "100%" }}>
+                    <div style={{ borderRight: "1px solid var(--sapGroup_ContentBorderColor)" }}>
+                        <div style={{ background: "var(--sapGroup_TitleBackground)", padding: "0.5rem 0.75rem" }}>
+                            <Text style={{ fontSize: "0.75rem", fontWeight: "bold" }}>ISSUED BY</Text>
+                        </div>
+                        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "0.75rem", gap: "1rem" }}>
+                            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.5rem" }}>
+                                <Text style={{ color: "var(--sapContent_LabelColor)", minWidth: "3.5rem" }}>NAME :</Text>
+                                <div style={{ flex: 1, borderBottom: "1px dotted var(--sapContent_LabelColor)", height: "1.25rem" }}>&nbsp;</div>
+                            </FlexBox>
+                            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.5rem" }}>
+                                <Text style={{ color: "var(--sapContent_LabelColor)", minWidth: "3.5rem" }}>DATE :</Text>
+                                <div style={{ flex: 1, borderBottom: "1px dotted var(--sapContent_LabelColor)", height: "1.25rem" }}>&nbsp;</div>
+                            </FlexBox>
+                        </FlexBox>
+                    </div>
+                    <div>
+                        <div style={{ background: "var(--sapGroup_TitleBackground)", padding: "0.5rem 0.75rem" }}>
+                            <Text style={{ fontSize: "0.75rem", fontWeight: "bold" }}>RECEIVED BY</Text>
+                        </div>
+                        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "0.75rem", gap: "1rem" }}>
+                            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.5rem" }}>
+                                <Text style={{ color: "var(--sapContent_LabelColor)", minWidth: "3.5rem" }}>NAME :</Text>
+                                <div style={{ flex: 1, borderBottom: "1px dotted var(--sapContent_LabelColor)", height: "1.25rem" }}>&nbsp;</div>
+                            </FlexBox>
+                            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.5rem" }}>
+                                <Text style={{ color: "var(--sapContent_LabelColor)", minWidth: "3.5rem" }}>DATE :</Text>
+                                <div style={{ flex: 1, borderBottom: "1px dotted var(--sapContent_LabelColor)", height: "1.25rem" }}>&nbsp;</div>
+                            </FlexBox>
+                        </FlexBox>
+                    </div>
+                </Grid>
 
-              <div className="mt-3 flex items-center justify-between">
-                <p className="text-xs text-slate-500">White - STORE &nbsp; Blue - MATERIALS &nbsp; Pink - RECEIVER</p>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    setConfirmSubmitOpen(true);
-                  }}
-                  disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty}
-                >
-                  {createMutation.isPending ? "Submitting..." : "Submit Request"}
-                </Button>
-              </div>
+                <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center} style={{ marginTop: "1rem" }}>
+                    <Text style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)" }}>
+                        White - STORE &nbsp; Blue - MATERIALS &nbsp; Pink - RECEIVER
+                    </Text>
+                    <Button
+                        design="Emphasized"
+                        onClick={() => {
+                            setConfirmSubmitOpen(true);
+                        }}
+                        disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty}
+                    >
+                        {createMutation.isPending ? "Submitting..." : "Submit Request"}
+                    </Button>
+                </FlexBox>
             </div>
-          </CardContent>
+            </div>
+            </div>
         </Card>
       ) : null}
-
       {tab === "HISTORY" ? (
         openDetails ? (
-          <div className="space-y-3 motion-safe:animate-panel-slide-in-left">
-            <div className="flex items-center justify-between rounded-md border border-slate-300 bg-white px-3 py-2 shadow-enterprise-soft">
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setOpenDetails(false);
-                    setSelectedId(null);
-                  }}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to History
-                </Button>
-                <p className="text-sm font-semibold text-slate-800">
-                  Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}
-                </p>
-              </div>
-              <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-            </div>
+          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.75rem", animation: "var(--ui5-element-show-animation)", width: "100%" }}>
+            <Card header={<CardHeader 
+                titleText={`Request Detail ${detailsQuery.data?.request_no ? ` - ${detailsQuery.data.request_no}` : ""}`}
+                action={
+                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                        <Button
+                            design="Transparent"
+                            icon="nav-back"
+                            onClick={() => {
+                                setOpenDetails(false);
+                                setSelectedId(null);
+                            }}
+                        >
+                            Back to History
+                        </Button>
+                        <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
+                    </FlexBox>
+                }
+            />} />
+            
             {showDetailsLoading ? (
-              <LoadingSkeleton label="Loading request details..." />
+              <BusyIndicator active />
             ) : detailsQuery.data ? (
-              <div className="space-y-3">
+              <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.75rem", width: "100%" }}>
                 <MaterialRequestVoucherView detail={detailsQuery.data} />
                 {detailsQuery.data.status === "ISSUED" ? (
-                  <Card className="border-slate-300 shadow-enterprise-soft">
-                    <CardContent className="space-y-3 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-800">Production Receive From Forklift (High-Volume 2D Scan)</p>
-                        <div className="inline-flex items-center gap-3 rounded-md border border-slate-300 bg-slate-50 px-3 py-1 text-xs">
-                          <span className="text-slate-600">Total queued:</span>
-                          <span className="font-semibold text-primary">{scanQueue.length}</span>
-                          <span className="text-slate-600">Current Part/DO:</span>
-                          <span className="font-semibold text-primary">{selectedPairQueuedCount}</span>
-                        </div>
-                      </div>
-                      <div className="grid gap-3 lg:grid-cols-[1.55fr_1fr]">
-                        <div className="space-y-3 rounded-md border border-slate-300 bg-slate-50 p-3">
-                          <div className="grid gap-3 md:grid-cols-2">
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium text-slate-600">Component Part No.</label>
-                              <select
-                                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm"
-                                value={receivePartNo}
-                                onChange={(e) => setReceivePartNo(e.target.value)}
-                              >
-                                <option value="">Select part number</option>
-                                {Array.from(new Set(receiptOptions.map((row) => row.part_number))).map((part) => (
-                                  <option key={part} value={part}>
-                                    {part}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs font-medium text-slate-600">DO No.</label>
-                              <select
-                                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2 text-sm"
-                                value={receiveDoNo}
-                                onChange={(e) => setReceiveDoNo(e.target.value)}
-                                disabled={!receivePartNo}
-                              >
-                                <option value="">Select DO number</option>
-                                {availableDoByPart.map((doNo) => (
-                                  <option key={doNo} value={doNo}>
-                                    {doNo}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-slate-600">
-                              2D Barcode Scan (scanner gun: Enter each pack)
-                            </label>
-                            <div className="grid gap-2 md:grid-cols-[1fr_auto]">
-                              <Input
-                                ref={scanInputRef}
-                                value={receiveScanData}
-                                onChange={(e) => setReceiveScanData(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    appendScanToQueue();
-                                  }
-                                }}
-                                placeholder="Scan vendor 2D barcode"
-                              />
-                              <Button
-                                type="button"
-                                onClick={() => appendScanToQueue()}
-                                disabled={!receivePartNo || !receiveDoNo || !receiveScanData.trim()}
-                              >
-                                <ScanLine className="h-4 w-4" />
-                                Add
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-xs font-medium text-slate-600">Bulk paste (one barcode per line)</label>
-                            <textarea
-                              value={bulkScanData}
-                              onChange={(e) => setBulkScanData(e.target.value)}
-                              placeholder={"*P760049400-P*EA*Q160..."}
-                              className="h-20 w-full rounded-md border border-slate-300 bg-white px-2 py-2 font-mono text-[11px] text-slate-700 outline-none ring-0 focus:border-primary"
-                            />
-                            <div className="flex justify-end">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={importBulkScans}
-                                disabled={!bulkScanData.trim() || !receivePartNo || !receiveDoNo}
-                              >
-                                Import Lines
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="space-y-2 rounded-md border border-slate-300 bg-white p-3">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Queue Summary by Part / DO</p>
-                          <div className="max-h-52 overflow-auto rounded-md border border-slate-200">
-                            <table className="w-full border-collapse text-xs">
-                              <thead className="sticky top-0 bg-slate-100 text-slate-700">
-                                <tr>
-                                  <th className="border-b border-slate-200 px-2 py-1 text-left">Part No.</th>
-                                  <th className="border-b border-slate-200 px-2 py-1 text-left">DO No.</th>
-                                  <th className="border-b border-slate-200 px-2 py-1 text-right">Scans</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {queueGroupSummary.length ? (
-                                  queueGroupSummary.map((row) => (
-                                    <tr key={`${row.part_number}-${row.do_number}`} className="odd:bg-slate-50/60">
-                                      <td className="border-b border-slate-200 px-2 py-1">{row.part_number}</td>
-                                      <td className="border-b border-slate-200 px-2 py-1">{row.do_number}</td>
-                                      <td className="border-b border-slate-200 px-2 py-1 text-right font-semibold">{row.count}</td>
-                                    </tr>
-                                  ))
-                                ) : (
-                                  <tr>
-                                    <td colSpan={3} className="px-2 py-6 text-center text-slate-500">
-                                      No queue summary
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                      {scanInputError ? (
-                        <p className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">{scanInputError}</p>
-                      ) : null}
-                      <div className="max-h-56 overflow-auto rounded-md border border-slate-300 bg-white">
-                        <table className="w-full border-collapse text-xs">
-                          <thead className="sticky top-0 bg-slate-100 text-slate-700">
-                            <tr>
-                              <th className="border-b border-slate-300 px-2 py-1 text-left">#</th>
-                              <th className="border-b border-slate-300 px-2 py-1 text-left">Part No.</th>
-                              <th className="border-b border-slate-300 px-2 py-1 text-left">DO No.</th>
-                              <th className="border-b border-slate-300 px-2 py-1 text-left">2D Data</th>
-                              <th className="border-b border-slate-300 px-2 py-1 text-center">Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {scanQueue.length ? (
-                              scanQueue.map((row, idx) => (
-                                <tr key={`${row.part_number}-${row.do_number}-${idx}`} className="odd:bg-slate-50/60">
-                                  <td className="border-b border-slate-200 px-2 py-1">{idx + 1}</td>
-                                  <td className="border-b border-slate-200 px-2 py-1">{row.part_number}</td>
-                                  <td className="border-b border-slate-200 px-2 py-1">{row.do_number}</td>
-                                  <td className="border-b border-slate-200 px-2 py-1 font-mono text-[11px]">{row.scan_data}</td>
-                                  <td className="border-b border-slate-200 px-2 py-1 text-center">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={() =>
-                                        setScanQueue((prev) => prev.filter((_, rowIdx) => rowIdx !== idx))
-                                      }
-                                      aria-label={`Remove scan ${idx + 1}`}
+                  <Card header={<CardHeader titleText="Production Receive From Forklift (High-Volume 2D Scan)" subtitleText={`Total queued: ${scanQueue.length} | Current Part/DO: ${selectedPairQueuedCount}`} />}>
+                    <div style={{ padding: "1rem" }}>
+                      <Grid defaultSpan="XL4 L4 M12 S12" style={{ gap: "1rem", width: "100%" }}>
+                        <div style={{ gridColumn: "span 8" }}>
+                           <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem", padding: "1rem", background: "var(--sapGroup_ContentBackground)", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", width: "100%", boxSizing: "border-box" }}>
+                            <Grid defaultSpan="XL6 L6 M6 S12" style={{ gap: "0.75rem" }}>
+                                <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+                                    <Label>Component Part No.</Label>
+                                    <Select
+                                        style={{ width: "100%" }}
+                                        onChange={(e) => setReceivePartNo(e.detail.selectedOption.getAttribute("data-value")!)}
                                     >
-                                      <Trash2 className="h-3.5 w-3.5" />
+                                        <Option data-value="">Select part number</Option>
+                                        {Array.from(new Set(receiptOptions.map((row) => row.part_number))).map((part) => (
+                                        <Option key={part} selected={receivePartNo === part} data-value={part}>
+                                            {part}
+                                        </Option>
+                                        ))}
+                                    </Select>
+                                </FlexBox>
+                                <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+                                    <Label>DO No.</Label>
+                                    <Select
+                                        style={{ width: "100%" }}
+                                        disabled={!receivePartNo}
+                                        onChange={(e) => setReceiveDoNo(e.detail.selectedOption.getAttribute("data-value")!)}
+                                    >
+                                        <Option data-value="">Select DO number</Option>
+                                        {availableDoByPart.map((doNo) => (
+                                        <Option key={doNo} selected={receiveDoNo === doNo} data-value={doNo}>
+                                            {doNo}
+                                        </Option>
+                                        ))}
+                                    </Select>
+                                </FlexBox>
+                            </Grid>
+                            
+                            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+                                <Label>2D Barcode Scan (scanner gun: Enter each pack)</Label>
+                                <FlexBox style={{ gap: "0.5rem" }}>
+                                    <Input
+                                        style={{ flex: 1 }}
+                                        ref={scanInputRef}
+                                        value={receiveScanData}
+                                        onInput={(e) => setReceiveScanData(e.target.value)}
+                                        onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            appendScanToQueue();
+                                        }
+                                        }}
+                                        placeholder="Scan vendor 2D barcode"
+                                    />
+                                    <Button
+                                        icon="scan"
+                                        onClick={() => appendScanToQueue()}
+                                        disabled={!receivePartNo || !receiveDoNo || !receiveScanData.trim()}
+                                    >
+                                        Add
                                     </Button>
-                                  </td>
-                                </tr>
-                              ))
-                            ) : (
-                              <tr>
-                                <td colSpan={5} className="px-2 py-6 text-center text-slate-500">
-                                  No scans queued yet
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
+                                </FlexBox>
+                            </FlexBox>
+                            
+                            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+                                <Label>Bulk paste (one barcode per line)</Label>
+                                <TextArea
+                                    value={bulkScanData}
+                                    onInput={(e) => setBulkScanData(e.target.value)}
+                                    placeholder={"*P760049400-P*EA*Q160..."}
+                                    rows={3}
+                                    style={{ width: "100%" }}
+                                />
+                                <FlexBox justifyContent={FlexBoxJustifyContent.End} style={{ marginTop: "0.25rem" }}>
+                                    <Button
+                                        design="Transparent"
+                                        onClick={importBulkScans}
+                                        disabled={!bulkScanData.trim() || !receivePartNo || !receiveDoNo}
+                                    >
+                                        Import Lines
+                                    </Button>
+                                </FlexBox>
+                            </FlexBox>
+                          </FlexBox>
+                        </div>
+                        
+                        <div style={{ gridColumn: "span 4" }}>
+                            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem", padding: "1.25rem", background: "var(--sapGroup_ContentBackground)", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", height: "100%", width: "100%", boxSizing: "border-box" }}>
+                                <Text style={{ fontSize: "0.75rem", fontWeight: "bold", textTransform: "uppercase", color: "var(--sapContent_LabelColor)" }}>Queue Summary by Part / DO</Text>
+                                <div style={{ maxHeight: "200px", overflow: "auto", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
+                                    <Table
+                                        headerRow={
+                                            <TableHeaderRow>
+                                                <TableHeaderCell><Label>Part No.</Label></TableHeaderCell>
+                                                <TableHeaderCell><Label>DO No.</Label></TableHeaderCell>
+                                                <TableHeaderCell><Label>Scans</Label></TableHeaderCell>
+                                            </TableHeaderRow>
+                                        }
+                                    >
+                                        {queueGroupSummary.length ? (
+                                        queueGroupSummary.map((row) => (
+                                            <TableRow key={`${row.part_number}-${row.do_number}`}>
+                                            <TableCell><Label>{row.part_number}</Label></TableCell>
+                                            <TableCell><Label>{row.do_number}</Label></TableCell>
+                                            <TableCell><Label style={{ fontWeight: "bold" }}>{row.count}</Label></TableCell>
+                                            </TableRow>
+                                        ))
+                                        ) : (
+                                        <TableRow>
+                                            <TableCell><Label>No queue summary</Label></TableCell>
+                                            <TableCell />
+                                            <TableCell />
+                                        </TableRow>
+                                        )}
+                                    </Table>
+                                </div>
+                            </FlexBox>
+                        </div>
+                      </Grid>
+
+                      <div style={{ marginTop: "1rem" }}>
+                        {scanInputError ? (
+                            <MessageStrip design="Negative" hideCloseButton>{scanInputError}</MessageStrip>
+                        ) : null}
+                        
+                        <Card header={<CardHeader titleText={`Scanned Items Queue (${scanQueue.length})`} />} style={{ marginTop: "0.5rem" }}>
+                            <div style={{ padding: "1rem" }}>
+                                <div style={{ maxHeight: "300px", overflow: "auto", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
+                                    <Table
+                                        headerRow={
+                                            <TableHeaderRow>
+                                                <TableHeaderCell><Label>#</Label></TableHeaderCell>
+                                                <TableHeaderCell><Label>Part No.</Label></TableHeaderCell>
+                                                <TableHeaderCell><Label>DO No.</Label></TableHeaderCell>
+                                                <TableHeaderCell><Label>2D Data</Label></TableHeaderCell>
+                                                <TableHeaderCell><Label>Action</Label></TableHeaderCell>
+                                            </TableHeaderRow>
+                                        }
+                                    >
+                                        {scanQueue.length ? (
+                                        scanQueue.map((row, idx) => (
+                                            <TableRow key={`${row.part_number}-${row.do_number}-${idx}`}>
+                                            <TableCell><Label>{idx + 1}</Label></TableCell>
+                                            <TableCell><Label>{row.part_number}</Label></TableCell>
+                                            <TableCell><Label>{row.do_number}</Label></TableCell>
+                                            <TableCell><Label>{row.scan_data}</Label></TableCell>
+                                            <TableCell>
+                                                <Button
+                                                design="Transparent"
+                                                icon="delete"
+                                                onClick={() =>
+                                                    setScanQueue((prev) => prev.filter((_, rowIdx) => rowIdx !== idx))
+                                                }
+                                                />
+                                            </TableCell>
+                                            </TableRow>
+                                        ))
+                                        ) : (
+                                        <TableRow>
+                                            <TableCell><Label>No scans queued yet</Label></TableCell>
+                                            <TableCell />
+                                            <TableCell />
+                                            <TableCell />
+                                            <TableCell />
+                                        </TableRow>
+                                        )}
+                                    </Table>
+                                </div>
+                                
+                                <FlexBox style={{ marginTop: "0.5rem", gap: "0.5rem" }}>
+                                    <Button
+                                    design="Transparent"
+                                    onClick={() => {
+                                        setScanQueue((prev) => prev.slice(0, -1));
+                                        requestAnimationFrame(() => scanInputRef.current?.focus());
+                                    }}
+                                    disabled={!scanQueue.length}
+                                    >
+                                    Undo Last
+                                    </Button>
+                                    <Button
+                                    design="Transparent"
+                                    onClick={() => {
+                                        setScanQueue([]);
+                                        setScanInputError(null);
+                                        requestAnimationFrame(() => scanInputRef.current?.focus());
+                                    }}
+                                    disabled={!scanQueue.length}
+                                    >
+                                    Clear Queue
+                                    </Button>
+                                </FlexBox>
+
+                                <Grid defaultSpan="XL8 L8 M12 S12" style={{ marginTop: "1rem", gap: "0.5rem" }}>
+                                    <div style={{ gridColumn: "span 8" }}>
+                                        <Input
+                                            style={{ width: "100%" }}
+                                            value={receiveRemarks}
+                                            onInput={(e) => setReceiveRemarks(e.target.value)}
+                                            placeholder="Receive remarks (optional)"
+                                        />
+                                    </div>
+                                    <div style={{ gridColumn: "span 4" }}>
+                                        <FlexBox style={{ gap: "0.5rem" }} justifyContent={FlexBoxJustifyContent.End}>
+                                            <Button
+                                                design="Transparent"
+                                                icon="print"
+                                                onClick={() => window.print()}
+                                            >
+                                                Print
+                                            </Button>
+                                            <Button
+                                                design="Emphasized"
+                                                onClick={() => {
+                                                    if (!detailsQuery.data?.id) return;
+                                                    if (!scanQueue.length) {
+                                                    setScanInputError("Please scan at least one pack before confirm.");
+                                                    return;
+                                                    }
+                                                    confirmReceiptMutation.mutate({
+                                                    id: detailsQuery.data.id,
+                                                    scans: scanQueue,
+                                                    remarks: receiveRemarks.trim() || undefined,
+                                                    });
+                                                }}
+                                                disabled={
+                                                    confirmReceiptMutation.isPending ||
+                                                    !scanQueue.length
+                                                }
+                                            >
+                                                {confirmReceiptMutation.isPending ? "Confirming..." : `Confirm Receipt (${scanQueue.length})`}
+                                            </Button>
+                                        </FlexBox>
+                                    </div>
+                                </Grid>
+                            </div>
+                        </Card>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setScanQueue((prev) => prev.slice(0, -1));
-                            requestAnimationFrame(() => scanInputRef.current?.focus());
-                          }}
-                          disabled={!scanQueue.length}
-                        >
-                          Undo Last
-                        </Button>
-                        <Button
-                          variant="outline"
-                          onClick={() => {
-                            setScanQueue([]);
-                            setScanInputError(null);
-                            requestAnimationFrame(() => scanInputRef.current?.focus());
-                          }}
-                          disabled={!scanQueue.length}
-                        >
-                          Clear Queue
-                        </Button>
-                      </div>
-                      <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-                        <Input
-                          value={receiveRemarks}
-                          onChange={(e) => setReceiveRemarks(e.target.value)}
-                          placeholder="Receive remarks (optional)"
-                        />
-                        <Button
-                          variant="outline"
-                          onClick={() => window.print()}
-                        >
-                          Print Voucher
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            if (!detailsQuery.data?.id) return;
-                            if (!scanQueue.length) {
-                              setScanInputError("Please scan at least one pack before confirm.");
-                              return;
-                            }
-                            confirmReceiptMutation.mutate({
-                              id: detailsQuery.data.id,
-                              scans: scanQueue,
-                              remarks: receiveRemarks.trim() || undefined,
-                            });
-                          }}
-                          disabled={
-                            confirmReceiptMutation.isPending ||
-                            !scanQueue.length
-                          }
-                        >
-                          {confirmReceiptMutation.isPending ? "Confirming..." : `Confirm Receipt (${scanQueue.length})`}
-                        </Button>
-                      </div>
-                    </CardContent>
+                    </div>
                   </Card>
                 ) : null}
-              </div>
+              </FlexBox>
             ) : (
-              <p className="text-sm text-slate-500">No details loaded.</p>
+              <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ padding: "2rem" }}>
+                <Text>No details loaded.</Text>
+              </FlexBox>
             )}
-          </div>
+          </FlexBox>
         ) : showRequestTableLoading ? (
-          <LoadingSkeleton label="Loading material requests..." />
+          <BusyIndicator active />
         ) : (
-          <DataTable data={requestsQuery.data ?? []} columns={columns} filterPlaceholder="Search voucher no / dmi no / status" />
+          <div style={{ padding: "1rem" }}>
+            <DataTable data={requestsQuery.data ?? []} columns={columns} />
+          </div>
         )
       ) : null}
-      <ConfirmDialog
-        open={confirmSubmitOpen}
-        title="Confirm submit request"
-        description="Submit this material request now?"
-        confirmText="Submit"
-        onCancel={() => setConfirmSubmitOpen(false)}
-        onConfirm={() => {
-          setConfirmSubmitOpen(false);
-          createMutation.mutate();
-        }}
-      />
-    </div>
+      </div>
+      
+      <Dialog 
+        open={confirmSubmitOpen} 
+        headerText="Confirm submit request"
+        onClose={() => setConfirmSubmitOpen(false)}
+      >
+        <div style={{ padding: "1rem" }}>
+            Submit this material request now?
+        </div>
+        <div slot="footer" style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", padding: "0.5rem" }}>
+            <Button design="Transparent" onClick={() => setConfirmSubmitOpen(false)}>Cancel</Button>
+            <Button design="Emphasized" onClick={() => {
+                setConfirmSubmitOpen(false);
+                createMutation.mutate();
+            }}>
+                Submit
+            </Button>
+        </div>
+      </Dialog>
+    </Page>
   );
 }
