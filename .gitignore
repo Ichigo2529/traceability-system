@@ -41,3 +41,5 @@ docs
 
 #backup
 backups
+
+*.node_modules
