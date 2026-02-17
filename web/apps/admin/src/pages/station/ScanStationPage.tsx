@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
@@ -21,10 +21,9 @@ import {
     TableHeaderCell,
     TableRow,
     TableCell,
-    Text,
-    InputDomRef
+    Text
 } from "@ui5/webcomponents-react";
-import { ScanInput } from "../../components/shared/ScanInput";
+import { ScanComponent } from "../../components/patterns/ScanComponent";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
 import { useStationEvent } from "../../hooks/useStationEvent";
@@ -71,12 +70,10 @@ function genEventId() {
 export function ScanStationPage() {
   const navigate = useNavigate();
   const { publishEvent } = useStationEvent();
-  const scanRef = useRef<InputDomRef>(null);
   const [assyId, setAssyId] = useState("");
   const [step, setStep] = useState<(typeof ASSEMBLY_STEPS)[number]>("PRESS_FIT_PIN430_DONE");
   const [quantity, setQuantity] = useState(0);
   const [history, setHistory] = useState<ScanRow[]>([]);
-  const [warnings, setWarnings] = useState<string[]>([]);
   const [overlay, setOverlay] = useState<{ open: boolean; mode: "PASS" | "NG"; title: string; description?: string }>({
     open: false,
     mode: "PASS",
@@ -125,10 +122,6 @@ export function ScanStationPage() {
       beep("pass");
       setTimeout(() => setOverlay((s) => ({ ...s, open: false })), 700);
       setAssyId("");
-      // UI5 Input focus might need a tick
-      setTimeout(() => {
-        (scanRef.current as any)?.focus();
-      }, 50);
     },
     onError: (err, targetAssyId) => {
       const reason = formatStationError(err, "Validation rejected");
@@ -142,27 +135,6 @@ export function ScanStationPage() {
   const processName = heartbeatQuery.data?.process?.name || "Unassigned Process";
   const stationName = heartbeatQuery.data?.station?.name || "Unassigned Station";
   const deviceStatus = heartbeatQuery.data?.status || "active";
-
-  const submitScan = () => {
-    const code = assyId.trim();
-    if (!code || eventMutation.isPending) return;
-
-    const nextWarnings: string[] = [];
-    if (history[0]?.assyId === code && history[0]?.step === step) nextWarnings.push("Duplicate step scan detected.");
-    if (!code.includes("-") && code.length < 16) nextWarnings.push("ASSY ID format seems invalid.");
-
-    setWarnings(nextWarnings);
-
-    if (nextWarnings.some((w) => w.toLowerCase().includes("duplicate"))) {
-      const row: ScanRow = { assyId: code, step, at: formatTime(new Date()), result: "NG", reason: "Duplicate scan" };
-      setHistory((prev) => [row, ...prev].slice(0, 5));
-      setOverlay({ open: true, mode: "NG", title: "NG", description: "Duplicate scan" });
-      beep("ng");
-      return;
-    }
-
-    eventMutation.mutate(code);
-  };
 
   const statusSummary = useMemo(() => {
     const pass = history.filter((h) => h.result === "PASS").length;
@@ -231,33 +203,37 @@ export function ScanStationPage() {
 
              {/* Main Scan Area */}
              <div style={{ gridColumn: "span 8", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                 <Card header={<CardHeader titleText="ASSY Scan" />}>
-                     <div style={{ padding: "1rem" }}>
-                        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem" }}>
-                            <FlexBox style={{ gap: "0.5rem" }} alignItems={FlexBoxAlignItems.Center}>
-                                <div style={{ flex: 1 }}>
-                                    <ScanInput 
-                                        ref={scanRef} 
-                                        value={assyId} 
-                                        onChange={setAssyId} 
-                                        onSubmit={submitScan} 
-                                        placeholder="Scan ASSY ID" 
-                                    />
-                                </div>
-                                <Button design="Emphasized" onClick={submitScan} disabled={eventMutation.isPending || !assyId}>
-                                    {eventMutation.isPending ? "Submitting..." : "Submit"}
-                                </Button>
-                                <Button design="Transparent" icon="delete" onClick={() => setAssyId("")}>Clear</Button>
-                            </FlexBox>
+                 
+                 <ScanComponent 
+                    label="ASSY Scan"
+                    placeholder="Scan ASSY ID"
+                    onScan={async (scannedValue) => {
+                        const code = scannedValue.trim();
+                        
+                        // Client-side validations
+                        if (history[0]?.assyId === code && history[0]?.step === step) {
+                            const reason = "Duplicate step scan detected.";
+                             const row: ScanRow = { assyId: code, step, at: formatTime(new Date()), result: "NG", reason: "Duplicate scan" };
+                            setHistory((prev) => [row, ...prev].slice(0, 5));
+                            setOverlay({ open: true, mode: "NG", title: "NG", description: "Duplicate scan" });
+                            beep("ng");
+                            return { success: false, message: reason };
+                        }
 
-                            {warnings.length > 0 && (
-                                <MessageStrip design="Critical" hideCloseButton>
-                                    {warnings.map((w, i) => <div key={i}>{w}</div>)}
-                                </MessageStrip>
-                            )}
-                        </FlexBox>
-                     </div>
-                 </Card>
+                        if (!code.includes("-") && code.length < 16) {
+                             return { success: false, message: "ASSY ID format seems invalid." };
+                        }
+
+                        try {
+                            const result = await eventMutation.mutateAsync(code);
+                            return { success: true, message: result.queued ? "Queued for sync" : "Scan accepted" };
+                        } catch (err) {
+                            const reason = formatStationError(err, "Validation rejected");
+                            // Mutation onError handled history/beep, so just return false here for the component state
+                            return { success: false, message: reason };
+                        }
+                    }}
+                 />
 
                  {/* History Table */}
                  <Card header={<CardHeader titleText="Last 5 Scans" />} style={{ width: "100%" }}>

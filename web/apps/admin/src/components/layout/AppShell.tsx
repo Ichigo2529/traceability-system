@@ -283,20 +283,15 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
             overflow: "hidden", 
             position: "relative", 
             boxSizing: "border-box", 
-            height: "100%" 
+            height: "100%",
+            display: "grid",
+            gridTemplateRows: "1fr",
+            padding: "0" // Remove padding here, let pages validation their own padding/layout
           }}
           role="main"
           aria-label="Main content area"
         >
-          <div style={{ 
-            width: "100%", 
-            boxSizing: "border-box", 
-            height: "100%", 
-            display: "flex", 
-            flexDirection: "column" 
-          }}>
             <Outlet />
-          </div>
         </div>
       </div>
 

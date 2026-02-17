@@ -20,11 +20,9 @@ export default function App() {
               v7_relativeSplatPath: true,
             }}
           >
-            <ThemeProvider>
               <Toaster position="top-center" richColors closeButton duration={4200} />
               <EdenFallbackDebugPanel />
               <AppRoutes />
-            </ThemeProvider>
           </BrowserRouter>
         </OfflineQueueProvider>
       </AuthProvider>

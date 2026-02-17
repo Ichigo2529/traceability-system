@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { 
     Button, 
     Card, 
@@ -9,25 +10,44 @@ import {
     Icon,
     FlexBox,
     FlexBoxDirection,
-    FlexBoxAlignItems
+    FlexBoxAlignItems,
+    Dialog,
+    MessageStrip,
+    Toast,
+    DialogDomRef,
+    ToastDomRef,
+    Text,
+    ValueState
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/employee.js";
 import "@ui5/webcomponents-icons/dist/settings.js";
+import "@ui5/webcomponents-icons/dist/message-information.js";
 
 export default function Ui5SmokeTest() {
+    const dialogRef = useRef<DialogDomRef>(null);
+    const toastRef = useRef<ToastDomRef>(null);
+
     return (
-        <div style={{ padding: "2rem", height: "100vh", background: "var(--sapBackgroundColor)" }}>
+        <div style={{ padding: "2rem", minHeight: "100vh", background: "var(--sapBackgroundColor)", boxSizing: "border-box" }}>
             <Title level="H1" style={{ marginBottom: "1rem" }}>UI5 Smoke Test</Title>
             
-            <Panel headerText="Basic Components" fixed>
+            <MessageStrip design="Information" style={{ marginBottom: "1rem" }}>
+                This page verifies that the root UI5 setup is working correctly.
+            </MessageStrip>
+
+            <Panel headerText="Mandatory Controls" fixed>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem" }}>
                     <div>
-                        <Label>Test Input:</Label>
-                        <Input placeholder="Type something..." />
+                        <Label>Test Input (with error state):</Label>
+                        <Input valueState={ValueState.Error} placeholder="Should see red border..." value="Invalid Value" />
                     </div>
-                    <div>
-                        <Button design="Emphasized" icon="employee">Primary Button</Button>
-                        <Button design="Transparent" icon="settings">Settings</Button>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <Button design="Emphasized" icon="employee" onClick={() => (toastRef.current as any)?.show()}>
+                            Show Success Toast
+                        </Button>
+                        <Button design="Attention" icon="settings" onClick={() => (dialogRef.current as any)?.show()}>
+                            Open Dialog
+                        </Button>
                     </div>
                 </div>
             </Panel>
@@ -54,6 +74,17 @@ export default function Ui5SmokeTest() {
                     <div style={{ width: "50px", height: "50px", background: "var(--sapNegativeColor)", borderRadius: "50%" }}></div>
                 </FlexBox>
             </div>
+
+            <Dialog ref={dialogRef} headerText="Smoke Test Dialog">
+                <div style={{ padding: "1rem" }}>
+                    <Text>If you see this, the Dialog component is working correctly.</Text>
+                </div>
+                <div slot="footer" style={{ padding: "0.5rem", display: "flex", justifyContent: "flex-end" }}>
+                    <Button onClick={() => (dialogRef.current as any)?.close()}>Close</Button>
+                </div>
+            </Dialog>
+
+            <Toast ref={toastRef}>System is functional!</Toast>
         </div>
     );
 }
