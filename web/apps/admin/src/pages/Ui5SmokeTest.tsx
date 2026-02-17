@@ -31,16 +31,18 @@ export default function Ui5SmokeTest() {
         <div style={{ padding: "2rem", minHeight: "100vh", background: "var(--sapBackgroundColor)", boxSizing: "border-box" }}>
             <Title level="H1" style={{ marginBottom: "1rem" }}>UI5 Smoke Test</Title>
             
+
             <MessageStrip design="Information" style={{ marginBottom: "1rem" }}>
                 This page verifies that the root UI5 setup is working correctly.
             </MessageStrip>
 
             <Panel headerText="Mandatory Controls" fixed>
                 <div style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem" }}>
-                    <div>
-                        <Label>Test Input (with error state):</Label>
-                        <Input valueState={ValueState.Error} placeholder="Should see red border..." value="Invalid Value" />
-                    </div>
+                    <Input
+                        placeholder="Value state example"
+                        valueState="Negative"
+                        style={{ width: "100%" }}
+                    />
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                         <Button design="Emphasized" icon="employee" onClick={() => (toastRef.current as any)?.show()}>
                             Show Success Toast

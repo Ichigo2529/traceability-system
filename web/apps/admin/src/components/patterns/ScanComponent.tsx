@@ -6,11 +6,10 @@ import {
     MessageStrip,
     BusyIndicator,
     FlexBox,
-    FlexBoxDirection,
+    FlexBoxAlignItems,
     FlexBoxJustifyContent,
     Icon
 } from "@ui5/webcomponents-react";
-import { ValueState } from "@ui5/webcomponents-react";
 import { useState, useRef, useEffect } from "react";
 import "@ui5/webcomponents-icons/dist/bar-code.js";
 import "@ui5/webcomponents-icons/dist/accept.js";
@@ -88,13 +87,9 @@ export function ScanComponent({
     };
 
     // Determine UI state
-    const valueState = status === "INVALID" ? ValueState.Error : 
-                       status === "VALID" ? ValueState.Success : 
-                       ValueState.None;
-
-    const icon = status === "VALID" ? "accept" : 
-                 status === "INVALID" ? "decline" : 
-                 "bar-code";
+    const valueState = status === "INVALID" ? "Negative" : 
+                       status === "VALID" ? "Positive" : 
+                       "None";
 
     return (
         <Card header={<CardHeader titleText={label} avatar={<Icon name="bar-code" />} />}>
