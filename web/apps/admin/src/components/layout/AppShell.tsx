@@ -41,7 +41,9 @@ import "@ui5/webcomponents-icons/dist/sys-monitor.js";
 import "@ui5/webcomponents-icons/dist/history.js";
 import "@ui5/webcomponents-icons/dist/log.js";
 import "@ui5/webcomponents-icons/dist/bbyd-dashboard.js";
-import "@ui5/webcomponents-icons/dist/bbyd-dashboard.js";
+import "@ui5/webcomponents-icons/dist/dark-mode.js";
+import "@ui5/webcomponents-icons/dist/light-mode.js";
+import "@ui5/webcomponents-icons/dist/bell.js";
 // Valid webcomponents-icons
 import "@ui5/webcomponents-icons/dist/key-user-settings.js"; // Governance/Shield replacement
 import "@ui5/webcomponents-icons/dist/wrench.js";
@@ -51,6 +53,8 @@ import "@ui5/webcomponents-icons/dist/action.js";
 import "@ui5/webcomponents-icons/dist/qr-code.js";
 import "@ui5/webcomponents-icons/dist/grid.js"; // Master Data
 import "@ui5/webcomponents-icons/dist/table-view.js"; // Alternative for grid/database
+import "@ui5/webcomponents-icons/dist/attachment.js";
+import "@ui5/webcomponents-icons/dist/add.js";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -200,7 +204,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
         profile={
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <Button
-              icon={theme === "sap_horizon" ? "moon" : "sun"}
+              icon={theme === "sap_horizon" ? "dark-mode" : "light-mode"}
               design="Transparent"
               onClick={toggleTheme}
               title={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}

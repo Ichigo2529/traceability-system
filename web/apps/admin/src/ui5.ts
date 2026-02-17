@@ -1,6 +1,6 @@
-// ui5.ts
-// Import specific components to keep bundle size optimized and prevent side effects
-// This file is imported in main.tsx before React renders
+// Assets
+import "@ui5/webcomponents-base/dist/asset-registries/Icons.js";
+import "@ui5/webcomponents-icons/dist/AllIcons.js";
 
 import "@ui5/webcomponents/dist/Button.js";
 import "@ui5/webcomponents/dist/Input.js";

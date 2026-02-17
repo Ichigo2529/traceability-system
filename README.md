@@ -1,6 +1,7 @@
 ﻿# Traceability System (Monorepo)
 
 Production-grade manufacturing traceability platform supporting:
+
 - Multi-model / multi-revision configuration
 - Shared bonding + downstream assembly divergence
 - Device trust + operator session enforcement
@@ -10,7 +11,8 @@ Production-grade manufacturing traceability platform supporting:
 ## Tech Stack
 
 - Backend: Bun + Elysia + TypeScript + PostgreSQL + Drizzle
-- Frontend: React + Vite + TailwindCSS
+- Frontend:- React + Vite
+- UI5 Web Components (SAP Horizon Theme)
 - Offline queue: Dexie
 - Target infra: Ubuntu 24 + Nginx + systemd/PM2
 
@@ -31,6 +33,7 @@ Production-grade manufacturing traceability platform supporting:
 ## Design Bible (Source of Truth)
 
 Read first:
+
 - `docs/design-bible/00_README.md`
 
 If any implementation conflicts with design-bible docs, design-bible wins.
@@ -53,6 +56,7 @@ If any implementation conflicts with design-bible docs, design-bible wins.
 - Git
 
 Recommended:
+
 - Configure business timezone as `Asia/Bangkok` where relevant
 
 ## Environment
@@ -60,6 +64,7 @@ Recommended:
 ### `backend/.env`
 
 Required minimum:
+
 - `DATABASE_URL=postgres://USER:PASSWORD@localhost:5432/traceability`
 - `JWT_SECRET=...`
 - `REFRESH_TOKEN_SECRET=...`
@@ -122,6 +127,7 @@ bun run check
 ```
 
 This runs:
+
 - backend typecheck
 - all web package checks
 - all app builds
