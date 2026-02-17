@@ -42,4 +42,7 @@ docs
 #backup
 backups
 
-*.node_modules
+# Dependencies
+node_modules/
+*/node_modules/
+**/node_modules/
