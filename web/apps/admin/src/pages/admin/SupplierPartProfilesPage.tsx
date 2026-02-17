@@ -43,6 +43,8 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+import "@ui5/webcomponents-icons/dist/marketing-campaign.js";
+
 export function SupplierPartProfilesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
@@ -155,6 +157,7 @@ export function SupplierPartProfilesPage() {
       title="Vendor Part Profiles"
       subtitle="Map vendor part number and parser profile per internal part number"
       icon="marketing-campaign"
+      iconColor="cyan"
     >
       <Section variant="card">
         {vendorFilter && (

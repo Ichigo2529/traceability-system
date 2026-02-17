@@ -38,6 +38,8 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
+import "@ui5/webcomponents-icons/dist/grid.js";
+
 export function PartNumbersPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -85,9 +87,9 @@ export function PartNumbersPage() {
   const columns = useMemo<ColumnDef<PartNumberMaster>[]>(
     () => [
       { header: "Part Number", accessorKey: "part_number" },
-      { header: "Component Type", cell: ({ row }) => row.original.component_type_code || "-" },
-      { header: "Default Pack Size", cell: ({ row }) => row.original.default_pack_size ?? "-" },
-      { header: "Description", cell: ({ row }) => row.original.description || "-" },
+      { header: "Component Type", accessorKey: "component_type_code" },
+      { header: "Default Pack Size", accessorKey: "default_pack_size" },
+      { header: "Description", accessorKey: "description" },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
       {
         header: "Actions",
@@ -100,8 +102,8 @@ export function PartNumbersPage() {
                 setEditing(row.original);
                 form.reset({
                   part_number: row.original.part_number,
-                  component_type_id: row.original.component_type_id || undefined,
-                  description: row.original.description || "",
+                  component_type_id: row.original.component_type_id ?? undefined,
+                  description: row.original.description ?? "",
                   default_pack_size: row.original.default_pack_size ?? undefined,
                   is_active: row.original.is_active,
                 });
@@ -128,7 +130,8 @@ export function PartNumbersPage() {
     <PageLayout
       title="Part Numbers"
       subtitle="Master FG/RM part numbers mapped to component type"
-      icon="number-sign"
+      icon="grid"
+      iconColor="cyan"
     >
       <Section variant="card">
         <ApiErrorBanner

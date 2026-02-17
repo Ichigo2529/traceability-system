@@ -61,40 +61,30 @@ body {
   --icon-indigo: #4b0082;
 }
 
-/* UI5 DynamicPage Absolute Alignment Overrides */
-ui5-dynamic-page-title {
-  --_ui5_dynamic_page_title_padding_XL: 0.5rem 0.75rem !important;
-  --_ui5_dynamic_page_title_padding_L: 0.5rem 0.75rem !important;
-  --_ui5_dynamic_page_title_padding_M: 0.5rem 0.75rem !important;
-  --_ui5_dynamic_page_title_padding_S: 0.5rem 0.75rem !important;
-}
-
-ui5-dynamic-page {
-  --_ui5_dynamic_page_header_padding_XL: 1rem 0.75rem !important;
-  --_ui5_dynamic_page_content_padding_XL: 1rem 0.75rem 0 !important;
-  --_ui5_dynamic_page_header_padding_L: 1rem 0.75rem !important;
-  --_ui5_dynamic_page_content_padding_L: 1rem 0.75rem 0 !important;
-}
-
-/* Custom alignment for DynamicPage Title to ensure flushness */
-ui5-dynamic-page-title::part(root) {
-  padding-left: 0.75rem !important;
-}
-
-/* UI5 Component Overrides for tighter layout */
-ui5-dynamic-page {
-  --_ui5_dynamic_page_content_padding: 0 !important;
+/* 
+  UI5 DynamicPage Absolute Alignment Overrides
+  We force all internal layout padding to 0 to ensure absolute control via PageLayout.tsx
+*/
+ui5-dynamic-page,
+ui5-dynamic-page-title,
+ui5-dynamic-page-header,
+.ui5-dynamic-page-title-root,
+.ui5-dynamic-page-header-root {
   --_ui5_dynamic_page_title_padding: 0 !important;
   --_ui5_dynamic_page_header_padding: 0 !important;
+  --_ui5_dynamic_page_content_padding: 0 !important;
+  --_ui5_dynamic_page_title_padding_XL: 0 !important;
+  --_ui5_dynamic_page_title_padding_L: 0 !important;
+  --_ui5_dynamic_page_title_padding_M: 0 !important;
+  --_ui5_dynamic_page_title_padding_S: 0 !important;
+  --_ui5_dynamic_page_header_padding_XL: 0 !important;
+  --_ui5_dynamic_page_content_padding_XL: 0 !important;
+  --_ui5_dynamic_page_header_padding_L: 0 !important;
+  --_ui5_dynamic_page_content_padding_L: 0 !important;
+  padding: 0 !important;
 }
 
-ui5-dynamic-page-title,
-.ui5-dynamic-page-title-root {
-  padding-left: 0 !important;
-  padding-right: 1rem !important;
-}
-
-ui5-dynamic-page-header {
+ui5-dynamic-page-title::part(root) {
   padding: 0 !important;
 }
 
