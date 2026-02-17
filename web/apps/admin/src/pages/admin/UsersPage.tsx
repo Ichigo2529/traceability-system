@@ -149,6 +149,7 @@ export function UsersPage() {
       title="Users"
       subtitle="Manage operator and admin identities"
       icon="group"
+      iconColor="var(--icon-indigo)"
     >
       <Section variant="card">
         <ApiErrorBanner

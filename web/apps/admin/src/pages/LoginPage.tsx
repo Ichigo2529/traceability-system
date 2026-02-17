@@ -7,16 +7,13 @@ import { useAuth } from "../context/AuthContext";
 import { 
     Button, 
     Card, 
-    CardHeader, 
     Input, 
     Label, 
     MessageStrip,
     FlexBox,
     FlexBoxDirection,
-    Icon
+    Title
 } from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/shield.js";
-
 const formSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(3, "Password is required"),
@@ -49,25 +46,65 @@ export function LoginPage() {
   };
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", background: "var(--sapBackgroundColor)", padding: "1rem" }}>
-      <Card style={{ width: "100%", maxWidth: "400px" }}>
-        <CardHeader 
-            titleText="Traceability Sign In" 
-            subtitleText="Use your enterprise account"
-            avatar={<Icon name="shield" style={{ width: "2rem", height: "2rem", color: "var(--sapBrandColor)" }} />}
-        />
-        <div style={{ padding: "1rem" }}>
-          <form onSubmit={handleSubmit(onSubmit)} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+    <div style={{ 
+      display: "flex", 
+      justifyContent: "center", 
+      alignItems: "center", 
+      height: "100vh", 
+      background: "var(--grad-surface)", 
+      padding: "1rem",
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {/* Decorative background blobs */}
+      <div style={{ position: 'absolute', top: '10%', left: '10%', width: '30vw', height: '30vw', background: 'var(--grad-primary)', opacity: 0.1, borderRadius: '50%', filter: 'blur(80px)' }} />
+      <div style={{ position: 'absolute', bottom: '10%', right: '10%', width: '25vw', height: '25vw', background: '#2af598', opacity: 0.1, borderRadius: '50%', filter: 'blur(80px)' }} />
+
+      <Card style={{ 
+        width: "100%", 
+        maxWidth: "420px",
+        background: 'var(--glass-bg)',
+        backdropFilter: 'var(--glass-blur)',
+        border: '1px solid var(--glass-border)',
+        boxShadow: 'var(--shadow-lg)',
+        borderRadius: '24px',
+        padding: '1.5rem',
+        animation: 'fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+      }}>
+        <div style={{ textAlign: 'center', padding: '1.5rem 1rem 1rem 1rem' }}>
+            <img 
+                src="/logo.png" 
+                alt="MMI Logo" 
+                style={{ 
+                    height: '80px', 
+                    width: 'auto',
+                    marginBottom: '1rem',
+                    filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
+                }} 
+            />
+            <Title level="H2" style={{ margin: 0, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--sapContent_TitleColor)' }}>Traceability System</Title>
+            <Label style={{ fontSize: '0.875rem', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Secure Sign In</Label>
+        </div>
+
+        <div style={{ padding: "0 1rem 1.5rem 1rem" }}>
+          <form onSubmit={handleSubmit(onSubmit)} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
             
             <Controller
                 name="username"
                 control={control}
                 render={({ field, fieldState: { error } }) => (
-                    <FlexBox direction={FlexBoxDirection.Column}>
-                        <Label required>Username</Label>
+                    <FlexBox direction={FlexBoxDirection.Column} style={{ gap: '0.4rem', width: '100%' }}>
+                        <Label style={{ fontWeight: 600, fontSize: '0.875rem' }}>Username</Label>
                         <Input 
                             {...field} 
-                            onInput={(e) => field.onChange(e.target.value)}
+                            style={{ 
+                                borderRadius: '10px', 
+                                height: '3.25rem',
+                                width: '100%',
+                                fontSize: '1rem'
+                            } as any}
+                            placeholder="Enter your username"
+                            onInput={(e) => field.onChange((e.target as any).value)}
                             valueState={error ? "Negative" : "None"}
                             valueStateMessage={error && <div>{error.message}</div>}
                         />
@@ -79,12 +116,19 @@ export function LoginPage() {
                 name="password"
                 control={control}
                 render={({ field, fieldState: { error } }) => (
-                    <FlexBox direction={FlexBoxDirection.Column}>
-                        <Label required>Password</Label>
+                    <FlexBox direction={FlexBoxDirection.Column} style={{ gap: '0.4rem', width: '100%' }}>
+                        <Label style={{ fontWeight: 600, fontSize: '0.875rem' }}>Password</Label>
                         <Input 
                             type="Password"
+                            style={{ 
+                                borderRadius: '10px', 
+                                height: '3.25rem',
+                                width: '100%',
+                                fontSize: '1rem'
+                            } as any}
+                            placeholder="••••••••"
                             {...field} 
-                            onInput={(e) => field.onChange(e.target.value)}
+                            onInput={(e) => field.onChange((e.target as any).value)}
                             valueState={error ? "Negative" : "None"}
                             valueStateMessage={error && <div>{error.message}</div>}
                         />
@@ -92,16 +136,38 @@ export function LoginPage() {
                 )}
             />
 
-            {error && <MessageStrip design="Negative">{error}</MessageStrip>}
+            {error && <MessageStrip design="Negative" style={{ borderRadius: '8px', width: '100%' }}>{error}</MessageStrip>}
 
-            <Button design="Emphasized" onClick={() => handleSubmit(onSubmit)()} disabled={isSubmitting}>
+            <Button 
+                design="Emphasized" 
+                style={{ 
+                    height: '3.25rem', 
+                    width: '100%',
+                    borderRadius: '10px', 
+                    fontWeight: 600,
+                    fontSize: '1rem',
+                    boxShadow: '0 8px 20px rgba(0, 94, 184, 0.25)',
+                    transition: 'all 0.25s ease',
+                    marginTop: '0.5rem'
+                }} 
+                onClick={() => handleSubmit(onSubmit)()} 
+                disabled={isSubmitting}
+            >
                 {isSubmitting ? "Signing in..." : "Sign In"}
             </Button>
-
-            <div style={{ textAlign: "center", fontSize: "0.875rem", color: "var(--sapContent_LabelColor)", marginTop: "0.5rem" }}>
-                Use user account from backend (role-based access: ADMIN / PRODUCTION / STORE).
-            </div>
           </form>
+        </div>
+        
+        <div style={{ 
+            borderTop: '1px solid var(--glass-border)', 
+            padding: '1.5rem 0 0.5rem 0', 
+            textAlign: 'center',
+            fontSize: '0.75rem',
+            color: 'var(--sapContent_LabelColor)',
+            opacity: 0.8
+        }}>
+            <div>MMI Precision Assembly (Thailand) Co., Ltd.</div>
+            <div style={{ marginTop: '0.25rem' }}>Copyright © 2026</div>
         </div>
       </Card>
     </div>

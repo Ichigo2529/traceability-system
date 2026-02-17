@@ -1,11 +1,8 @@
-import {
-  Factory,
-} from "lucide-react";
 import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import layouts from "../../styles/layouts.module.css";
 import {
   ShellBar,
-  ShellBarBranding,
   ShellBarItem,
   ShellBarSpacer,
   SideNavigation,
@@ -14,7 +11,6 @@ import {
   Avatar,
   Button,
   Input,
-  
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/home.js";
 import "@ui5/webcomponents-icons/dist/group.js";
@@ -172,7 +168,10 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
   }
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+    <div 
+      className={mode === "admin" ? "ui5-content-density-compact" : "ui5-content-density-cozy"}
+      style={{ height: "100vh", display: "flex", flexDirection: "column" }}
+    >
       <ShellBar
         logo={<img src="/logo.png" alt="MMI Logo" style={{ maxHeight: "1.5rem", marginRight: "0.5rem" }} />}
         primaryTitle={`Traceability System | ${mode === "admin" ? "Admin Console" : "Station Interface"}`}
@@ -226,7 +225,16 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
         <SideNavigation
           collapsed={false}
           onSelectionChange={handleMenuItemClick}
-          style={{ height: "100%", minWidth: "250px" }}
+          className={layouts.glassCard}
+          style={{ 
+            height: "100%", 
+            minWidth: "280px", 
+            margin: "0", 
+            borderRadius: "0",
+            borderTop: "none",
+            borderBottom: "none",
+            borderLeft: "none"
+          }}
           aria-label="Main navigation menu"
         >
           {mode === "admin" ? (
@@ -234,12 +242,20 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
                const items = nav.filter(n => n.group === section.key);
                if (items.length === 0) return null;
                
+               // Assign color based on section
+               let sectionColor = "var(--icon-blue)";
+               if (section.key === "master-data") sectionColor = "var(--icon-indigo)";
+               if (section.key === "engineering") sectionColor = "var(--icon-orange)";
+               if (section.key === "operations") sectionColor = "var(--icon-green)";
+               if (section.key === "governance") sectionColor = "var(--icon-purple)";
+
                return (
                  <SideNavigationItem 
                    key={section.key} 
                    text={section.title} 
                    icon={section.icon} 
                    expanded
+                   style={{ "--sapContent_IconColor": sectionColor } as any}
                    aria-label={`${section.title} navigation section`}
                  >
                    {items.map(item => (
@@ -247,6 +263,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
                         key={item.to} 
                         text={item.label} 
                         icon={item.icon}
+                        style={{ "--sapContent_IconColor": sectionColor } as any}
                         selected={location.pathname === item.to || location.pathname.startsWith(item.to + "/")}
                         aria-label={`Navigate to ${item.label}`}
                         aria-current={location.pathname === item.to ? "page" : undefined}

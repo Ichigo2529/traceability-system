@@ -21,6 +21,7 @@ import {
     MessageStrip,
     Grid
 } from "@ui5/webcomponents-react";
+import layouts from "../../styles/layouts.module.css";
 
 function getShiftByTime(date: Date) {
   const h = date.getHours();
@@ -122,10 +123,10 @@ export function OperatorLoginPage() {
       }
       style={{ height: "100%" }}
     >
-      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
-          <Grid defaultSpan="XL6 L6 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%" }}>
+      <div className={layouts.station}>
+          <Grid defaultSpan="XL6 L6 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%", maxWidth: "1200px" }}>
             
-            <Card header={<CardHeader titleText="Current Device" />}>
+            <Card header={<CardHeader titleText="Current Device" />} className={layouts.stationCard}>
                 <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
                         <Label>Station:</Label>

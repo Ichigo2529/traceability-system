@@ -1,0 +1,65 @@
+/* Standard Page Layout (Admin) */
+.page {
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 1.5rem;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.content {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+  width: 100%;
+  animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Station Layout (Scanner/Kiosk) */
+.station {
+  min-height: 100%;
+  display: grid;
+  justify-content: center;
+  align-content: start;
+  gap: 32px;
+  padding: 48px;
+  box-sizing: border-box;
+}
+
+.stationCard {
+  width: 720px;
+  display: grid;
+  gap: 24px;
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border-radius: 16px !important;
+  transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+.stationCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Common Utilities */
+.fullHeight {
+  height: 100%;
+}
+
+.flexCenter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.glassCard {
+  background: var(--glass-bg) !important;
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: var(--shadow-md) !important;
+  border-radius: 12px !important;
+}

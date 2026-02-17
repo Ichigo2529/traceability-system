@@ -15,6 +15,7 @@ import "@ui5/webcomponents-icons/dist/bar-code.js";
 import "@ui5/webcomponents-icons/dist/accept.js";
 import "@ui5/webcomponents-icons/dist/decline.js";
 import "@ui5/webcomponents-icons/dist/sys-enter-2.js";
+import layouts from "../../styles/layouts.module.css";
 
 export type ScanStatus = "IDLE" | "PROCESSING" | "VALID" | "INVALID";
 
@@ -92,7 +93,7 @@ export function ScanComponent({
                        "None";
 
     return (
-        <Card header={<CardHeader titleText={label} avatar={<Icon name="bar-code" />} />}>
+        <Card header={<CardHeader titleText={label} avatar={<Icon name="bar-code" />} />} className={`${layouts.stationCard} ${layouts.glassCard}`}>
             <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
                 
                 {status === "PROCESSING" && (
@@ -109,7 +110,7 @@ export function ScanComponent({
                                 value={value}
                                 onInput={(e: any) => {
                                     setValue(e.target.value);
-                                    if (status !== "IDLE") setStatus("IDLE"); // Reset status on typing
+                                    if (status !== "IDLE") setStatus("IDLE");
                                 }}
                                 onKeyDown={handleKeyDown}
                                 placeholder={placeholder}

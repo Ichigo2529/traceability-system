@@ -36,9 +36,10 @@ export function Section({
     },
     card: {
       backgroundColor: "var(--sapList_Background, #ffffff)",
-      border: "1px solid var(--sapList_BorderColor, #d9d9d9)",
-      borderRadius: "0.5rem",
-      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+      border: "1px solid var(--sapList_BorderColor, #e5e5e5)",
+      borderRadius: "12px",
+      boxShadow: "0 8px 32px rgba(0, 0, 0, 0.06)",
+      transition: "transform 0.2s ease, box-shadow 0.2s ease",
     },
     bordered: {
       backgroundColor: "var(--sapObjectHeader_Background)",

@@ -36,8 +36,73 @@ body {
   --spacing-xl: 2rem;
 
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.12);
+  
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-blur: blur(12px);
+
+  /* Premium Gradients */
+  --grad-primary: linear-gradient(135deg, #005eb8 0%, #003a70 100%);
+  --grad-surface: radial-gradient(at 0% 0%, rgba(240, 244, 248, 1) 0, transparent 50%), 
+                  radial-gradient(at 50% 0%, rgba(230, 235, 245, 1) 0, transparent 50%), 
+                  radial-gradient(at 100% 0%, rgba(220, 230, 240, 1) 0, transparent 50%);
+
+  /* Vibrant Icon Palette */
+  --icon-blue: #005eb8;
+  --icon-green: #107e3e;
+  --icon-red: #bb0000;
+  --icon-orange: #e9730c;
+  --icon-purple: #9b30ff;
+  --icon-teal: #008b8b;
+  --icon-indigo: #4b0082;
+}
+
+/* UI5 DynamicPage Absolute Alignment Overrides */
+ui5-dynamic-page-title {
+  --_ui5_dynamic_page_title_padding_XL: 0.5rem 0.75rem !important;
+  --_ui5_dynamic_page_title_padding_L: 0.5rem 0.75rem !important;
+  --_ui5_dynamic_page_title_padding_M: 0.5rem 0.75rem !important;
+  --_ui5_dynamic_page_title_padding_S: 0.5rem 0.75rem !important;
+}
+
+ui5-dynamic-page {
+  --_ui5_dynamic_page_header_padding_XL: 1rem 0.75rem !important;
+  --_ui5_dynamic_page_content_padding_XL: 1rem 0.75rem 0 !important;
+  --_ui5_dynamic_page_header_padding_L: 1rem 0.75rem !important;
+  --_ui5_dynamic_page_content_padding_L: 1rem 0.75rem 0 !important;
+}
+
+/* Custom alignment for DynamicPage Title to ensure flushness */
+ui5-dynamic-page-title::part(root) {
+  padding-left: 0.75rem !important;
+}
+
+/* UI5 Component Overrides for tighter layout */
+ui5-dynamic-page {
+  --_ui5_dynamic_page_content_padding: 0 !important;
+  --_ui5_dynamic_page_title_padding: 0 !important;
+  --_ui5_dynamic_page_header_padding: 0 !important;
+}
+
+ui5-dynamic-page-title,
+.ui5-dynamic-page-title-root {
+  padding-left: 0 !important;
+  padding-right: 1rem !important;
+}
+
+ui5-dynamic-page-header {
+  padding: 0 !important;
+}
+
+body {
+  background: var(--grad-surface);
+  background-attachment: fixed;
+  font-family: var(--sapFontFamily);
+  /* ... existing body properties ... */
 }
 
 /* Animations */

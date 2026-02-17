@@ -1,12 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import "@ui5/webcomponents-icons/dist/group.js";
-import "@ui5/webcomponents-icons/dist/iphone.js";
-import "@ui5/webcomponents-icons/dist/factory.js";
-import "@ui5/webcomponents-icons/dist/product.js";
+import "@ui5/webcomponents-icons/dist/AllIcons.js";
 import { 
-  DynamicPage,
-  DynamicPageTitle,
-  DynamicPageHeader,
   Title, 
   Grid, 
   Card, 
@@ -18,6 +12,8 @@ import {
   Icon 
 } from "@ui5/webcomponents-react";
 import { sdk } from "../../context/AuthContext";
+import layouts from "../../styles/layouts.module.css";
+import { PageLayout } from "@traceability/ui";
 
 export function AdminDashboardPage() {
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
@@ -26,60 +22,104 @@ export function AdminDashboardPage() {
   const { data: models = [] } = useQuery({ queryKey: ["models"], queryFn: () => sdk.admin.getModels() });
 
   return (
-    <DynamicPage
-      titleArea={
-        <DynamicPageTitle
-          heading={<Title level="H3">Admin Console</Title>}
-          subheading={<Label>System Overview</Label>}
-        />
-      }
-      headerArea={
-        <DynamicPageHeader>
-           {/* Placeholder for future global filters */}
-        </DynamicPageHeader>
-      }
-      showFooter={false}
-      style={{ height: "100%" }}
+    <PageLayout
+      title="Admin Console"
+      subtitle="System Overview & Real-time Stats"
+      icon="BusinessSuiteInAppSymbols/dashboard"
+      iconColor="var(--icon-indigo)"
     >
-      <div style={{ padding: "1rem" }}>
-        <Grid defaultSpan="XL3 L3 M6 S12" vSpacing="1rem" hSpacing="1rem">
-          <DashboardStatCard icon="group" label="Users" value={users.length} />
-          <DashboardStatCard icon="iphone" label="Devices" value={devices.length} />
-          <DashboardStatCard icon="factory" label="Stations" value={stations.length} />
-          <DashboardStatCard icon="product" label="Models" value={models.length} />
+      <div className={layouts.content} style={{ marginTop: '0.5rem' }}>
+        <Grid defaultSpan="XL3 L3 M6 S12" vSpacing="1.5rem" hSpacing="1.5rem">
+          <DashboardStatCard 
+            icon="group" 
+            label="Users" 
+            value={users.length} 
+            gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+          />
+          <DashboardStatCard 
+            icon="iphone" 
+            label="Devices" 
+            value={devices.length} 
+            gradient="linear-gradient(135deg, #2af598 0%, #009efd 100%)"
+          />
+          <DashboardStatCard 
+            icon="factory" 
+            label="Stations" 
+            value={stations.length} 
+            gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
+          />
+          <DashboardStatCard 
+            icon="product" 
+            label="Models" 
+            value={models.length} 
+            gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
+          />
         </Grid>
         
-        <div style={{ marginTop: "1rem" }}>
+        <div style={{ marginTop: "1.5rem" }}>
           <Card
+            className={layouts.glassCard}
             header={
-              <div style={{ padding: "1rem 1rem 0 1rem" }}>
+              <div style={{ padding: "1.5rem 1.5rem 0.5rem 1.5rem" }}>
                 <Title level="H4">System Readiness</Title>
                 <Label>Configuration requirements for go-live</Label>
               </div>
             }
           >
-            <div style={{ padding: "0.5rem", display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <Label>1. Keep at least one active process and station per line.</Label>
-              <Label>2. Assign each active device to both station and process.</Label>
-              <Label>3. Configure workflow approval levels before releasing revisions.</Label>
+            <div style={{ padding: "1rem 1.5rem 1.5rem 1.5rem", display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <Label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Icon name="accept" style={{ color: 'var(--sapPositiveElementColor)' }} />
+                  1. Keep at least one active process and station per line.
+              </Label>
+              <Label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Icon name="accept" style={{ color: 'var(--sapPositiveElementColor)' }} />
+                  2. Assign each active device to both station and process.
+              </Label>
+              <Label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Icon name="accept" style={{ color: 'var(--sapPositiveElementColor)' }} />
+                  3. Configure workflow approval levels before releasing revisions.
+              </Label>
             </div>
           </Card>
         </div>
       </div>
-    </DynamicPage>
+    </PageLayout>
   );
 }
 
-function DashboardStatCard({ icon, label, value }: { icon: string, label: string, value: number }) {
+function DashboardStatCard({ icon, label, value, gradient }: { icon: string, label: string, value: number, gradient: string }) {
   return (
-    <Card>
-      <div style={{ padding: "1rem" }}>
+    <Card className={layouts.glassCard} style={{ border: 'none', overflow: 'hidden', position: 'relative' }}>
+      <div style={{ padding: "1.5rem", zIndex: 1, position: 'relative' }}>
+          <div style={{ 
+            position: 'absolute', 
+            top: '-30px', 
+            right: '-30px', 
+            width: '120px', 
+            height: '120px', 
+            background: gradient, 
+            opacity: 0.08, 
+            borderRadius: '50%',
+            filter: 'blur(20px)'
+          }} />
           <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center}>
               <FlexBox direction={FlexBoxDirection.Column}>
-                  <Label>{label}</Label>
-                  <Title level="H2">{value}</Title>
+                  <Label style={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.6, color: 'var(--sapContent_LabelColor)' }}>{label}</Label>
+                  <Title level="H2" style={{ fontSize: '2.4rem', margin: '0.1rem 0', fontWeight: 900, color: 'var(--sapTitleColor)' }}>{value}</Title>
               </FlexBox>
-              <Icon name={icon} style={{ width: "2.5rem", height: "2.5rem", opacity: 0.8, color: "var(--sapContent_IconColor)" }} />
+              <div style={{ 
+                background: gradient, 
+                width: '3.5rem',
+                height: '3.5rem',
+                borderRadius: '16px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                boxShadow: `0 8px 20px ${gradient.split(',')[1].trim().split(' ')[0]}33`,
+                border: '1px solid rgba(255,255,255,0.2)'
+              }}>
+                <Icon name={icon} style={{ width: "1.75rem", height: "1.75rem", color: "white" }} />
+              </div>
           </FlexBox>
       </div>
     </Card>

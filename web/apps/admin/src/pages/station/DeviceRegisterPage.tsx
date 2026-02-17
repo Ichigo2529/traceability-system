@@ -16,8 +16,9 @@ import {
     FlexBoxDirection, 
     Icon 
 } from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/laptop.js"; // cpu icon not standard, using laptop as proxy or generic device
+import "@ui5/webcomponents-icons/dist/laptop.js";
 import "@ui5/webcomponents-icons/dist/log.js";
+import layouts from "../../styles/layouts.module.css";
 
 const schema = z.object({
   deviceCode: z.string().min(3, "Device code is required"),
@@ -74,9 +75,9 @@ export function DeviceRegisterPage() {
   }
 
   return (
-    <Page style={{ height: "100vh" }} backgroundDesign="Solid">
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-            <Card style={{ width: "500px", maxWidth: "100%" }}>
+    <Page style={{ height: "100vh" }} backgroundDesign="Transparent">
+        <div className={layouts.station}>
+            <Card className={layouts.stationCard}>
                 <CardHeader 
                     titleText="Device Registration" 
                     subtitleText="First boot activation" 

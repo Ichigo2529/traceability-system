@@ -29,6 +29,7 @@ import { FullscreenResultOverlay } from "../../components/shared/FullscreenResul
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { formatTime } from "../../lib/datetime";
+import layouts from "../../styles/layouts.module.css";
 
 type ScanRow = {
   assyId: string;
@@ -70,7 +71,7 @@ function genEventId() {
 export function ScanStationPage() {
   const navigate = useNavigate();
   const { publishEvent } = useStationEvent();
-  const [assyId, setAssyId] = useState("");
+  const [, setAssyId] = useState("");
   const [step, setStep] = useState<(typeof ASSEMBLY_STEPS)[number]>("PRESS_FIT_PIN430_DONE");
   const [quantity, setQuantity] = useState(0);
   const [history, setHistory] = useState<ScanRow[]>([]);
@@ -178,8 +179,8 @@ export function ScanStationPage() {
       style={{ height: "100vh" }}
       showFooter={false}
     >
-      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
-         <Grid defaultSpan="XL4 L4 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%" }}>
+      <div className={layouts.station}>
+         <Grid defaultSpan="XL4 L4 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%", maxWidth: "1200px" }}>
              {/* Step Control */}
              <Card header={<CardHeader titleText="Step Control" />} style={{ gridColumn: "span 4" }}>
                  <div style={{ padding: "1rem" }}>

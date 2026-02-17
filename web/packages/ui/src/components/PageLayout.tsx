@@ -14,6 +14,7 @@ export interface PageLayoutProps {
   title: string;
   subtitle?: string;
   icon?: string;
+  iconColor?: string;
   actions?: ReactNode;
   headerActions?: ReactNode;
   filters?: ReactNode;
@@ -29,31 +30,52 @@ export function PageLayout({
   title,
   subtitle,
   icon,
+  iconColor,
   actions,
   headerActions,
   filters,
   children,
+  maxWidth,
 }: PageLayoutProps) {
+  const defaultIconColor = iconColor ?? "var(--icon-green)";
+  
   return (
     <DynamicPage
       titleArea={
         <DynamicPageTitle
           heading={
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "1.5rem" }}>
               {icon && (
-                <Icon
-                  name={icon}
-                  style={{
-                    width: "1.5rem",
-                    height: "1.5rem",
-                    color: "var(--sapContent_IconColor)",
-                  }}
-                />
+                <div style={{
+                  width: "3.5rem",
+                  height: "3.5rem",
+                  borderRadius: "14px",
+                  background: `linear-gradient(135deg, ${defaultIconColor}26 0%, ${defaultIconColor}0D 100%)`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: `1.5px solid ${defaultIconColor}33`,
+                  boxShadow: `0 4px 12px ${defaultIconColor}15`,
+                  backdropFilter: "blur(8px)",
+                  WebkitBackdropFilter: "blur(8px)"
+                }}>
+                  <Icon
+                    name={icon}
+                    style={{
+                      width: "2.1rem",
+                      height: "2.1rem",
+                      color: defaultIconColor,
+                    }}
+                  />
+                </div>
               )}
-              <Title level="H3">{title}</Title>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <Title level="H3" style={{ margin: 0, fontWeight: 950, color: 'var(--sapTitleColor)', letterSpacing: '-0.025em', fontSize: '1.35rem' }}>{title}</Title>
+                {subtitle && <Label style={{ opacity: 0.5, fontSize: '0.875rem', fontWeight: 600, color: 'var(--sapContent_LabelColor)' }}>{subtitle}</Label>}
+              </div>
             </FlexBox>
           }
-          subheading={subtitle ? <Label>{subtitle}</Label> : undefined}
+          subheading={undefined}
           actions={headerActions}
         />
       }
@@ -78,8 +100,18 @@ export function PageLayout({
       style={{ height: "100%" }}
       showFooter={false}
     >
-      <div style={{ padding: "1rem" }}>
-        {children}
+      <div 
+        style={{ 
+            padding: "0", 
+            boxSizing: "border-box", 
+            minHeight: "100%", 
+            paddingLeft: "5rem", // Align card exactly with Title text (3.5rem icon + 1.5rem gap)
+            paddingTop: "1.5rem" 
+        }}
+      >
+        <div style={{ maxWidth: maxWidth ?? "1400px", width: "100%" }}>
+          {children}
+        </div>
       </div>
     </DynamicPage>
   );
