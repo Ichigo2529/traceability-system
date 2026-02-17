@@ -97,7 +97,15 @@ export default function SystemHealthPage() {
             </Grid>
         </Section>
 
-        <Section title="Material Request Realtime" variant="card">
+        <Section 
+            title={
+                <FlexBox alignItems={FlexBoxAlignItems.Center}>
+                    <span className="indicator-live" />
+                    <span>Material Request Realtime</span>
+                </FlexBox>
+            } 
+            variant="card"
+        >
             <Grid defaultSpan="XL6 L6 M12 S12" style={{ padding: "0" }}>
                 <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem" }}>
                     <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center}>

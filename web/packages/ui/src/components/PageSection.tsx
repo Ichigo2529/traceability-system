@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 
 export interface SectionProps {
-  title?: string;
-  subtitle?: string;
+  title?: string | ReactNode;
+  subtitle?: string | ReactNode;
   children: ReactNode;
   variant?: "default" | "card" | "bordered";
   spacing?: "compact" | "normal" | "relaxed";

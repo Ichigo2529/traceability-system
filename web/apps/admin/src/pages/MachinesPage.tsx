@@ -34,7 +34,7 @@ export default function MachinesPage() {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | undefined>();
 
-  const { data: machines = [] } = useQuery({
+  const { data: machines = [], isLoading } = useQuery({
     queryKey: ["machines"],
     queryFn: () => sdk.admin.getMachines(),
   });
@@ -156,6 +156,7 @@ export default function MachinesPage() {
         <DataTable 
             data={machines} 
             columns={columns}
+            loading={isLoading}
             actions={
                 <Button icon="add" design="Emphasized" onClick={openCreate}>
                     Add Machine

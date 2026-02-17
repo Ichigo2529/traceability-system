@@ -323,21 +323,23 @@ export default function MaterialRequestsPage() {
 
   const columns = useMemo<ColumnDef<MaterialRequest>[]>(
     () => [
-      { header: "Request No.", accessorKey: "request_no" },
-      { header: "Model", accessorKey: "model_code", cell: ({ row }) => row.original.model_code || "-" },
-      { header: "DMI No.", accessorKey: "dmi_no", cell: ({ row }) => row.original.dmi_no || "-" },
+      { header: "Request No.", accessorKey: "request_no", size: 160 },
+      { header: "Model", accessorKey: "model_code", cell: ({ row }) => row.original.model_code || "-", size: 140 },
+      { header: "DMI No.", accessorKey: "dmi_no", cell: ({ row }) => row.original.dmi_no || "-", size: 160 },
       {
         header: "Date",
         accessorKey: "created_at",
         cell: ({ row }) => formatDateTime((row.original.created_at ?? row.original.request_date) as any),
+        size: 160,
       },
-      { header: "Section", accessorKey: "section", cell: ({ row }) => row.original.section || "-" },
-      { header: "Cost Center", accessorKey: "cost_center", cell: ({ row }) => row.original.cost_center || "-" },
-      { header: "Process", accessorKey: "process_name", cell: ({ row }) => row.original.process_name || "-" },
-      { header: "Items", accessorKey: "item_count", cell: ({ row }) => row.original.item_count ?? "-" },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
+      { header: "Section", accessorKey: "section", cell: ({ row }) => row.original.section || "-", size: 140 },
+      { header: "Cost Center", accessorKey: "cost_center", cell: ({ row }) => row.original.cost_center || "-", size: 100 },
+      { header: "Process", accessorKey: "process_name", cell: ({ row }) => row.original.process_name || "-", size: 100 },
+      { header: "Items", accessorKey: "item_count", cell: ({ row }) => row.original.item_count ?? "-", size: 80 },
+      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} />, size: 110 },
       {
         header: "Actions",
+        size: 100,
         cell: ({ row }) => (
           <Button
             icon="display"
@@ -447,6 +449,7 @@ export default function MaterialRequestsPage() {
             <DataTable 
                 data={requestsQuery.data ?? []} 
                 columns={columns} 
+                loading={requestsQuery.isLoading}
                 filterPlaceholder="Search request no., section, cost center..." 
                 actions={
                     <Button

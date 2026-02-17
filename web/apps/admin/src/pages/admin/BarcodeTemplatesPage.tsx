@@ -24,7 +24,6 @@ import {
   Card,
   CardHeader,
   FlexBox,
-  FlexBoxAlignItems,
   FlexBoxDirection
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
@@ -72,7 +71,7 @@ export function BarcodeTemplatesPage() {
   const [deleteTarget, setDeleteTarget] = useState<BarcodeTemplate | null>(null);
   const [parseResult, setParseResult] = useState<Record<string, unknown> | null>(null);
 
-  const { data: rows = [] } = useQuery({
+  const { data: rows = [], isLoading } = useQuery({
     queryKey: ["barcode-templates"],
     queryFn: () => sdk.admin.getBarcodeTemplates(),
   });
@@ -248,6 +247,7 @@ export function BarcodeTemplatesPage() {
         <DataTable 
             data={rows} 
             columns={columns} 
+            loading={isLoading}
             filterPlaceholder="Search template..." 
             actions={
                 <Button

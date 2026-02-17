@@ -41,7 +41,7 @@ export function ComponentTypesPage() {
   const [editing, setEditing] = useState<ComponentType | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ComponentType | null>(null);
 
-  const { data: rows = [] } = useQuery({
+  const { data: rows = [], isLoading } = useQuery({
     queryKey: ["component-types"],
     queryFn: () => sdk.admin.getComponentTypes(),
   });
@@ -137,6 +137,7 @@ export function ComponentTypesPage() {
         <DataTable 
             data={rows} 
             columns={columns} 
+            loading={isLoading}
             filterPlaceholder="Search component type..." 
             actions={
                 <Button

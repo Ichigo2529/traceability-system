@@ -18,6 +18,7 @@ import {
   Select,
   Option,
   FlexBox,
+  FlexBoxAlignItems,
   FlexBoxDirection,
   Bar,
   ObjectStatus
@@ -43,27 +44,27 @@ export function InboundPacksPage() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
-  const { data: vendors = [] } = useQuery({
+  const { data: vendors = [], isLoading: vendorsLoading } = useQuery({
     queryKey: ["vendors"],
     queryFn: () => sdk.admin.getVendors(),
   });
-  const { data: dos = [] } = useQuery({
+  const { data: dos = [], isLoading: dosLoading } = useQuery({
     queryKey: ["inventory-do"],
     queryFn: () => sdk.admin.getInventoryDoRecords(),
   });
-  const { data: packs = [] } = useQuery({
+  const { data: packs = [], isLoading: packsLoading } = useQuery({
     queryKey: ["vendor-packs"],
     queryFn: () => sdk.admin.getVendorPacks(),
   });
-  const { data: partNumbers = [] } = useQuery({
+  const { data: partNumbers = [], isLoading: partNumbersLoading } = useQuery({
     queryKey: ["part-numbers"],
     queryFn: () => sdk.admin.getPartNumbers(),
   });
-  const { data: profiles = [] } = useQuery({
+  const { data: profiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["vendor-part-profiles"],
     queryFn: () => sdk.admin.getVendorPartProfiles(),
   });
-  const { data: parsers = [] } = useQuery({
+  const { data: parsers = [], isLoading: parsersLoading } = useQuery({
     queryKey: ["vendor-pack-parsers"],
     queryFn: () => sdk.admin.getVendorPackParsers(),
   });
@@ -168,12 +169,17 @@ export function InboundPacksPage() {
   return (
     <PageLayout
       title="Inbound Packs"
-      subtitle="Receive vendor 2D packs and keep lot-level traceability."
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+            <span className="indicator-live" />
+            <span>Receive vendor 2D packs and keep lot-level traceability.</span>
+        </FlexBox>
+      }
       icon="shipping-status"
       iconColor="var(--icon-green)"
     >
       <Section title="Delivery Orders" variant="card">
-        <DataTable data={dos} columns={doColumns} filterPlaceholder="Search DO..." />
+        <DataTable data={dos} columns={doColumns} loading={dosLoading} filterPlaceholder="Search DO..." />
       </Section>
 
       <Section title="Vendor Packs" variant="card">
@@ -181,6 +187,7 @@ export function InboundPacksPage() {
         <DataTable 
             data={packs} 
             columns={packColumns} 
+            loading={packsLoading || vendorsLoading || partNumbersLoading || profilesLoading || parsersLoading}
             filterPlaceholder="Search pack..." 
             actions={
                 <Button

@@ -74,9 +74,9 @@ export function ApprovalsPage() {
   const [heartbeatValue, setHeartbeatValue] = useState("2");
   const [approverRows, setApproverRows] = useState<ApproverRow[]>([{ ...EMPTY_APPROVER_ROW }]);
 
-  const { data: approvals = [] } = useQuery({ queryKey: ["workflow-approvals"], queryFn: () => sdk.admin.getWorkflowApprovals() });
-  const { data: roles = [] } = useQuery({ queryKey: ["roles"], queryFn: () => sdk.admin.getRoles() });
-  const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
+  const { data: approvals = [], isLoading: approvalsLoading } = useQuery({ queryKey: ["workflow-approvals"], queryFn: () => sdk.admin.getWorkflowApprovals() });
+  const { data: roles = [], isLoading: rolesLoading } = useQuery({ queryKey: ["roles"], queryFn: () => sdk.admin.getRoles() });
+  const { data: users = [], isLoading: usersLoading } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
   const { data: heartbeatSettings } = useQuery({
     queryKey: ["heartbeat-settings"],
     queryFn: async () => {
@@ -312,6 +312,7 @@ export function ApprovalsPage() {
         <DataTable 
             data={approvals} 
             columns={columns} 
+            loading={approvalsLoading || rolesLoading || usersLoading}
             filterPlaceholder="Search workflow by code/status..." 
             actions={
                 <Button

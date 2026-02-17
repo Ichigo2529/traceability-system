@@ -104,14 +104,15 @@ export function UsersPage() {
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
-      { header: "Employee ID", accessorKey: "employee_code", cell: ({ row }) => row.original.employee_code || "-" },
-      { header: "Name", accessorKey: "display_name" },
-      { header: "Email", accessorKey: "email", cell: ({ row }) => row.original.email || "-" },
-      { header: "Department", accessorKey: "department", cell: ({ row }) => row.original.department || "-" },
-      { header: "Roles", cell: ({ row }) => <div className="admin-users-role-list-text">{(row.original.roles || []).join(", ")}</div> },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active === false ? "disabled" : "active"} /> },
+      { header: "Employee ID", accessorKey: "employee_code", cell: ({ row }) => row.original.employee_code || "-", size: 120 },
+      { header: "Name", accessorKey: "display_name", size: 180 },
+      { header: "Email", accessorKey: "email", cell: ({ row }) => row.original.email || "-", size: 200 },
+      { header: "Department", accessorKey: "department", cell: ({ row }) => row.original.department || "-", size: 150 },
+      { header: "Roles", cell: ({ row }) => <div className="admin-users-role-list-text">{(row.original.roles || []).join(", ")}</div>, size: 200 },
+      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active === false ? "disabled" : "active"} />, size: 100 },
       {
         header: "Actions",
+        size: 100,
         cell: ({ row }) => (
           <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
@@ -167,6 +168,7 @@ export function UsersPage() {
         <DataTable 
             data={users} 
             columns={columns} 
+            loading={!users.length}
             filterPlaceholder="Search users..." 
             actions={
                 <Button

@@ -33,8 +33,8 @@ export function RolesPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Role | null>(null);
-  const { data: roles = [] } = useQuery({ queryKey: ["roles"], queryFn: () => sdk.admin.getRoles() });
-  const { data: permissions = [] } = useQuery({ queryKey: ["permissions"], queryFn: () => sdk.admin.getPermissions() });
+  const { data: roles = [], isLoading: rolesLoading } = useQuery({ queryKey: ["roles"], queryFn: () => sdk.admin.getRoles() });
+  const { data: permissions = [], isLoading: permissionsLoading } = useQuery({ queryKey: ["permissions"], queryFn: () => sdk.admin.getPermissions() });
 
   const form = useForm<RoleForm>({ resolver: zodResolver(roleSchema), defaultValues: { name: "", permissions: [] } });
 
@@ -101,6 +101,7 @@ export function RolesPage() {
         <DataTable 
             data={roles} 
             columns={columns} 
+            loading={rolesLoading || permissionsLoading}
             filterPlaceholder="Search roles..." 
             actions={
                 <Button

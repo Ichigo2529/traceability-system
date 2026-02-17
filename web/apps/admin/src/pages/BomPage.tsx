@@ -31,29 +31,29 @@ export default function BomPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<BomRow | null>(null);
 
-  const { data: models = [] } = useQuery({
+  const { data: models = [], isLoading: modelsLoading } = useQuery({
     queryKey: ["models"],
     queryFn: () => sdk.admin.getModels(),
   });
 
-  const { data: revisions = [] } = useQuery({
+  const { data: revisions = [], isLoading: revisionsLoading } = useQuery({
     queryKey: ["revisions", modelId],
     queryFn: () => sdk.admin.getRevisions(modelId),
     enabled: !!modelId,
   });
 
-  const { data: bom = [] } = useQuery({
+  const { data: bom = [], isLoading: bomLoading } = useQuery({
     queryKey: ["bom", modelId, revisionId],
     queryFn: () => sdk.admin.getBom(modelId, revisionId),
     enabled: !!modelId && !!revisionId,
   });
 
-  const { data: componentTypes = [] } = useQuery({
+  const { data: componentTypes = [], isLoading: typesLoading } = useQuery({
     queryKey: ["component-types"],
     queryFn: () => sdk.admin.getComponentTypes(),
   });
 
-  const { data: partNumbers = [] } = useQuery({
+  const { data: partNumbers = [], isLoading: partNumbersLoading } = useQuery({
     queryKey: ["part-numbers"],
     queryFn: () => sdk.admin.getPartNumbers(),
   });
@@ -248,6 +248,7 @@ export default function BomPage() {
         <DataTable 
             data={bom} 
             columns={columns} 
+            loading={bomLoading || modelsLoading || revisionsLoading || typesLoading || partNumbersLoading}
             filterPlaceholder="Search BOM..." 
             actions={
                  !isReadOnly && modelId && revisionId ? (

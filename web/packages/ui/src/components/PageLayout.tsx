@@ -11,8 +11,8 @@ import {
 } from "@ui5/webcomponents-react";
 
 export interface PageLayoutProps {
-  title: string;
-  subtitle?: string;
+  title: string | React.ReactNode;
+  subtitle?: string | React.ReactNode;
   icon?: string;
   iconColor?: string;
   actions?: ReactNode;

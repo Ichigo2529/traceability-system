@@ -136,3 +136,143 @@ ui5-shellbar::part(root) {
 ui5-shellbar::part(logo) {
   margin-right: 0.5rem !important;
 }
+
+/* Animations & Effects */
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
+}
+
+.ui-skeleton {
+  background: #f6f7f8;
+  background-image: linear-gradient(
+    to right,
+    #f6f7f8 0%,
+    #edeef1 20%,
+    #f6f7f8 40%,
+    #f6f7f8 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 800px 104px;
+  display: inline-block;
+  position: relative;
+  animation: shimmer 1.2s linear infinite forwards;
+}
+
+[data-sap-theme*="dark"] .ui-skeleton {
+  background: #2d2d2d;
+  background-image: linear-gradient(
+    to right,
+    #2d2d2d 0%,
+    #3d3d3d 20%,
+    #2d2d2d 40%,
+    #2d2d2d 100%
+  );
+}
+
+@keyframes pulse-live {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 126, 62, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(16, 126, 62, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 126, 62, 0);
+  }
+}
+
+.indicator-live {
+  width: 8px;
+  height: 8px;
+  background-color: var(--icon-green);
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  animation: pulse-live 2s infinite;
+}
+
+/* Page Transitions */
+.page-container {
+  animation: fadeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Subtle Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Theme-aware scrollbar for dark mode */
+[data-sap-theme*="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+[data-sap-theme*="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Navigation Group Header Styling */
+.nav-group-header {
+  margin-top: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.nav-group-header::part(title) {
+  font-weight: 800 !important;
+  font-size: 0.75rem !important;
+  color: var(--sapContent_IconColor) !important; /* Use the defined section color */
+  text-transform: uppercase !important;
+  letter-spacing: 0.08rem !important;
+  opacity: 0.9;
+}
+
+.nav-group-header::part(icon) {
+  font-size: 1.1rem !important;
+}
+
+[data-sap-theme*="dark"] .nav-group-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Ensure sub-items are indented and distinct */
+ui5-side-navigation-sub-item {
+  padding-left: 0.5rem !important;
+}
+
+ui5-side-navigation-sub-item::part(title) {
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
+}

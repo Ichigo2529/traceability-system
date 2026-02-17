@@ -39,7 +39,7 @@ export function ProcessesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Process | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Process | null>(null);
-  const { data: rows = [] } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
+  const { data: rows = [], isLoading } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
   const form = useForm<ProcessForm>({ resolver: zodResolver(schema), defaultValues: { active: true, sequence_order: 1 } });
 
   const createMutation = useMutation({
@@ -122,6 +122,7 @@ export function ProcessesPage() {
         <DataTable 
             data={rows} 
             columns={columns} 
+            loading={isLoading}
             filterPlaceholder="Search process..." 
             actions={
                 <Button

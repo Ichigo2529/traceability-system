@@ -10,7 +10,6 @@ import {
     ObjectStatus,
     FlexBox,
     FlexBoxAlignItems,
-    BusyIndicator,
 } from "@ui5/webcomponents-react";
 import { DataTable } from "../components/shared/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
@@ -152,7 +151,12 @@ export default function HeartbeatMonitorPage() {
   return (
     <PageLayout
       title="Heartbeat Monitor"
-      subtitle={`Live device status monitoring | Online window: ${onlineWindowMinutes}m`}
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Live device status monitoring | Online window: {onlineWindowMinutes}m</span>
+        </FlexBox>
+      }
       icon="heart"
       iconColor="var(--icon-purple)"
      >
@@ -181,14 +185,10 @@ export default function HeartbeatMonitorPage() {
       </Section>
 
       <Section title="Device Status" variant="card">
-        {isLoading ? (
-             <div style={{ padding: "3rem", display: "flex", justifyContent: "center" }}>
-                 <BusyIndicator active text="Loading devices..." />
-             </div>
-        ) : (
         <DataTable
             data={filteredData}
             columns={columns}
+            loading={isLoading}
             filterPlaceholder="Search devices by code, name, ip..."
             actions={
                 <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
@@ -208,7 +208,6 @@ export default function HeartbeatMonitorPage() {
                 </FlexBox>
             }
         />
-        )}
       </Section>
     </PageLayout>
   );

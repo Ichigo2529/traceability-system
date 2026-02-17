@@ -13,7 +13,7 @@ import {
 } from "@ui5/webcomponents-react";
 import { sdk } from "../../context/AuthContext";
 import layouts from "../../styles/layouts.module.css";
-import { PageLayout } from "@traceability/ui";
+import { PageLayout, Skeleton } from "@traceability/ui";
 
 export function AdminDashboardPage() {
   const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
@@ -34,24 +34,28 @@ export function AdminDashboardPage() {
             icon="group" 
             label="Users" 
             value={users.length} 
+            loading={!users.length}
             gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
           />
           <DashboardStatCard 
             icon="iphone" 
             label="Devices" 
             value={devices.length} 
+            loading={!devices.length}
             gradient="linear-gradient(135deg, #2af598 0%, #009efd 100%)"
           />
           <DashboardStatCard 
             icon="factory" 
             label="Stations" 
             value={stations.length} 
+            loading={!stations.length}
             gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
           />
           <DashboardStatCard 
             icon="product" 
             label="Models" 
             value={models.length} 
+            loading={!models.length}
             gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
           />
         </Grid>
@@ -87,7 +91,7 @@ export function AdminDashboardPage() {
   );
 }
 
-function DashboardStatCard({ icon, label, value, gradient }: { icon: string, label: string, value: number, gradient: string }) {
+function DashboardStatCard({ icon, label, value, gradient, loading }: { icon: string, label: string, value: number, gradient: string, loading?: boolean }) {
   return (
     <Card className={layouts.glassCard} style={{ border: 'none', overflow: 'hidden', position: 'relative' }}>
       <div style={{ padding: "1.5rem", zIndex: 1, position: 'relative' }}>
@@ -103,9 +107,25 @@ function DashboardStatCard({ icon, label, value, gradient }: { icon: string, lab
             filter: 'blur(20px)'
           }} />
           <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center}>
-              <FlexBox direction={FlexBoxDirection.Column}>
+              <FlexBox direction={FlexBoxDirection.Column} style={{ flexGrow: 1 }}>
                   <Label style={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.6, color: 'var(--sapContent_LabelColor)' }}>{label}</Label>
-                  <Title level="H2" style={{ fontSize: '2.4rem', margin: '0.1rem 0', fontWeight: 900, color: 'var(--sapTitleColor)' }}>{value}</Title>
+                  {loading ? (
+                    <Skeleton height="2.4rem" width="60px" style={{ margin: "0.1rem 0" }} />
+                  ) : (
+                    <Title level="H2" style={{ fontSize: '2.4rem', margin: '0.1rem 0', fontWeight: 900, color: 'var(--sapTitleColor)' }}>{value}</Title>
+                  )}
+                  {/* Subtle Sparkline simulation */}
+                  <div style={{ height: "16px", width: "100px", marginTop: "0.5rem", opacity: 0.4 }}>
+                    <svg viewBox="0 0 100 20" preserveAspectRatio="none" style={{ width: "100%", height: "100%" }}>
+                        <path 
+                            d="M0 15 Q 10 5, 20 12 T 40 8 T 60 14 T 80 6 L 100 10" 
+                            fill="none" 
+                            stroke={gradient.split(',')[1].trim().split(' ')[0]} 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                        />
+                    </svg>
+                  </div>
               </FlexBox>
               <div style={{ 
                 background: gradient, 

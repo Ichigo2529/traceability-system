@@ -17,12 +17,12 @@ import {
     Label, 
     Input, 
     Icon,
-    Button,
-    Title
+    Button
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/search.js";
 import "@ui5/webcomponents-icons/dist/navigation-left-arrow.js";
 import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
+import { Skeleton, EmptyState } from "@traceability/ui";
 
 export function DataTable<TData>({
   data,
@@ -34,6 +34,7 @@ export function DataTable<TData>({
   onGlobalFilterChange,
   hideToolbar,
   actions,
+  loading,
 }: {
   data: TData[];
   columns: ColumnDef<TData>[];
@@ -44,6 +45,7 @@ export function DataTable<TData>({
   onGlobalFilterChange?: (value: string) => void;
   hideToolbar?: boolean;
   actions?: React.ReactNode;
+  loading?: boolean;
 }) {
   const [internalGlobalFilter, setInternalGlobalFilter] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({
@@ -110,7 +112,11 @@ export function DataTable<TData>({
                         headerGroup.headers.map((header) => (
                             <TableHeaderCell 
                                 key={header.id} 
-                                style={{ width: header.getSize(), position: "relative" }}
+                                style={{ 
+                                    width: header.column.columnDef.size !== 150 ? `${header.getSize()}px` : 'auto',
+                                    minWidth: header.column.columnDef.minSize ? `${header.column.columnDef.minSize}px` : `${header.getSize()}px`,
+                                    position: "relative" 
+                                }}
                             >
                                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
                                     <Label style={{ fontWeight: "bold" }}>
@@ -145,7 +151,17 @@ export function DataTable<TData>({
                 </TableHeaderRow>
             }
         >
-            {table.getRowModel().rows.length > 0 ? (
+            {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={`skeleton-${i}`}>
+                        {table.getVisibleFlatColumns().map((column) => (
+                            <TableCell key={`skeleton-cell-${i}-${column.id}`}>
+                                <Skeleton height="20px" width="80%" />
+                            </TableCell>
+                        ))}
+                    </TableRow>
+                ))
+            ) : table.getRowModel().rows.length > 0 ? (
                 table.getRowModel().rows.map((row) => (
                     <TableRow 
                         key={row.id}
@@ -162,9 +178,12 @@ export function DataTable<TData>({
             ) : (
                 <TableRow>
                     <TableCell>
-                        <div style={{ padding: "2rem", textAlign: "center", width: "100%" }}>
-                            <Title level="H3">No records found</Title>
-                        </div>
+                        <EmptyState 
+                            title="No records found" 
+                            description="Try adjusting your search or filters to find what you're looking for."
+                            icon="search"
+                            style={{ margin: "auto" }}
+                        />
                     </TableCell>
                 </TableRow>
             )}

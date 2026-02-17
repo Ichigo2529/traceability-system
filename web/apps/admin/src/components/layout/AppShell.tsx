@@ -255,6 +255,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
                    text={section.title} 
                    icon={section.icon} 
                    expanded
+                   className="nav-group-header"
                    style={{ "--sapContent_IconColor": sectionColor } as any}
                    aria-label={`${section.title} navigation section`}
                  >
@@ -295,6 +296,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
         </SideNavigation>
 
         <div 
+          className="page-container"
           style={{ 
             flex: 1, 
             overflow: "hidden", 

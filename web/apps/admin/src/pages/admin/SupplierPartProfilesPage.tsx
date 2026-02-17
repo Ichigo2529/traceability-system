@@ -52,19 +52,19 @@ export function SupplierPartProfilesPage() {
   const [deleteTarget, setDeleteTarget] = useState<SupplierPartProfile | null>(null);
   const vendorFilter = searchParams.get("vendorId") ?? "";
 
-  const { data: rows = [] } = useQuery({
+  const { data: rows = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["vendor-part-profiles"],
     queryFn: () => sdk.admin.getVendorPartProfiles(),
   });
-  const { data: vendors = [] } = useQuery({
+  const { data: vendors = [], isLoading: vendorsLoading } = useQuery({
     queryKey: ["vendors"],
     queryFn: () => sdk.admin.getVendors(),
   });
-  const { data: partNumbers = [] } = useQuery({
+  const { data: partNumbers = [], isLoading: partNumbersLoading } = useQuery({
     queryKey: ["part-numbers"],
     queryFn: () => sdk.admin.getPartNumbers(),
   });
-  const { data: parserKeys = [] } = useQuery({
+  const { data: parserKeys = [], isLoading: parsersLoading } = useQuery({
     queryKey: ["vendor-pack-parsers"],
     queryFn: () => sdk.admin.getVendorPackParsers(),
   });
@@ -197,6 +197,7 @@ export function SupplierPartProfilesPage() {
         <DataTable 
             data={filteredRows} 
             columns={columns} 
+            loading={profilesLoading || vendorsLoading || partNumbersLoading || parsersLoading}
             filterPlaceholder="Search profile..." 
             actions={
                 <Button

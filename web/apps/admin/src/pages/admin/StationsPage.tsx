@@ -4,7 +4,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Process, Station } from "@traceability/sdk";
+import { Station } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
@@ -21,7 +21,9 @@ import {
   Form,
   FormItem,
   Select,
-  Option
+  Option,
+  FlexBox,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -56,8 +58,8 @@ export function StationsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Station | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Station | null>(null);
-  const { data: stations = [] } = useQuery({ queryKey: ["stations"], queryFn: () => sdk.admin.getStations() });
-  const { data: processes = [] } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
+  const { data: stations = [], isLoading: stationsLoading } = useQuery({ queryKey: ["stations"], queryFn: () => sdk.admin.getStations() });
+  const { data: processes = [], isLoading: processesLoading } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
   const form = useForm<StationForm>({ resolver: zodResolver(schema), defaultValues: { active: true } });
 
   const createMutation = useMutation({
@@ -130,7 +132,12 @@ export function StationsPage() {
   return (
     <PageLayout
       title="Stations"
-      subtitle="Factory stations bound to process and area"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+            <span className="indicator-live" />
+            <span>Factory stations bound to process and area</span>
+        </FlexBox>
+      }
       icon="factory"
       iconColor="var(--icon-orange)"
     >
@@ -149,6 +156,7 @@ export function StationsPage() {
         <DataTable 
             data={stations} 
             columns={columns} 
+            loading={stationsLoading || processesLoading}
             filterPlaceholder="Search station..." 
             actions={
                 <Button

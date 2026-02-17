@@ -40,7 +40,7 @@ export function DepartmentsPage() {
   const [editing, setEditing] = useState<Department | null>(null);
   const [disableTarget, setDisableTarget] = useState<Department | null>(null);
 
-  const { data: rows = [] } = useQuery({
+  const { data: rows = [], isLoading } = useQuery({
     queryKey: ["departments"],
     queryFn: () => sdk.admin.getDepartments(),
   });
@@ -137,6 +137,7 @@ export function DepartmentsPage() {
         <DataTable 
             data={rows} 
             columns={columns} 
+            loading={isLoading}
             filterPlaceholder="Search department..." 
             actions={
                 <Button

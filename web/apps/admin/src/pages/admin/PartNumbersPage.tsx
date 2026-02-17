@@ -46,12 +46,12 @@ export function PartNumbersPage() {
   const [editing, setEditing] = useState<PartNumberMaster | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PartNumberMaster | null>(null);
 
-  const { data: rows = [] } = useQuery({
+  const { data: rows = [], isLoading: rowsLoading } = useQuery({
     queryKey: ["part-numbers"],
     queryFn: () => sdk.admin.getPartNumbers(),
   });
 
-  const { data: componentTypes = [] } = useQuery({
+  const { data: componentTypes = [], isLoading: typesLoading } = useQuery({
     queryKey: ["component-types"],
     queryFn: () => sdk.admin.getComponentTypes(),
   });
@@ -148,6 +148,7 @@ export function PartNumbersPage() {
         <DataTable 
             data={rows} 
             columns={columns} 
+            loading={rowsLoading || typesLoading}
             filterPlaceholder="Search part number..." 
             actions={
                 <Button

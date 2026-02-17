@@ -43,11 +43,11 @@ export function SuppliersPage() {
   const [editing, setEditing] = useState<Vendor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
 
-  const { data: rows = [] } = useQuery({
+  const { data: rows = [], isLoading: vendorsLoading } = useQuery({
     queryKey: ["vendors"],
     queryFn: () => sdk.admin.getVendors(),
   });
-  const { data: profiles = [] } = useQuery({
+  const { data: profiles = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["vendor-part-profiles"],
     queryFn: () => sdk.admin.getVendorPartProfiles(),
   });
@@ -168,6 +168,7 @@ export function SuppliersPage() {
         <DataTable 
             data={rows} 
             columns={columns} 
+            loading={vendorsLoading || profilesLoading}
             filterPlaceholder="Search vendor..." 
             actions={
                 <Button

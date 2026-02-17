@@ -17,6 +17,7 @@ import {
   Select,
   Option,
   FlexBox,
+  FlexBoxAlignItems,
   Form,
   FormItem,
   MessageBox,
@@ -61,14 +62,14 @@ export function DevicesPage() {
   const [deleteTarget, setDeleteTarget] = useState<DeviceInfo | null>(null);
   const [newSecret, setNewSecret] = useState<string | null>(null);
 
-  const { data: devices = [] } = useQuery({ queryKey: ["devices"], queryFn: () => sdk.admin.getDevices() });
-  const { data: stations = [] } = useQuery({ queryKey: ["stations"], queryFn: () => sdk.admin.getStations() });
-  const { data: processes = [] } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
-  const { data: heartbeatSettings } = useQuery({ queryKey: ["heartbeat-settings"], queryFn: () => sdk.admin.getHeartbeatSettings() });
+  const { data: devices = [], isLoading: devicesLoading } = useQuery({ queryKey: ["devices"], queryFn: () => sdk.admin.getDevices() });
+  const { data: stations = [], isLoading: stationsLoading } = useQuery({ queryKey: ["stations"], queryFn: () => sdk.admin.getStations() });
+  const { data: processes = [], isLoading: processesLoading } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
+  const { data: heartbeatSettings, isLoading: settingsLoading } = useQuery({ queryKey: ["heartbeat-settings"], queryFn: () => sdk.admin.getHeartbeatSettings() });
 
   const onlineWindowMin = heartbeatSettings?.online_window_minutes ?? 2;
 
-  const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<DeviceForm>({
+  const { control, handleSubmit, reset, formState: { errors } } = useForm<DeviceForm>({
     resolver: zodResolver(schema),
     defaultValues: {
       device_type: "pi",
@@ -241,7 +242,12 @@ export function DevicesPage() {
   return (
     <PageLayout
       title="Devices"
-      subtitle="Manage registered edge devices and trust identities."
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+            <span className="indicator-live" />
+            <span>Manage registered edge devices and trust identities.</span>
+        </FlexBox>
+      }
       icon="laptop"
     >
       <Section variant="card">
@@ -257,6 +263,7 @@ export function DevicesPage() {
         <DataTable 
             data={devices} 
             columns={columns} 
+            loading={devicesLoading || stationsLoading || processesLoading || settingsLoading}
             filterPlaceholder="Search device code, station, IP..." 
             actions={
                 <Button

@@ -43,7 +43,7 @@ export function ModelsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Model | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Model | null>(null);
-  const { data: models = [] } = useQuery({ queryKey: ["models"], queryFn: () => sdk.admin.getModels() });
+  const { data: models = [], isLoading } = useQuery({ queryKey: ["models"], queryFn: () => sdk.admin.getModels() });
   const form = useForm<ModelForm>({ resolver: zodResolver(schema), defaultValues: { active: true, pack_size: 1 } });
 
   const createMutation = useMutation({
@@ -130,6 +130,7 @@ export function ModelsPage() {
         <DataTable 
             data={models} 
             columns={columns} 
+            loading={isLoading}
             filterPlaceholder="Search model..." 
             actions={
                 <Button
