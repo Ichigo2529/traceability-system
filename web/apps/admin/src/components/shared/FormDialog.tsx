@@ -51,14 +51,16 @@ export function FormDialog({
           </div>
       }
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem 0" }} className={bodyClassName}>
-        {description && (
-            <div style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
-                {description}
-            </div>
-        )}
-        {children}
-      </div>
+      {open && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem 0" }} className={bodyClassName}>
+          {description && (
+              <div style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
+                  {description}
+              </div>
+          )}
+          {children}
+        </div>
+      )}
     </Dialog>
   );
 }

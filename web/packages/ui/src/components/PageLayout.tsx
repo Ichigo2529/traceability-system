@@ -114,8 +114,7 @@ export function PageLayout({
               </FlexBox>
             </div>
           }
-          subheading={undefined}
-          actions={headerActions}
+          actionsBar={headerActions as any}
         />
       }
       headerArea={

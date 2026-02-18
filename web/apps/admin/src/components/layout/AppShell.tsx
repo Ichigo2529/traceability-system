@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import layouts from "../../styles/layouts.module.css";
 import {
@@ -11,7 +11,18 @@ import {
   Avatar,
   Button,
   Input,
+  SideNavigationDomRef,
+  FlexBox,
+  FlexBoxAlignItems,
+  FlexBoxDirection,
+  FlexBoxJustifyContent,
+  BusyIndicator,
+  Text,
 } from "@ui5/webcomponents-react";
+import { Suspense } from "react";
+
+// ... existing imports ...
+// (I'll keep the imports short for the tool call)
 import "@ui5/webcomponents-icons/dist/home.js";
 import "@ui5/webcomponents-icons/dist/group.js";
 import "@ui5/webcomponents-icons/dist/employee.js";
@@ -108,7 +119,7 @@ const stationNav: NavItem[] = [
   { to: "/station/history", icon: "history", label: "Trace History" },
 ];
 
-export function AppShell({ mode }: { mode: "admin" | "station" }) {
+export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "station" }) {
   const { logout, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
@@ -116,6 +127,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
   const [searchValue, setSearchValue] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const sideNavRef = useRef<SideNavigationDomRef>(null);
 
   // Filter navigation items based on role
   const nav =
@@ -126,6 +138,47 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
           if (!neededRoles?.length) return true;
           return neededRoles.some((role) => user?.roles?.includes(role));
         });
+
+  // Manual selection sync to prevent "sticky" highlights without remounting
+  useEffect(() => {
+    if (!sideNavRef.current) return;
+
+    const syncSelection = () => {
+      const currentSideNav = sideNavRef.current;
+      if (!currentSideNav) return;
+
+      const normalizedPath = location.pathname.replace(/\/$/, "");
+      
+      // Select all navigation items and sub-items
+      const items = Array.from(currentSideNav.querySelectorAll("ui5-side-navigation-item, ui5-side-navigation-sub-item"));
+      
+      items.forEach((item: any) => {
+        const to = item.getAttribute("data-to") || "";
+        const normalizedTo = to.replace(/\/$/, "");
+        
+        let shouldBeSelected = false;
+        if (normalizedTo) {
+          shouldBeSelected = normalizedTo === "/admin" 
+            ? normalizedPath === "/admin" 
+            : (normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/"));
+        }
+
+        // Parent items should not be 'selected' even if children are active,
+        // mirroring the user's request for neutral group headers.
+        if (item.tagName === "UI5-SIDE-NAVIGATION-ITEM" && item.children.length > 0) {
+            shouldBeSelected = false;
+        }
+
+        // Force property update
+        if (item.selected !== shouldBeSelected) {
+            item.selected = shouldBeSelected;
+        }
+      });
+    };
+
+    // Run sync after DOM updates
+    requestAnimationFrame(syncSelection);
+  }, [location.pathname]);
 
   const isKioskLayout = mode === "station" && location.pathname === "/station/register";
   const navSections = [
@@ -142,11 +195,14 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
 
   const handleMenuItemClick = (e: any) => {
     const item = e.detail.item;
-    const text = item.text;
-    
-    const found = nav.find(n => n.label === text);
-    if (found) {
-      navigate(found.to);
+    // Get the path from our custom data attribute
+    const to = item.getAttribute("data-to");
+    if (to) {
+      navigate(to);
+    } else {
+        // Fallback to text matching
+        const found = nav.find(n => n.label === item.text);
+        if (found) navigate(found.to);
     }
   };
 
@@ -227,6 +283,7 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
       
       <div style={{ display: "flex", flex: 1, overflow: "hidden", boxSizing: "border-box" }}>
         <SideNavigation
+          ref={sideNavRef}
           collapsed={false}
           onSelectionChange={handleMenuItemClick}
           className={layouts.glassCard}
@@ -253,41 +310,64 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
                if (section.key === "operations") sectionColor = "var(--icon-green)";
                if (section.key === "governance") sectionColor = "var(--icon-purple)";
 
+               const normalizedPath = location.pathname.replace(/\/$/, "");
+               const sectionIsSelected = items.some(item => {
+                 const normalizedTo = item.to.replace(/\/$/, "");
+                 return normalizedTo === "/admin" 
+                   ? normalizedPath === "/admin" 
+                   : (normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/"));
+               });
+
                return (
                  <SideNavigationItem 
                    key={section.key} 
                    text={section.title} 
                    icon={section.icon} 
                    expanded
+                   selected={false}
                    className="nav-group-header"
                    style={{ "--sapContent_IconColor": sectionColor } as any}
                    aria-label={`${section.title} navigation section`}
                  >
-                   {items.map(item => (
-                     <SideNavigationSubItem 
-                        key={item.to} 
-                        text={item.label} 
-                        icon={item.icon}
-                        style={{ "--sapContent_IconColor": sectionColor } as any}
-                        selected={location.pathname === item.to || location.pathname.startsWith(item.to + "/")}
-                        aria-label={`Navigate to ${item.label}`}
-                        aria-current={location.pathname === item.to ? "page" : undefined}
-                     />
-                   ))}
+                   {items.map(item => {
+                     const normalizedTo = item.to.replace(/\/$/, "");
+                     const isSelected = normalizedTo === "/admin" 
+                       ? normalizedPath === "/admin" 
+                       : (normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/"));
+                       
+                     return (
+                       <SideNavigationSubItem 
+                          key={item.to} 
+                          id={`nav-sub-${item.to.replace(/\//g, '-').substring(1) || 'root'}`}
+                          text={item.label} 
+                          icon={item.icon}
+                          style={{ "--sapContent_IconColor": sectionColor } as any}
+                          selected={isSelected}
+                          data-to={item.to}
+                          aria-label={`Navigate to ${item.label}`}
+                          aria-current={isSelected ? "page" : undefined}
+                       />
+                     );
+                   })}
                  </SideNavigationItem>
                );
              })
           ) : (
-            nav.map(item => (
-               <SideNavigationItem
-                 key={item.to}
-                 text={item.label}
-                 icon={item.icon}
-                 selected={location.pathname === item.to}
-                 aria-label={`Navigate to ${item.label}`}
-                 aria-current={location.pathname === item.to ? "page" : undefined}
-               />
-            ))
+            nav.map(item => {
+              const isSelected = location.pathname === item.to;
+              return (
+                <SideNavigationItem
+                  key={item.to}
+                  id={`nav-item-${item.to.replace(/\//g, '-').substring(1)}`}
+                  text={item.label}
+                  icon={item.icon}
+                  selected={isSelected}
+                  data-to={item.to}
+                  aria-label={`Navigate to ${item.label}`}
+                  aria-current={isSelected ? "page" : undefined}
+                />
+              );
+            })
           )}
           
           <SideNavigationItem 
@@ -309,12 +389,26 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
             height: "100%",
             display: "grid",
             gridTemplateRows: "1fr",
-            padding: "0" // Remove padding here, let pages validation their own padding/layout
+            padding: "0" 
           }}
           role="main"
           aria-label="Main content area"
         >
+          <Suspense
+            fallback={
+              <FlexBox
+                style={{ width: "100%", height: "100%" }}
+                alignItems={FlexBoxAlignItems.Center}
+                direction={FlexBoxDirection.Column}
+                justifyContent={FlexBoxJustifyContent.Center}
+              >
+                <BusyIndicator active delay={0} text="Loading page..." />
+                <Text style={{ marginTop: "1rem", opacity: 0.6 }}>Preparing screen...</Text>
+              </FlexBox>
+            }
+          >
             <Outlet />
+          </Suspense>
         </div>
       </div>
 
@@ -341,4 +435,4 @@ export function AppShell({ mode }: { mode: "admin" | "station" }) {
       )}
     </div>
   );
-}
+});

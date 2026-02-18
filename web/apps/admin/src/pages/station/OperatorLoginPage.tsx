@@ -115,30 +115,40 @@ export function OperatorLoginPage() {
 
   return (
     <Page
-      backgroundDesign="List"
+      backgroundDesign="Transparent"
       header={
         <Bar
-          startContent={<Title level="H2">Operator Login</Title>}
+          style={{ background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.1)' }}
+          startContent={<Title level="H2" style={{ color: 'var(--sapTitleColor)' }}>Operator Login</Title>}
         />
       }
-      style={{ height: "100%" }}
+      style={{ height: "100%", position: 'relative' }}
     >
-      <div className={layouts.station}>
+      <div className="premium-mesh-bg" />
+      
+      <div className={layouts.station} style={{ padding: '2rem' }}>
           <Grid defaultSpan="XL6 L6 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%", maxWidth: "1200px" }}>
             
-            <Card header={<CardHeader titleText="Current Device" />} className={layouts.stationCard}>
+            <Card header={<CardHeader titleText="Current Device" />} className={layouts.stationCard} style={{
+                background: 'var(--glass-bg)',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                border: '1px solid var(--glass-border)',
+                boxShadow: 'var(--glass-shadow)',
+                borderRadius: '24px'
+            }}>
                 <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
                         <Label>Station:</Label>
-                        <span style={{ fontWeight: "bold" }}>{station}</span>
+                        <span style={{ fontWeight: "bold", color: 'var(--sapTitleColor)' }}>{station}</span>
                     </FlexBox>
                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
                         <Label>Process:</Label>
-                        <span style={{ fontWeight: "bold" }}>{process}</span>
+                        <span style={{ fontWeight: "bold", color: 'var(--sapTitleColor)' }}>{process}</span>
                     </FlexBox>
                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
                         <Label>Shift:</Label>
-                        <span style={{ fontWeight: "bold" }}>{shift.code} ({shift.window})</span>
+                        <span style={{ fontWeight: "bold", color: 'var(--sapTitleColor)' }}>{shift.code} ({shift.window})</span>
                     </FlexBox>
                     <div style={{ marginTop: "0.5rem" }}>
                         <StatusBadge status={status} />
@@ -146,7 +156,14 @@ export function OperatorLoginPage() {
                 </div>
             </Card>
 
-            <Card header={<CardHeader titleText="Badge Authentication" />}>
+            <Card header={<CardHeader titleText="Badge Authentication" />} style={{
+                background: 'var(--glass-bg)',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                border: '1px solid var(--glass-border)',
+                boxShadow: 'var(--glass-shadow)',
+                borderRadius: '24px'
+            }}>
                 <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
                     <FlexBox direction={FlexBoxDirection.Column}>
                         <Label>Badge / Employee ID</Label>

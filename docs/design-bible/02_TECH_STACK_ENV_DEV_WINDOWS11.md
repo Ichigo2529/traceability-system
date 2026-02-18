@@ -13,7 +13,7 @@
 ## Frontend
 
 - React + Vite
-- TailwindCSS
+- UI5 Web Components (SAP Horizon Theme)
 - Zustand for state
 - Dexie for offline queue
 - Fetch/Axios

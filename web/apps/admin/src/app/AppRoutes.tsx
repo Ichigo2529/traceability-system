@@ -1,6 +1,5 @@
-import { lazy, Suspense } from "react";
+import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { BusyIndicator, FlexBox, FlexBoxAlignItems, FlexBoxDirection, FlexBoxJustifyContent, Text } from "@ui5/webcomponents-react";
 import { AppShell } from "../components/layout/AppShell";
 import { RoleGuard } from "./RoleGuard";
 
@@ -59,19 +58,6 @@ const StoreMaterialApprovalPage = lazy(() =>
 
 export function AppRoutes() {
   return (
-    <Suspense
-      fallback={
-        <FlexBox
-          className="admin-loading-screen"
-          alignItems={FlexBoxAlignItems.Center}
-          direction={FlexBoxDirection.Column}
-          justifyContent={FlexBoxJustifyContent.Center}
-        >
-          <BusyIndicator active delay={0} text="Loading..." />
-          <Text className="admin-loading-text">Preparing screen...</Text>
-        </FlexBox>
-      }
-    >
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/test-ui5" element={<Ui5SmokeTest />} />
@@ -137,6 +123,5 @@ export function AppRoutes() {
         <Route path="/" element={<Navigate to="/admin" replace />} />
         <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
-    </Suspense>
   );
 }

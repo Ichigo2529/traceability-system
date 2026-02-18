@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { useForm, Controller } from "react-hook-form";
@@ -31,6 +31,7 @@ import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
+import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/approvals.js";
 import "@ui5/webcomponents-icons/dist/save.js";
 import "@ui5/webcomponents-icons/dist/slim-arrow-right.js";
@@ -79,12 +80,14 @@ export function ApprovalsPage() {
   const { data: users = [], isLoading: usersLoading } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
   const { data: heartbeatSettings } = useQuery({
     queryKey: ["heartbeat-settings"],
-    queryFn: async () => {
-      const result = await sdk.admin.getHeartbeatSettings();
-      setHeartbeatValue(String(result.online_window_minutes));
-      return result;
-    },
+    queryFn: () => sdk.admin.getHeartbeatSettings(),
   });
+
+  useEffect(() => {
+    if (heartbeatSettings) {
+      setHeartbeatValue(String(heartbeatSettings.online_window_minutes));
+    }
+  }, [heartbeatSettings]);
 
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<ApprovalForm>({
     resolver: zodResolver(schema),
@@ -166,6 +169,8 @@ export function ApprovalsPage() {
       setHeartbeatValue(String(data.online_window_minutes));
     },
   });
+
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const roleMap = useMemo(() => roles.reduce<Record<string, Role>>((acc, role) => ({ ...acc, [role.id]: role }), {}), [roles]);
   const userMap = useMemo(
@@ -255,7 +260,7 @@ export function ApprovalsPage() {
     [deleteMutation, reset, roleMap, userMap]
   );
   
-  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  // No need for duplicate declaration here
 
   const transitionGroups = useMemo<TransitionView[]>(() => {
     const grouped = approvals.reduce<Record<string, WorkflowApprovalConfig[]>>((acc, row) => {
@@ -286,9 +291,8 @@ export function ApprovalsPage() {
             <FlexBox direction={FlexBoxDirection.Column}>
                 <Label>Heartbeat window (minutes)</Label>
                 <Input
-                    type="Number"
                     value={heartbeatValue}
-                    onInput={(e) => setHeartbeatValue(e.target.value)}
+                    onInput={(e: any) => setHeartbeatValue(e.target.value)}
                     style={{ width: "150px" }}
                 />
             </FlexBox>
@@ -381,172 +385,176 @@ export function ApprovalsPage() {
             contentClassName="approval-dialog"
         >
         <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
-            <FormItem labelContent={<Label required>Flow Code</Label>}>
-                <Controller
-                    name="flow_code"
-                    control={control}
-                    render={({ field }) => (
-                        <Input 
-                            {...field} 
-                            value={field.value || ""} 
-                            valueState={errors.flow_code ? "Negative" : "None"}
-                            valueStateMessage={errors.flow_code && <div>{errors.flow_code.message}</div>}
-                        />
-                    )}
-                />
-            </FormItem>
-            <FormItem labelContent={<Label required>Flow Name</Label>}>
-                <Controller
-                    name="flow_name"
-                    control={control}
-                    render={({ field }) => (
-                        <Input 
-                            {...field} 
-                            value={field.value || ""} 
-                            valueState={errors.flow_name ? "Negative" : "None"}
-                            valueStateMessage={errors.flow_name && <div>{errors.flow_name.message}</div>}
-                        />
-                    )}
-                />
-            </FormItem>
-            <FormItem labelContent={<Label required>From Status</Label>}>
-                <Controller
-                    name="from_status"
-                    control={control}
-                    render={({ field }) => (<Input {...field} value={field.value || ""} />)}
-                />
-            </FormItem>
-            <FormItem labelContent={<Label required>To Status</Label>}>
-                <Controller
-                    name="to_status"
-                    control={control}
-                    render={({ field }) => (<Input {...field} value={field.value || ""} />)}
-                />
-            </FormItem>
-            <FormItem labelContent={<Label>Approval Level</Label>}>
-                <Controller
-                    name="level"
-                    control={control}
-                    render={({ field }) => (
-                        <Select
-                            onChange={(e) => field.onChange(Number((e.target.selectedOption as any).dataset.value))}
-                            value={String(field.value)}
-                        >
-                            <Option value="1" data-value="1">L1</Option>
-                            <Option value="2" data-value="2">L2</Option>
-                            <Option value="3" data-value="3">L3</Option>
-                        </Select>
-                    )}
-                />
-            </FormItem>
-            <FormItem labelContent={<Label>Approver Role</Label>}>
-                <Controller
-                    name="approver_role_id"
-                    control={control}
-                    render={({ field }) => (
-                        <Select
-                            onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
-                            value={field.value || NONE}
-                        >
-                            <Option value={NONE} data-value={NONE}>Unassigned</Option>
-                            {roles.map((row) => (
-                                <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
-                                    {row.name}
-                                </Option>
-                            ))}
-                        </Select>
-                    )}
-                />
-            </FormItem>
-            <FormItem labelContent={<Label>Active</Label>}>
-                 <CheckBox
-                    checked={watch("active")}
-                    onChange={(e) => setValue("active", e.target.checked)}
-                 />
-            </FormItem>
-
-            <FormGroup title="Approver Users (User + Email + Default)">
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                        <Button
-                            icon="add"
-                            design="Transparent"
-                            onClick={() => setApproverRows((prev) => [...prev, { ...EMPTY_APPROVER_ROW }])}
-                        >
-                            Add Approver
-                        </Button>
-                    </div>
-                
-                    {approverRows.map((row, idx) => (
-                        <FlexBox key={`${idx}`} alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                        <div style={{ flex: 1 }}>
+            <FormGroup title="Rule Configuration">
+                <FormItem labelContent={<Label required>Flow Code</Label>}>
+                    <Controller
+                        name="flow_code"
+                        control={control}
+                        render={({ field }) => (
+                            <Input 
+                                {...field} 
+                                value={field.value || ""} 
+                                valueState={errors.flow_code ? "Negative" : "None"}
+                                valueStateMessage={errors.flow_code && <div>{errors.flow_code.message}</div>}
+                            />
+                        )}
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label required>Flow Name</Label>}>
+                    <Controller
+                        name="flow_name"
+                        control={control}
+                        render={({ field }) => (
+                            <Input 
+                                {...field} 
+                                value={field.value || ""} 
+                                valueState={errors.flow_name ? "Negative" : "None"}
+                                valueStateMessage={errors.flow_name && <div>{errors.flow_name.message}</div>}
+                            />
+                        )}
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label required>From Status</Label>}>
+                    <Controller
+                        name="from_status"
+                        control={control}
+                        render={({ field }) => (<Input {...field} value={field.value || ""} />)}
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label required>To Status</Label>}>
+                    <Controller
+                        name="to_status"
+                        control={control}
+                        render={({ field }) => (<Input {...field} value={field.value || ""} />)}
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label>Approval Level</Label>}>
+                    <Controller
+                        name="level"
+                        control={control}
+                        render={({ field }) => (
                             <Select
-                                onChange={(e) => {
-                                const userId = (e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value;
-                                setApproverRows((prev) =>
-                                    prev.map((current, currentIdx) => {
-                                    if (currentIdx !== idx) return current;
-                                    const selectedUser = users.find((user) => user.id === userId);
-                                    return {
-                                        ...current,
-                                        user_id: userId,
-                                        email: current.email || selectedUser?.email || "",
-                                    };
-                                    })
-                                );
-                                }}
-                                value={row.user_id || NONE}
-                                style={{ width: "100%" }}
+                                onChange={(e) => field.onChange(Number((e.target.selectedOption as any).dataset.value))}
+                                value={String(field.value)}
+                            >
+                                <Option value="1" data-value="1">L1</Option>
+                                <Option value="2" data-value="2">L2</Option>
+                                <Option value="3" data-value="3">L3</Option>
+                            </Select>
+                        )}
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label>Approver Role</Label>}>
+                    <Controller
+                        name="approver_role_id"
+                        control={control}
+                        render={({ field }) => (
+                            <Select
+                                onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
+                                value={field.value || NONE}
                             >
                                 <Option value={NONE} data-value={NONE}>Unassigned</Option>
-                                {users.map((user) => (
-                                    <Option key={user.id} value={user.id} data-value={user.id} selected={user.id === row.user_id}>
-                                    {user.display_name} ({user.username})
+                                {roles.map((row) => (
+                                    <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
+                                        {row.name}
                                     </Option>
                                 ))}
                             </Select>
+                        )}
+                    />
+                </FormItem>
+                <FormItem labelContent={<Label>Active</Label>}>
+                    <CheckBox
+                        checked={watch("active")}
+                        onChange={(e) => setValue("active", e.target.checked)}
+                    />
+                </FormItem>
+            </FormGroup>
+
+            <FormGroup title="Approver Users (User + Email + Default)">
+                <FormItem>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "100%" }}>
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                            <Button
+                                icon="add"
+                                design="Transparent"
+                                onClick={() => setApproverRows((prev) => [...prev, { ...EMPTY_APPROVER_ROW }])}
+                            >
+                                Add Approver
+                            </Button>
                         </div>
-                        <div style={{ flex: 1 }}>
-                            <Input
-                                type="Email"
-                                value={row.email}
-                                placeholder="approver@email"
-                                onInput={(e) =>
-                                setApproverRows((prev) =>
-                                    prev.map((current, currentIdx) =>
-                                    currentIdx === idx ? { ...current, email: e.target.value } : current
+                    
+                        {approverRows.map((row, idx) => (
+                            <FlexBox key={`${idx}`} alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                            <div style={{ flex: 1 }}>
+                                <Select
+                                    onChange={(e) => {
+                                    const userId = (e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value;
+                                    setApproverRows((prev) =>
+                                        prev.map((current, currentIdx) => {
+                                        if (currentIdx !== idx) return current;
+                                        const selectedUser = users.find((user) => user.id === userId);
+                                        return {
+                                            ...current,
+                                            user_id: userId,
+                                            email: current.email || selectedUser?.email || "",
+                                        };
+                                        })
+                                    );
+                                    }}
+                                    value={row.user_id || NONE}
+                                    style={{ width: "100%" }}
+                                >
+                                    <Option value={NONE} data-value={NONE}>Unassigned</Option>
+                                    {users.map((user) => (
+                                        <Option key={user.id} value={user.id} data-value={user.id} selected={user.id === row.user_id}>
+                                        {user.display_name} ({user.username})
+                                        </Option>
+                                    ))}
+                                </Select>
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <Input
+                                    type="Email"
+                                    value={row.email}
+                                    placeholder="approver@email"
+                                    onInput={(e: any) =>
+                                    setApproverRows((prev) =>
+                                        prev.map((current, currentIdx) =>
+                                        currentIdx === idx ? { ...current, email: e.target.value } : current
+                                        )
                                     )
+                                    }
+                                    style={{ width: "100%" }}
+                                />
+                            </div>
+                            <CheckBox
+                                text="Default"
+                                checked={row.is_default}
+                                onChange={(e: any) =>
+                                setApproverRows((prev) =>
+                                    prev.map((current, currentIdx) => ({
+                                    ...current,
+                                    is_default: currentIdx === idx ? e.target.checked : false, 
+                                    }))
                                 )
                                 }
-                                style={{ width: "100%" }}
                             />
-                        </div>
-                        <CheckBox
-                            text="Default"
-                            checked={row.is_default}
-                            onChange={(e) =>
-                            setApproverRows((prev) =>
-                                prev.map((current, currentIdx) => ({
-                                ...current,
-                                is_default: currentIdx === idx ? e.target.checked : false, 
-                                }))
-                            )
-                            }
-                        />
-                        <Button
-                            icon="delete"
-                            design="Transparent"
-                            style={{ color: "var(--sapNegativeColor)" }}
-                            onClick={() =>
-                            setApproverRows((prev) => {
-                                const next = prev.filter((_, currentIdx) => currentIdx !== idx);
-                                return next.length ? next : [{ ...EMPTY_APPROVER_ROW }];
-                            })
-                            }
-                        />
-                        </FlexBox>
-                    ))}
-                </div>
+                            <Button
+                                icon="delete"
+                                design="Transparent"
+                                style={{ color: "var(--sapNegativeColor)" }}
+                                onClick={() =>
+                                setApproverRows((prev) => {
+                                    const next = prev.filter((_, currentIdx) => currentIdx !== idx);
+                                    return next.length ? next : [{ ...EMPTY_APPROVER_ROW }];
+                                })
+                                }
+                            />
+                            </FlexBox>
+                        ))}
+                    </div>
+                </FormItem>
             </FormGroup>
         </Form>
       </FormDialog>

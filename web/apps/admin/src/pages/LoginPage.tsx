@@ -51,24 +51,24 @@ export function LoginPage() {
       justifyContent: "center", 
       alignItems: "center", 
       height: "100vh", 
-      background: "var(--grad-surface)", 
+      width: "100vw",
       padding: "1rem",
       position: 'relative',
       overflow: 'hidden'
     }}>
-      {/* Decorative background blobs */}
-      <div style={{ position: 'absolute', top: '10%', left: '10%', width: '30vw', height: '30vw', background: 'var(--grad-primary)', opacity: 0.1, borderRadius: '50%', filter: 'blur(80px)' }} />
-      <div style={{ position: 'absolute', bottom: '10%', right: '10%', width: '25vw', height: '25vw', background: '#2af598', opacity: 0.1, borderRadius: '50%', filter: 'blur(80px)' }} />
+      {/* Premium Mesh Background Overlay */}
+      <div className="premium-mesh-bg" />
 
       <Card style={{ 
         width: "100%", 
-        maxWidth: "420px",
+        maxWidth: "400px",
         background: 'var(--glass-bg)',
         backdropFilter: 'var(--glass-blur)',
+        WebkitBackdropFilter: 'var(--glass-blur)', // Safari support
         border: '1px solid var(--glass-border)',
-        boxShadow: 'var(--shadow-lg)',
-        borderRadius: '24px',
-        padding: '1.5rem',
+        boxShadow: 'var(--glass-shadow)',
+        borderRadius: '28px',
+        padding: '1rem',
         animation: 'fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards'
       }}>
         <div style={{ textAlign: 'center', padding: '1.5rem 1rem 1rem 1rem' }}>
