@@ -12,7 +12,7 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Input,
@@ -141,7 +141,7 @@ export function StationsPage() {
       icon="factory"
       iconColor="var(--icon-orange)"
     >
-      <Section variant="card">
+      <div className="page-container">
         <ApiErrorBanner
           message={
             createMutation.error
@@ -162,6 +162,7 @@ export function StationsPage() {
                 <Button
                   icon="add"
                   design="Emphasized"
+                  className="button-hover-scale"
                   onClick={() => {
                     setEditing(null);
                     form.reset({ station_code: "", name: "", active: true });
@@ -172,78 +173,78 @@ export function StationsPage() {
                 </Button>
             }
         />
+      </div>
 
-        <FormDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          title={editing ? "Edit Station" : "Create Station"}
-          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-          submitting={createMutation.isPending || updateMutation.isPending}
-        >
-          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-            <FormItem labelContent={<Label>Station Code</Label>}>
-              <Input {...form.register("station_code")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Name</Label>}>
-              <Input {...form.register("name")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Line</Label>}>
-              <Input {...form.register("line")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Area</Label>}>
-              <Input {...form.register("area")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Process</Label>}>
-                 <Controller
-                    control={form.control}
-                    name="process_id"
-                    render={({ field }) => (
-                         <Select
-                            onChange={(e) => {
-                                const selected = e.detail.selectedOption as unknown as { value: string };
-                                field.onChange(selected.value === NONE ? "" : selected.value);
-                            }}
-                            value={field.value || NONE}
-                        >
-                            <Option value={NONE}>Unassigned</Option>
-                             {processes.map((p) => (
-                                <Option key={p.id} value={p.id}>
-                                  {p.process_code} - {p.name}
-                                </Option>
-                              ))}
-                        </Select>
-                    )}
-                 />
-            </FormItem>
-            <FormItem labelContent={<Label>Status</Label>}>
-                <Controller
-                    name="active"
-                    control={form.control}
-                    render={({ field }) => (
-                        <CheckBox
-                            text="Active"
-                            checked={field.value}
-                            onChange={(e) => field.onChange(e.target.checked)}
-                        />
-                    )}
-                />
-            </FormItem>
-          </Form>
-        </FormDialog>
-        <ConfirmDialog
-          open={Boolean(deleteTarget)}
-          title="Delete station"
-          description={deleteTarget ? `Delete station ${deleteTarget.station_code}?` : ""}
-          confirmText="Delete"
-          destructive
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={() => {
-            if (!deleteTarget) return;
-            deleteMutation.mutate(deleteTarget.id);
-            setDeleteTarget(null);
-          }}
-        />
-      </Section>
+      <FormDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? "Edit Station" : "Create Station"}
+        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+        submitting={createMutation.isPending || updateMutation.isPending}
+      >
+        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+          <FormItem labelContent={<Label>Station Code</Label>}>
+            <Input {...form.register("station_code")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Name</Label>}>
+            <Input {...form.register("name")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Line</Label>}>
+            <Input {...form.register("line")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Area</Label>}>
+            <Input {...form.register("area")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Process</Label>}>
+               <Controller
+                  control={form.control}
+                  name="process_id"
+                  render={({ field }) => (
+                       <Select
+                          onChange={(e) => {
+                              const selected = e.detail.selectedOption as unknown as { value: string };
+                              field.onChange(selected.value === NONE ? "" : selected.value);
+                          }}
+                          value={field.value || NONE}
+                      >
+                          <Option value={NONE}>Unassigned</Option>
+                           {processes.map((p) => (
+                              <Option key={p.id} value={p.id}>
+                                {p.process_code} - {p.name}
+                              </Option>
+                            ))}
+                      </Select>
+                  )}
+               />
+          </FormItem>
+          <FormItem labelContent={<Label>Status</Label>}>
+              <Controller
+                  name="active"
+                  control={form.control}
+                  render={({ field }) => (
+                      <CheckBox
+                          text="Active"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                  )}
+              />
+          </FormItem>
+        </Form>
+      </FormDialog>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete station"
+        description={deleteTarget ? `Delete station ${deleteTarget.station_code}?` : ""}
+        confirmText="Delete"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </PageLayout>
   );
 }

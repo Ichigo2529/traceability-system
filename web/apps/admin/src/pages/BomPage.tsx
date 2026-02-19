@@ -5,7 +5,7 @@ import { sdk } from "../context/AuthContext";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { BomRowDialog, BomRowForm } from "../components/shared/BomRowDialog";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import { DataTable } from "../components/shared/DataTable";
 import { 
     Button, 
@@ -197,76 +197,74 @@ export default function BomPage() {
       icon="list"
       iconColor="var(--icon-orange)"
     >
-      <Section variant="card">
-         <ApiErrorBanner message={error ? formatApiError(error) : undefined} />
-        
-        <FlexBox 
-            alignItems={FlexBoxAlignItems.End} 
-            justifyContent={FlexBoxJustifyContent.Start}
-            wrap="Wrap"
-            style={{ gap: "1rem", marginBottom: "1rem", padding: "1rem", backgroundColor: "var(--sapObjectHeader_Background)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}
-        >
-             <FlexBox direction={FlexBoxDirection.Column} style={{ minWidth: "200px" }}>
-                <Label>Model</Label>
-                <Select
-                    onChange={(e) => setModelId(e.target.value)}
-                    value={modelId}
-                    style={{ width: "100%" }}
-                >
-                    {models.map((m) => (
-                    <Option key={m.id} value={m.id}>
-                        {m.code} - {m.name}
-                    </Option>
-                    ))}
-                </Select>
-             </FlexBox>
-             
-             <FlexBox direction={FlexBoxDirection.Column} style={{ minWidth: "200px" }}>
-                <Label>Revision</Label>
-                <Select
-                    onChange={(e) => setRevisionId(e.target.value)}
-                    value={revisionId}
-                    disabled={!revisions.length}
-                    style={{ width: "100%" }}
-                >
-                    {revisions.map((r) => (
-                    <Option key={r.id} value={r.id}>
-                        {r.revision_code} ({r.status})
-                    </Option>
-                    ))}
-                </Select>
-             </FlexBox>
+       <ApiErrorBanner message={error ? formatApiError(error) : undefined} />
+      
+      <FlexBox 
+          alignItems={FlexBoxAlignItems.End} 
+          justifyContent={FlexBoxJustifyContent.Start}
+          wrap="Wrap"
+          style={{ gap: "1rem", marginBottom: "1rem", padding: "1rem", backgroundColor: "var(--sapObjectHeader_Background)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}
+      >
+           <FlexBox direction={FlexBoxDirection.Column} style={{ minWidth: "200px" }}>
+              <Label>Model</Label>
+              <Select
+                  onChange={(e) => setModelId(e.target.value)}
+                  value={modelId}
+                  style={{ width: "100%" }}
+              >
+                  {models.map((m) => (
+                  <Option key={m.id} value={m.id}>
+                      {m.code} - {m.name}
+                  </Option>
+                  ))}
+              </Select>
+           </FlexBox>
+           
+           <FlexBox direction={FlexBoxDirection.Column} style={{ minWidth: "200px" }}>
+              <Label>Revision</Label>
+              <Select
+                  onChange={(e) => setRevisionId(e.target.value)}
+                  value={revisionId}
+                  disabled={!revisions.length}
+                  style={{ width: "100%" }}
+              >
+                  {revisions.map((r) => (
+                  <Option key={r.id} value={r.id}>
+                      {r.revision_code} ({r.status})
+                  </Option>
+                  ))}
+              </Select>
+           </FlexBox>
 
-             {selectedRevision && (
-                 <FlexBox direction={FlexBoxDirection.Column}>
-                     <Label>Status</Label>
-                     <ObjectStatus state={selectedRevision.status === RevisionStatus.ACTIVE ? "Positive" : "Information"}>{selectedRevision.status}</ObjectStatus>
-                 </FlexBox>
-             )}
-        </FlexBox>
+           {selectedRevision && (
+               <FlexBox direction={FlexBoxDirection.Column}>
+                   <Label>Status</Label>
+                   <ObjectStatus state={selectedRevision.status === RevisionStatus.ACTIVE ? "Positive" : "Information"}>{selectedRevision.status}</ObjectStatus>
+               </FlexBox>
+           )}
+      </FlexBox>
 
-        <DataTable 
-            data={bom} 
-            columns={columns} 
-            loading={bomLoading || modelsLoading || revisionsLoading || typesLoading || partNumbersLoading}
-            filterPlaceholder="Search BOM..." 
-            actions={
-                 !isReadOnly && modelId && revisionId ? (
-                    <Button
-                        icon="add"
-                        design="Emphasized"
-                        onClick={() => {
-                        setEditingRow(null);
-                        setDialogOpen(true);
-                        }}
-                    >
-                        Add BOM Row
-                    </Button>
-                 ) : undefined
-            }
-        />
+      <DataTable 
+          data={bom} 
+          columns={columns} 
+          loading={bomLoading || modelsLoading || revisionsLoading || typesLoading || partNumbersLoading}
+          filterPlaceholder="Search BOM..." 
+          actions={
+               !isReadOnly && modelId && revisionId ? (
+                  <Button
+                      icon="add"
+                      design="Emphasized"
+                      onClick={() => {
+                      setEditingRow(null);
+                      setDialogOpen(true);
+                      }}
+                  >
+                      Add BOM Row
+                  </Button>
+               ) : undefined
+          }
+      />
 
-      </Section>
       
       <BomRowDialog
         open={dialogOpen}

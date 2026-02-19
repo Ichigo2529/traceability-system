@@ -29,6 +29,8 @@ import {
 } from "@ui5/webcomponents-react";
 import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
+import { formatApiError } from "../../lib/errors";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
@@ -286,95 +288,110 @@ export function ApprovalsPage() {
       icon="approvals"
       iconColor="var(--icon-indigo)"
     >
-      <Section title="Online Indicator Window" variant="card">
-          <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "1rem", padding: "1rem" }}>
-            <FlexBox direction={FlexBoxDirection.Column}>
-                <Label>Heartbeat window (minutes)</Label>
-                <Input
-                    value={heartbeatValue}
-                    onInput={(e: any) => setHeartbeatValue(e.target.value)}
-                    style={{ width: "150px" }}
-                />
-            </FlexBox>
-            <Button
-                icon="save"
-                onClick={() => {
-                    const minutes = Number(heartbeatValue);
-                    if (!Number.isFinite(minutes) || minutes < 1) return;
-                    heartbeatMutation.mutate(minutes);
-                }}
-            >
-                Save
-            </Button>
-            <ObjectStatus state="Information">
-                Current: {heartbeatSettings?.online_window_minutes ?? 2} minute(s)
-            </ObjectStatus>
-          </FlexBox>
-      </Section>
-
-      <Section title="Approval Rules" variant="card">
-        <DataTable 
-            data={approvals} 
-            columns={columns} 
-            loading={approvalsLoading || rolesLoading || usersLoading}
-            filterPlaceholder="Search workflow by code/status..." 
-            actions={
-                <Button
-                    icon="add"
-                    design="Emphasized"
-                    onClick={() => {
-                        setEditing(null);
-                        reset({
-                          flow_code: "MATERIAL_REQUEST_APPROVAL",
-                          flow_name: "Material Request Approval",
-                          from_status: "REQUESTED",
-                          to_status: "APPROVED",
-                          level: 1,
-                          approver_role_id: "",
-                          active: true,
-                        });
-                        setApproverRows([{ ...EMPTY_APPROVER_ROW }]);
-                        setOpen(true);
-                    }}
-                >
-                    Add Rule
-                </Button>
-            }
+      <div className="page-container">
+        <ApiErrorBanner
+          message={
+            createMutation.error
+              ? formatApiError(createMutation.error)
+              : updateMutation.error
+                ? formatApiError(updateMutation.error)
+                : deleteMutation.error
+                  ? formatApiError(deleteMutation.error)
+                  : undefined
+          }
         />
-      </Section>
-      
-      <Section title="Status Transitions" variant="card">
-         <div style={{ display: "flex", flexDirection: "column" }}>
-          {transitionGroups.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "2rem", color: "var(--sapContent_LabelColor)" }}>No transition rules configured.</div>
-          ) : (
-            transitionGroups.map((group, index) => (
-              <div key={group.flowCode + group.flowName} style={{ padding: "1rem", borderBottom: index < transitionGroups.length - 1 ? "1px solid var(--sapList_BorderColor)" : "none" }}>
-                    <FlexBox alignItems={FlexBoxAlignItems.Center} justifyContent={FlexBoxJustifyContent.SpaceBetween} style={{ marginBottom: "1rem" }}>
-                        <Title level="H5">{group.flowCode}</Title>
-                        <Label>{group.flowName}</Label>
-                    </FlexBox>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
-                      {group.rows.map((row) => (
-                        <div key={row.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem", border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", background: "var(--sapList_Background)" }}>
-                          <ObjectStatus state="Indication05" inverted>L{row.level}</ObjectStatus>
-                          <span style={{ fontWeight: "bold" }}>{row.from_status}</span>
-                          <Icon name="slim-arrow-right" style={{ color: "var(--sapContent_IconColor)", width: "1rem", height: "1rem" }} />
-                          <span style={{ fontWeight: "bold" }}>{row.to_status}</span>
-                          <span style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem" }}>({row.approver_role_name || "Unassigned"})</span>
-                          {row.approver_users?.find((approver) => approver.is_default)?.display_name && (
-                              <span style={{ fontSize: "0.875rem", fontStyle: "italic" }}>
-                                - {row.approver_users?.find((approver) => approver.is_default)?.display_name}
-                              </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-              </div>
-            ))
-          )}
-         </div>
-      </Section>
+        <Section title="Online Indicator Window" variant="card">
+            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "1rem", padding: "1rem" }}>
+              <FlexBox direction={FlexBoxDirection.Column}>
+                  <Label>Heartbeat window (minutes)</Label>
+                  <Input
+                      value={heartbeatValue}
+                      onInput={(e: any) => setHeartbeatValue(e.target.value)}
+                      style={{ width: "150px" }}
+                  />
+              </FlexBox>
+              <Button
+                  icon="save"
+                  className="button-hover-scale"
+                  onClick={() => {
+                      const minutes = Number(heartbeatValue);
+                      if (!Number.isFinite(minutes) || minutes < 1) return;
+                      heartbeatMutation.mutate(minutes);
+                  }}
+              >
+                  Save
+              </Button>
+              <ObjectStatus state="Information">
+                  Current: {heartbeatSettings?.online_window_minutes ?? 2} minute(s)
+              </ObjectStatus>
+            </FlexBox>
+        </Section>
+
+        <Section title="Approval Rules" variant="card">
+          <DataTable 
+              data={approvals} 
+              columns={columns} 
+              loading={approvalsLoading || rolesLoading || usersLoading}
+              filterPlaceholder="Search workflow by code/status..." 
+              actions={
+                  <Button
+                      icon="add"
+                      design="Emphasized"
+                      className="button-hover-scale"
+                      onClick={() => {
+                          setEditing(null);
+                          reset({
+                            flow_code: "MATERIAL_REQUEST_APPROVAL",
+                            flow_name: "Material Request Approval",
+                            from_status: "REQUESTED",
+                            to_status: "APPROVED",
+                            level: 1,
+                            approver_role_id: "",
+                            active: true,
+                          });
+                          setApproverRows([{ ...EMPTY_APPROVER_ROW }]);
+                          setOpen(true);
+                      }}
+                  >
+                      Add Rule
+                  </Button>
+              }
+          />
+        </Section>
+        
+        <Section title="Status Transitions" variant="card">
+           <div style={{ display: "flex", flexDirection: "column" }}>
+            {transitionGroups.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "2rem", color: "var(--sapContent_LabelColor)" }}>No transition rules configured.</div>
+            ) : (
+              transitionGroups.map((group, index) => (
+                <div key={group.flowCode + group.flowName} style={{ padding: "1rem", borderBottom: index < transitionGroups.length - 1 ? "1px solid var(--sapList_BorderColor)" : "none" }}>
+                      <FlexBox alignItems={FlexBoxAlignItems.Center} justifyContent={FlexBoxJustifyContent.SpaceBetween} style={{ marginBottom: "1rem" }}>
+                          <Title level="H5">{group.flowCode}</Title>
+                          <Label>{group.flowName}</Label>
+                      </FlexBox>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+                        {group.rows.map((row) => (
+                          <div key={row.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem", border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", background: "var(--sapList_Background)" }}>
+                            <ObjectStatus state="Indication05" inverted>L{row.level}</ObjectStatus>
+                            <span style={{ fontWeight: "bold" }}>{row.from_status}</span>
+                            <Icon name="slim-arrow-right" style={{ color: "var(--sapContent_IconColor)", width: "1rem", height: "1rem" }} />
+                            <span style={{ fontWeight: "bold" }}>{row.to_status}</span>
+                            <span style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem" }}>({row.approver_role_name || "Unassigned"})</span>
+                            {row.approver_users?.find((approver) => approver.is_default)?.display_name && (
+                                <span style={{ fontSize: "0.875rem", fontStyle: "italic" }}>
+                                  - {row.approver_users?.find((approver) => approver.is_default)?.display_name}
+                                </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                </div>
+              ))
+            )}
+           </div>
+        </Section>
+      </div>
 
         <FormDialog
             open={open}

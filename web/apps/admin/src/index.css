@@ -202,6 +202,58 @@ ui5-shellbar::part(logo) {
   margin-right: 0.5rem !important;
 }
 
+/* Micro-interactions */
+.hover-scale {
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+.hover-scale:hover {
+  transform: scale(1.03);
+}
+
+.hover-scale:active {
+  transform: scale(0.97);
+}
+
+.button-hover-scale {
+  transition: all 0.25s cubic-bezier(0.23, 1, 0.32, 1) !important;
+}
+
+.button-hover-scale:hover {
+  transform: translateY(-1px) scale(1.02);
+  filter: brightness(1.1);
+}
+
+.button-hover-scale:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Table Specific Animations */
+@keyframes tableRowEntrance {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.row-entrance {
+  animation: tableRowEntrance 0.5s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+.table-row-hover {
+  transition: background-color 0.2s ease, transform 0.2s ease !important;
+}
+
+.table-row-hover:hover {
+  background-color: rgba(var(--sapUiContentIconColor), 0.04) !important;
+  transform: scale(1.002);
+  z-index: 1;
+}
+
 /* Animations & Effects */
 @keyframes shimmer {
   0% {
@@ -266,13 +318,13 @@ ui5-shellbar::part(logo) {
 
 /* Page Transitions */
 .page-container {
-  animation: fadeSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeSlideIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
 @keyframes fadeSlideIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;

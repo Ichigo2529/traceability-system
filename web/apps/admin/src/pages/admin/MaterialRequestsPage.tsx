@@ -14,7 +14,7 @@ import { useDelayedBusy } from "../../hooks/useDelayedBusy";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import { IssueAllocationWorkbench } from "../../components/material/IssueAllocationWorkbench";
 import { toast } from "sonner";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Input,
@@ -332,7 +332,7 @@ export default function MaterialRequestsPage() {
         cell: ({ row }) => formatDateTime((row.original.created_at ?? row.original.request_date) as any),
         size: 160,
       },
-      { header: "Section", accessorKey: "section", cell: ({ row }) => row.original.section || "-", size: 140 },
+      { header: "", accessorKey: "section", cell: ({ row }) => row.original.section || "-", size: 140 },
       { header: "Cost Center", accessorKey: "cost_center", cell: ({ row }) => row.original.cost_center || "-", size: 100 },
       { header: "Process", accessorKey: "process_name", cell: ({ row }) => row.original.process_name || "-", size: 100 },
       { header: "Items", accessorKey: "item_count", cell: ({ row }) => row.original.item_count ?? "-", size: 80 },
@@ -380,94 +380,97 @@ export default function MaterialRequestsPage() {
       icon="request"
       iconColor="var(--icon-indigo)"
     >
-      <Section variant="card">
-         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
-         
-         {openDetails ? (
-            <div className="motion-safe:animate-panel-slide-in-left">
-                 <div style={{ padding: "1rem" }}>
-                     <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center} style={{ marginBottom: "1rem" }}>
-                         <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                             <Button icon="navigation-left-arrow" design="Transparent" onClick={() => { setOpenDetails(false); setSelectedId(null); }}>Back</Button>
-                             <Title level="H4">Material Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}</Title>
-                         </FlexBox>
-                         <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                             <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-                             {detailsQuery.data?.status === "ISSUED" && <Button icon="print" design="Transparent" onClick={() => window.print()}>Print</Button>}
-                         </FlexBox>
-                     </FlexBox>
+      <div className="page-container">
+        <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
+        
+        {openDetails ? (
+           <div className="motion-safe:animate-panel-slide-in-left">
+                <div style={{ padding: "1rem" }}>
+                    <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center} style={{ marginBottom: "1rem" }}>
+                        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                            <Button icon="navigation-left-arrow" className="button-hover-scale" design="Transparent" onClick={() => { setOpenDetails(false); setSelectedId(null); }}>Back</Button>
+                            <Title level="H4">Material Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}</Title>
+                        </FlexBox>
+                        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                            <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
+                            {detailsQuery.data?.status === "ISSUED" && <Button icon="print" className="button-hover-scale" design="Transparent" onClick={() => window.print()}>Print</Button>}
+                        </FlexBox>
+                    </FlexBox>
 
-                     {showDetailsLoading ? (
-                         <BusyIndicator active text="Loading details..." />
-                     ) : detailsQuery.data ? (
-                         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                             <MaterialRequestVoucherView detail={detailsQuery.data} />
-                             
-                             {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-                                  <IssueAllocationWorkbench
-                                    issueOptions={issueOptionsQuery.data}
-                                    isLoading={issueOptionsQuery.isLoading}
-                                    issueRemarks={workbench.issueRemarks}
-                                    onIssueRemarksChange={workbench.setIssueRemarks}
-                                    manualAllocations={workbench.manualAllocations}
-                                    setManualAllocations={workbench.setManualAllocations}
-                                    allocationTotalsByItem={workbench.allocationTotalsByItem}
-                                    addAllocationLine={workbench.addAllocationLine}
-                                    issueValidationError={workbench.issueValidationError}
-                                  />
-                             )}
+                    {showDetailsLoading ? (
+                        <BusyIndicator active text="Loading details..." />
+                    ) : detailsQuery.data ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                            <MaterialRequestVoucherView detail={detailsQuery.data} />
+                            
+                            {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
+                                 <IssueAllocationWorkbench
+                                   issueOptions={issueOptionsQuery.data}
+                                   isLoading={issueOptionsQuery.isLoading}
+                                   issueRemarks={workbench.issueRemarks}
+                                   onIssueRemarksChange={workbench.setIssueRemarks}
+                                   manualAllocations={workbench.manualAllocations}
+                                   setManualAllocations={workbench.setManualAllocations}
+                                   allocationTotalsByItem={workbench.allocationTotalsByItem}
+                                   addAllocationLine={workbench.addAllocationLine}
+                                   issueValidationError={workbench.issueValidationError}
+                                 />
+                            )}
 
-                             {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-                                 <FlexBox justifyContent={FlexBoxJustifyContent.End} style={{ gap: "0.5rem", padding: "1rem", background: "var(--sapObjectHeader_Background)" }}>
-                                     {detailsQuery.data.status === "REQUESTED" && (
-                                         <Button 
-                                            icon="decline" 
-                                            design="Negative" 
-                                            onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
-                                            disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
-                                         >
-                                            Reject
-                                         </Button>
-                                     )}
-                                     <Button
-                                        icon="accept"
-                                        design="Positive"
-                                        onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
-                                        disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
-                                     >
-                                        {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
-                                     </Button>
-                                 </FlexBox>
-                             )}
-                         </div>
-                     ) : (
-                         <Label>No details loaded.</Label>
-                     )}
-                 </div>
-            </div>
-        ) : (
-            <DataTable 
-                data={requestsQuery.data ?? []} 
-                columns={columns} 
-                loading={requestsQuery.isLoading}
-                filterPlaceholder="Search request no., section, cost center..." 
-                actions={
-                    <Button
-                        icon="add"
-                        design="Emphasized"
-                        onClick={() => {
-                            setLines([blankLine(1)]);
-                            setCostCenter("");
-                            setHeaderRemarks("");
-                            setCreateDialogOpen(true);
-                        }}
-                    >
-                        New Request
-                    </Button>
-                }
-            />
-        )}
-      </Section>
+                            {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
+                                <FlexBox justifyContent={FlexBoxJustifyContent.End} style={{ gap: "0.5rem", padding: "1rem", background: "var(--sapObjectHeader_Background)" }}>
+                                    {detailsQuery.data.status === "REQUESTED" && (
+                                        <Button 
+                                           icon="decline" 
+                                           design="Negative" 
+                                           className="button-hover-scale"
+                                           onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
+                                           disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
+                                        >
+                                           Reject
+                                        </Button>
+                                    )}
+                                    <Button
+                                       icon="accept"
+                                       design="Positive"
+                                       className="button-hover-scale"
+                                       onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
+                                       disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
+                                    >
+                                       {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
+                                    </Button>
+                                </FlexBox>
+                            )}
+                        </div>
+                    ) : (
+                        <Label>No details loaded.</Label>
+                    )}
+                </div>
+           </div>
+       ) : (
+           <DataTable 
+               data={requestsQuery.data ?? []} 
+               columns={columns} 
+               loading={requestsQuery.isLoading}
+               filterPlaceholder="Search request no., section, cost center..." 
+               actions={
+                   <Button
+                       icon="add"
+                       design="Emphasized"
+                       className="button-hover-scale"
+                       onClick={() => {
+                           setLines([blankLine(1)]);
+                           setCostCenter("");
+                           setHeaderRemarks("");
+                           setCreateDialogOpen(true);
+                       }}
+                   >
+                       New Request
+                   </Button>
+               }
+           />
+       )}
+      </div>
 
       {/* Create Request Dialog */}
       <Dialog
@@ -608,7 +611,7 @@ export default function MaterialRequestsPage() {
              </div>
 
              <FlexBox style={{ gap: "0.5rem" }}>
-                 <Button icon="add" onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}>Add Item</Button>
+                 <Button icon="add" className="button-hover-scale" onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}>Add Item</Button>
                  <Button icon="delete" design="Transparent" onClick={() => setLines((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)))}>Remove Last</Button>
              </FlexBox>
         </div>

@@ -9,7 +9,7 @@ import { sdk } from "../../context/AuthContext";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { formatDateTime } from "../../lib/datetime";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Label,
@@ -250,230 +250,228 @@ export function DevicesPage() {
       }
       icon="laptop"
     >
-      <Section variant="card">
-        {newSecret && (
-            <div style={{ margin: "1rem", padding: "1rem", border: "1px solid var(--sapInformationBorderColor)", background: "var(--sapInformationBackground)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
-                <FlexBox direction={FlexBoxDirection.Column}>
-                    <Label style={{ fontWeight: "bold" }}>Latest secret key:</Label>
-                    <code style={{ fontSize: "1.2rem", color: "var(--sapContent_MonospaceFontFamily)" }}>{newSecret}</code>
-                </FlexBox>
-            </div>
-        )}
+      {newSecret && (
+          <div style={{ margin: "1rem", padding: "1rem", border: "1px solid var(--sapInformationBorderColor)", background: "var(--sapInformationBackground)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
+              <FlexBox direction={FlexBoxDirection.Column}>
+                  <Label style={{ fontWeight: "bold" }}>Latest secret key:</Label>
+                  <code style={{ fontSize: "1.2rem", color: "var(--sapContent_MonospaceFontFamily)" }}>{newSecret}</code>
+              </FlexBox>
+          </div>
+      )}
 
-        <DataTable 
-            data={devices} 
-            columns={columns} 
-            loading={devicesLoading || stationsLoading || processesLoading || settingsLoading}
-            filterPlaceholder="Search device code, station, IP..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  onClick={() => {
-                    setEditing(null);
-                    reset({
-                      device_code: "",
-                      name: "",
-                      device_type: "pi",
-                      station_id: "",
-                      process_id: "",
-                      ip_address: "",
-                      status: "active",
-                      activation_pin: "123456",
-                    });
-                    setOpen(true);
-                  }}
-                >
-                  Add Device
-                </Button>
-            }
-        />
+      <DataTable 
+          data={devices} 
+          columns={columns} 
+          loading={devicesLoading || stationsLoading || processesLoading || settingsLoading}
+          filterPlaceholder="Search device code, station, IP..." 
+          actions={
+              <Button
+                icon="add"
+                design="Emphasized"
+                onClick={() => {
+                  setEditing(null);
+                  reset({
+                    device_code: "",
+                    name: "",
+                    device_type: "pi",
+                    station_id: "",
+                    process_id: "",
+                    ip_address: "",
+                    status: "active",
+                    activation_pin: "123456",
+                  });
+                  setOpen(true);
+                }}
+              >
+                Add Device
+              </Button>
+          }
+      />
 
-        {/* Create/Edit Dialog */}
-        <FormDialog
-            open={open}
-            title={editing ? "Edit Device" : "Create Device"}
-            onClose={() => setOpen(false)}
-            onSubmit={handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
-            submitting={createMutation.isPending || updateMutation.isPending}
-        >
-                <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-                    <FormItem labelContent={<Label required>Device Code</Label>}>
-                        <Controller
-                            name="device_code"
-                            control={control}
-                            render={({ field }) => (
-                                <Input 
-                                    {...field} 
-                                    value={field.value || ""} 
-                                    placeholder="PI5-ASM-01" 
-                                    valueState={errors.device_code ? "Negative" : "None"}
-                                    valueStateMessage={errors.device_code && <div>{errors.device_code.message}</div>}
-                                />
-                            )}
-                        />
-                    </FormItem>
-                    <FormItem labelContent={<Label required>Name</Label>}>
-                        <Controller
-                            name="name"
-                            control={control}
-                            render={({ field }) => (
-                                <Input 
-                                    {...field} 
-                                    value={field.value || ""} 
-                                    placeholder="ASM Scanner 01" 
-                                    valueState={errors.name ? "Negative" : "None"}
-                                    valueStateMessage={errors.name && <div>{errors.name.message}</div>}
-                                />
-                            )}
-                        />
-                    </FormItem>
+      {/* Create/Edit Dialog */}
+      <FormDialog
+          open={open}
+          title={editing ? "Edit Device" : "Create Device"}
+          onClose={() => setOpen(false)}
+          onSubmit={handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
+          submitting={createMutation.isPending || updateMutation.isPending}
+      >
+              <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+                  <FormItem labelContent={<Label required>Device Code</Label>}>
+                      <Controller
+                          name="device_code"
+                          control={control}
+                          render={({ field }) => (
+                              <Input 
+                                  {...field} 
+                                  value={field.value || ""} 
+                                  placeholder="PI5-ASM-01" 
+                                  valueState={errors.device_code ? "Negative" : "None"}
+                                  valueStateMessage={errors.device_code && <div>{errors.device_code.message}</div>}
+                              />
+                          )}
+                      />
+                  </FormItem>
+                  <FormItem labelContent={<Label required>Name</Label>}>
+                      <Controller
+                          name="name"
+                          control={control}
+                          render={({ field }) => (
+                              <Input 
+                                  {...field} 
+                                  value={field.value || ""} 
+                                  placeholder="ASM Scanner 01" 
+                                  valueState={errors.name ? "Negative" : "None"}
+                                  valueStateMessage={errors.name && <div>{errors.name.message}</div>}
+                              />
+                          )}
+                      />
+                  </FormItem>
 
-                    <FormItem labelContent={<Label>Device Type</Label>} style={{ gridColumn: "span 2" }}>
-                        <Controller
-                            name="device_type"
-                            control={control}
-                            render={({ field }) => (
-                                <Select
-                                    onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
-                                    value={field.value}
-                                >
-                                    <Option value="pi" data-value="pi" selected={field.value === "pi"}>pi</Option>
-                                    <Option value="pc" data-value="pc" selected={field.value === "pc"}>pc</Option>
-                                    <Option value="tablet" data-value="tablet" selected={field.value === "tablet"}>tablet</Option>
-                                    <Option value="kiosk" data-value="kiosk" selected={field.value === "kiosk"}>kiosk</Option>
-                                </Select>
-                            )}
-                        />
-                    </FormItem>
+                  <FormItem labelContent={<Label>Device Type</Label>} style={{ gridColumn: "span 2" }}>
+                      <Controller
+                          name="device_type"
+                          control={control}
+                          render={({ field }) => (
+                              <Select
+                                  onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
+                                  value={field.value}
+                              >
+                                  <Option value="pi" data-value="pi" selected={field.value === "pi"}>pi</Option>
+                                  <Option value="pc" data-value="pc" selected={field.value === "pc"}>pc</Option>
+                                  <Option value="tablet" data-value="tablet" selected={field.value === "tablet"}>tablet</Option>
+                                  <Option value="kiosk" data-value="kiosk" selected={field.value === "kiosk"}>kiosk</Option>
+                              </Select>
+                          )}
+                      />
+                  </FormItem>
 
-                    <FormItem labelContent={<Label>IP Address</Label>} style={{ gridColumn: "span 2" }}>
-                        <Controller
-                            name="ip_address"
-                            control={control}
-                            render={({ field }) => (<Input {...field} value={field.value || ""} placeholder="192.168.10.35" />)}
-                        />
-                    </FormItem>
+                  <FormItem labelContent={<Label>IP Address</Label>} style={{ gridColumn: "span 2" }}>
+                      <Controller
+                          name="ip_address"
+                          control={control}
+                          render={({ field }) => (<Input {...field} value={field.value || ""} placeholder="192.168.10.35" />)}
+                      />
+                  </FormItem>
 
-                    <FormItem labelContent={<Label>Station</Label>}>
-                        <Controller
-                            name="station_id"
-                            control={control}
-                            render={({ field }) => (
-                                <Select
-                                    onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
-                                    value={field.value || NONE}
-                                >
-                                    <Option value={NONE} data-value={NONE}>Unassigned</Option>
-                                    {stations.map((row) => (
-                                        <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
-                                            {row.station_code} - {row.name}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            )}
-                        />
-                    </FormItem>
+                  <FormItem labelContent={<Label>Station</Label>}>
+                      <Controller
+                          name="station_id"
+                          control={control}
+                          render={({ field }) => (
+                              <Select
+                                  onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
+                                  value={field.value || NONE}
+                              >
+                                  <Option value={NONE} data-value={NONE}>Unassigned</Option>
+                                  {stations.map((row) => (
+                                      <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
+                                          {row.station_code} - {row.name}
+                                      </Option>
+                                  ))}
+                              </Select>
+                          )}
+                      />
+                  </FormItem>
 
-                    <FormItem labelContent={<Label>Process</Label>}>
-                        <Controller
-                            name="process_id"
-                            control={control}
-                            render={({ field }) => (
-                                <Select
-                                    onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
-                                    value={field.value || NONE}
-                                >
-                                    <Option value={NONE} data-value={NONE}>Unassigned</Option>
-                                    {processes.map((row) => (
-                                        <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
-                                            {row.process_code} - {row.name}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            )}
-                        />
-                    </FormItem>
+                  <FormItem labelContent={<Label>Process</Label>}>
+                      <Controller
+                          name="process_id"
+                          control={control}
+                          render={({ field }) => (
+                              <Select
+                                  onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
+                                  value={field.value || NONE}
+                              >
+                                  <Option value={NONE} data-value={NONE}>Unassigned</Option>
+                                  {processes.map((row) => (
+                                      <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
+                                          {row.process_code} - {row.name}
+                                      </Option>
+                                  ))}
+                              </Select>
+                          )}
+                      />
+                  </FormItem>
 
-                     <FormItem labelContent={<Label>Status</Label>}>
-                        <Controller
-                            name="status"
-                            control={control}
-                            render={({ field }) => (
-                                <Select
-                                    onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
-                                    value={field.value}
-                                >
-                                    <Option value="active" data-value="active" selected={field.value === "active"}>active</Option>
-                                    <Option value="maintenance" data-value="maintenance" selected={field.value === "maintenance"}>maintenance</Option>
-                                    <Option value="disabled" data-value="disabled" selected={field.value === "disabled"}>disabled</Option>
-                                </Select>
-                            )}
-                        />
-                    </FormItem>
+                   <FormItem labelContent={<Label>Status</Label>}>
+                      <Controller
+                          name="status"
+                          control={control}
+                          render={({ field }) => (
+                              <Select
+                                  onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
+                                  value={field.value}
+                              >
+                                  <Option value="active" data-value="active" selected={field.value === "active"}>active</Option>
+                                  <Option value="maintenance" data-value="maintenance" selected={field.value === "maintenance"}>maintenance</Option>
+                                  <Option value="disabled" data-value="disabled" selected={field.value === "disabled"}>disabled</Option>
+                              </Select>
+                          )}
+                      />
+                  </FormItem>
 
-                    <FormItem labelContent={<Label>Activation PIN</Label>}>
-                        <Controller
-                            name="activation_pin"
-                            control={control}
-                            render={({ field }) => (<Input {...field} value={field.value || ""} disabled={Boolean(editing)} />)}
-                        />
-                    </FormItem>
-                </Form>
-        </FormDialog>
+                  <FormItem labelContent={<Label>Activation PIN</Label>}>
+                      <Controller
+                          name="activation_pin"
+                          control={control}
+                          render={({ field }) => (<Input {...field} value={field.value || ""} disabled={Boolean(editing)} />)}
+                      />
+                  </FormItem>
+              </Form>
+      </FormDialog>
 
-        {/* Status Confirmation */}
-        <MessageBox
-            open={Boolean(statusTarget)}
-            type="Confirm"
-            titleText="Confirm status change"
-            onClose={(action: string | undefined) => {
-                if (action === "OK" && statusTarget?.device.id) {
-                    statusMutation.mutate({ id: statusTarget.device.id, status: statusTarget.status });
-                }
-                setStatusTarget(null);
-            }}
-        >
-            {statusTarget ? `Set ${statusTarget.device.device_code} to ${statusTarget.status.toUpperCase()} status?` : ""}
-        </MessageBox>
-        
-        {/* Secret Confirmation */}
-        <MessageBox
-            open={Boolean(secretTarget)}
-            type="Confirm"
-            titleText="Regenerate device secret"
-            onClose={(action: string | undefined) => {
-                if (action === "OK" && secretTarget?.id) {
-                    secretMutation.mutate(secretTarget.id);
-                }
-                setSecretTarget(null);
-            }}
-        >
-            Existing signatures will be invalid until station is re-activated with new secret.
-        </MessageBox>
+      {/* Status Confirmation */}
+      <MessageBox
+          open={Boolean(statusTarget)}
+          type="Confirm"
+          titleText="Confirm status change"
+          onClose={(action: string | undefined) => {
+              if (action === "OK" && statusTarget?.device.id) {
+                  statusMutation.mutate({ id: statusTarget.device.id, status: statusTarget.status });
+              }
+              setStatusTarget(null);
+          }}
+      >
+          {statusTarget ? `Set ${statusTarget.device.device_code} to ${statusTarget.status.toUpperCase()} status?` : ""}
+      </MessageBox>
+      
+      {/* Secret Confirmation */}
+      <MessageBox
+          open={Boolean(secretTarget)}
+          type="Confirm"
+          titleText="Regenerate device secret"
+          onClose={(action: string | undefined) => {
+              if (action === "OK" && secretTarget?.id) {
+                  secretMutation.mutate(secretTarget.id);
+              }
+              setSecretTarget(null);
+          }}
+      >
+          Existing signatures will be invalid until station is re-activated with new secret.
+      </MessageBox>
 
-        {/* Delete Confirmation */}
-        <ConfirmDialog
-            open={Boolean(deleteTarget)}
-            title="Delete device"
-            description={deleteTarget ? `Delete device ${deleteTarget.device_code}?` : ""}
-            confirmText="Delete"
-            destructive
-            onCancel={() => setDeleteTarget(null)}
-            onConfirm={() => {
-                if (deleteTarget?.id) {
-                    deleteMutation.mutate(deleteTarget.id);
-                }
-                setDeleteTarget(null);
-            }}
-        />
-        
-        {(createMutation.error || updateMutation.error || statusMutation.error || secretMutation.error || deleteMutation.error) && (
-             <MessageBox open type="Error" onClose={() => {}}>
-                Operation failed. Please verify payload and try again.
-             </MessageBox>
-        )}
-      </Section>
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title="Delete device"
+          description={deleteTarget ? `Delete device ${deleteTarget.device_code}?` : ""}
+          confirmText="Delete"
+          destructive
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => {
+              if (deleteTarget?.id) {
+                  deleteMutation.mutate(deleteTarget.id);
+              }
+              setDeleteTarget(null);
+          }}
+      />
+      
+      {(createMutation.error || updateMutation.error || statusMutation.error || secretMutation.error || deleteMutation.error) && (
+           <MessageBox open type="Error" onClose={() => {}}>
+              Operation failed. Please verify payload and try again.
+           </MessageBox>
+      )}
     </PageLayout>
   );
 }

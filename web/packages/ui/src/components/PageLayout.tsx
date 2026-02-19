@@ -66,6 +66,7 @@ export function PageLayout({
   
   return (
     <DynamicPage
+      backgroundDesign="Transparent"
       titleArea={
         <DynamicPageTitle
           heading={

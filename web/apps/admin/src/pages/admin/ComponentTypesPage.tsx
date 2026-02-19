@@ -12,7 +12,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Input,
@@ -122,7 +122,7 @@ export function ComponentTypesPage() {
       icon="dimension"
       iconColor="var(--icon-indigo)"
     >
-      <Section variant="card">
+      <div className="page-container">
         <ApiErrorBanner
           message={
             createMutation.error
@@ -143,6 +143,7 @@ export function ComponentTypesPage() {
                 <Button
                   icon="add"
                   design="Emphasized"
+                  className="button-hover-scale"
                   onClick={() => {
                     setEditing(null);
                     form.reset({ code: "", name: "", description: "", is_active: true });
@@ -153,53 +154,53 @@ export function ComponentTypesPage() {
                 </Button>
             }
         />
+      </div>
 
-        <FormDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          title={editing ? "Edit Component Type" : "Create Component Type"}
-          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-          submitting={createMutation.isPending || updateMutation.isPending}
-        >
-          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-            <FormItem labelContent={<Label>Code</Label>}>
-              <Input {...form.register("code")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Name</Label>}>
-              <Input {...form.register("name")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Status</Label>} style={{ gridColumn: "span 2" }}>
-                <Controller
-                    name="is_active"
-                    control={form.control}
-                    render={({ field }) => (
-                        <CheckBox
-                            text="Active"
-                            checked={field.value}
-                            onChange={(e) => field.onChange(e.target.checked)}
-                        />
-                    )}
-                />
-            </FormItem>
-            <FormItem labelContent={<Label>Description</Label>} style={{ gridColumn: "span 2" }}>
-              <TextArea {...form.register("description")} rows={3} />
-            </FormItem>
-          </Form>
-        </FormDialog>
-        <ConfirmDialog
-          open={Boolean(deleteTarget)}
-          title="Delete component type"
-          description={deleteTarget ? `Delete component type ${deleteTarget.code}?` : ""}
-          confirmText="Delete"
-          destructive
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={() => {
-            if (!deleteTarget) return;
-            deleteMutation.mutate(deleteTarget.id);
-            setDeleteTarget(null);
-          }}
-        />
-      </Section>
+      <FormDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? "Edit Component Type" : "Create Component Type"}
+        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+        submitting={createMutation.isPending || updateMutation.isPending}
+      >
+        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+          <FormItem labelContent={<Label>Code</Label>}>
+            <Input {...form.register("code")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Name</Label>}>
+            <Input {...form.register("name")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Status</Label>} style={{ gridColumn: "span 2" }}>
+              <Controller
+                  name="is_active"
+                  control={form.control}
+                  render={({ field }) => (
+                      <CheckBox
+                          text="Active"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                  )}
+              />
+          </FormItem>
+          <FormItem labelContent={<Label>Description</Label>} style={{ gridColumn: "span 2" }}>
+            <TextArea {...form.register("description")} rows={3} />
+          </FormItem>
+        </Form>
+      </FormDialog>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete component type"
+        description={deleteTarget ? `Delete component type ${deleteTarget.code}?` : ""}
+        confirmText="Delete"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </PageLayout>
   );
 }

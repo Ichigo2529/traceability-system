@@ -12,7 +12,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Input,
@@ -122,7 +122,7 @@ export function DepartmentsPage() {
       icon="org-chart"
       iconColor="var(--icon-indigo)"
     >
-      <Section variant="card">
+      <div className="page-container">
         <ApiErrorBanner
           message={
             createMutation.error
@@ -143,6 +143,7 @@ export function DepartmentsPage() {
                 <Button
                   icon="add"
                   design="Emphasized"
+                  className="button-hover-scale"
                   onClick={() => {
                     setEditing(null);
                     form.reset({ code: "", name: "", sort_order: 100, is_active: true });
@@ -153,57 +154,57 @@ export function DepartmentsPage() {
                 </Button>
             }
         />
+      </div>
 
-        <FormDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          title={editing ? "Edit Department" : "Create Department"}
-          onSubmit={form.handleSubmit((payload) => (editing ? updateMutation.mutate(payload) : createMutation.mutate(payload)))}
-          submitting={createMutation.isPending || updateMutation.isPending}
-        >
-          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-            <FormItem labelContent={<Label>Code</Label>}>
-              <Input {...form.register("code")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Name</Label>}>
-              <Input {...form.register("name")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Sort Order</Label>}>
-              <Input
-                type="Number"
-                value={form.watch("sort_order")?.toString()}
-                onInput={(event: any) => form.setValue("sort_order", Number(event.target.value || 100))}
+      <FormDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? "Edit Department" : "Create Department"}
+        onSubmit={form.handleSubmit((payload) => (editing ? updateMutation.mutate(payload) : createMutation.mutate(payload)))}
+        submitting={createMutation.isPending || updateMutation.isPending}
+      >
+        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+          <FormItem labelContent={<Label>Code</Label>}>
+            <Input {...form.register("code")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Name</Label>}>
+            <Input {...form.register("name")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Sort Order</Label>}>
+            <Input
+              type="Number"
+              value={form.watch("sort_order")?.toString()}
+              onInput={(event: any) => form.setValue("sort_order", Number(event.target.value || 100))}
+            />
+          </FormItem>
+          <FormItem labelContent={<Label>Status</Label>}>
+              <Controller
+                  name="is_active"
+                  control={form.control}
+                  render={({ field }) => (
+                      <CheckBox
+                          text="Active"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                  )}
               />
-            </FormItem>
-            <FormItem labelContent={<Label>Status</Label>}>
-                <Controller
-                    name="is_active"
-                    control={form.control}
-                    render={({ field }) => (
-                        <CheckBox
-                            text="Active"
-                            checked={field.value}
-                            onChange={(e) => field.onChange(e.target.checked)}
-                        />
-                    )}
-                />
-            </FormItem>
-          </Form>
-        </FormDialog>
-        <ConfirmDialog
-          open={Boolean(disableTarget)}
-          title="Disable department"
-          description={disableTarget ? `Disable department ${disableTarget.name}?` : ""}
-          confirmText="Disable"
-          destructive
-          onCancel={() => setDisableTarget(null)}
-          onConfirm={() => {
-            if (!disableTarget) return;
-            deleteMutation.mutate(disableTarget.id);
-            setDisableTarget(null);
-          }}
-        />
-      </Section>
+          </FormItem>
+        </Form>
+      </FormDialog>
+      <ConfirmDialog
+        open={Boolean(disableTarget)}
+        title="Disable department"
+        description={disableTarget ? `Disable department ${disableTarget.name}?` : ""}
+        confirmText="Disable"
+        destructive
+        onCancel={() => setDisableTarget(null)}
+        onConfirm={() => {
+          if (!disableTarget) return;
+          deleteMutation.mutate(disableTarget.id);
+          setDisableTarget(null);
+        }}
+      />
     </PageLayout>
   );
 }

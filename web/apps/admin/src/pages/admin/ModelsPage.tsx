@@ -10,8 +10,10 @@ import { sdk } from "../../context/AuthContext";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
 import { StatusBadge } from "../../components/shared/StatusBadge";
+import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
+import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Input,
@@ -122,30 +124,41 @@ export function ModelsPage() {
   return (
     <PageLayout
       title="Models"
-      subtitle="Product master for all station dropdowns"
+      subtitle="Manage product models and specifications"
       icon="product"
-      iconColor="var(--icon-indigo)"
+      iconColor="var(--icon-blue)"
     >
-      <Section variant="card">
-        <DataTable 
-            data={models} 
-            columns={columns} 
-            loading={isLoading}
-            filterPlaceholder="Search model..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ code: "", name: "", part_number: "", active: true, pack_size: 1, description: "" });
-                    setOpen(true);
-                  }}
-                >
-                  New Model
-                </Button>
-            }
+      <div className="page-container">
+        <ApiErrorBanner 
+          message={
+            createMutation.error ? formatApiError(createMutation.error) :
+            updateMutation.error ? formatApiError(updateMutation.error) :
+            deleteMutation.error ? formatApiError(deleteMutation.error) :
+            undefined
+          } 
         />
+
+        <DataTable
+          data={models}
+          columns={columns}
+          loading={isLoading}
+          filterPlaceholder="Search models..."
+          actions={
+            <Button 
+                icon="add" 
+                design="Emphasized" 
+                className="button-hover-scale"
+                onClick={() => {
+                    setEditing(null);
+                    form.reset({ name: "", code: "", description: "" });
+                    setOpen(true);
+                }}
+            >
+              New Model
+            </Button>
+          }
+        />
+      </div>
 
         <FormDialog
           open={open}
@@ -198,7 +211,6 @@ export function ModelsPage() {
             setDeleteTarget(null);
           }}
         />
-      </Section>
     </PageLayout>
   );
 }

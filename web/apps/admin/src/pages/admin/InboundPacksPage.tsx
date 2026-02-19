@@ -178,43 +178,46 @@ export function InboundPacksPage() {
       icon="shipping-status"
       iconColor="var(--icon-green)"
     >
-      <Section title="Delivery Orders" variant="card">
-        <DataTable data={dos} columns={doColumns} loading={dosLoading} filterPlaceholder="Search DO..." />
-      </Section>
+      <div className="page-container">
+        <Section title="Delivery Orders" variant="card">
+          <DataTable data={dos} columns={doColumns} loading={dosLoading} filterPlaceholder="Search DO..." />
+        </Section>
 
-      <Section title="Vendor Packs" variant="card">
-        <ApiErrorBanner message={receiveMutation.error ? formatApiError(receiveMutation.error) : undefined} />
-        <DataTable 
-            data={packs} 
-            columns={packColumns} 
-            loading={packsLoading || vendorsLoading || partNumbersLoading || profilesLoading || parsersLoading}
-            filterPlaceholder="Search pack..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  onClick={() => {
-                    reset({
-                      vendor_id: vendors[0]?.id || "",
-                      do_number: "",
-                      parser_key: "GENERIC",
-                      pack_barcode_raw: "",
-                      part_number: "",
-                      vendor_part_number: "",
-                      vendor_lot: "",
-                      pack_qty_total: 1,
-                      production_date: "",
-                    });
-                    setError(undefined);
-                    setOpen(true);
-                  }}
-                  disabled={receiveMutation.isPending}
-                >
-                  Receive Pack
-                </Button>
-            }
-        />
-      </Section>
+        <Section title="Vendor Packs" variant="card">
+          <ApiErrorBanner message={receiveMutation.error ? formatApiError(receiveMutation.error) : undefined} />
+          <DataTable 
+              data={packs} 
+              columns={packColumns} 
+              loading={packsLoading || vendorsLoading || partNumbersLoading || profilesLoading || parsersLoading}
+              filterPlaceholder="Search pack..." 
+              actions={
+                  <Button
+                    icon="add"
+                    design="Emphasized"
+                    className="button-hover-scale"
+                    onClick={() => {
+                      reset({
+                        vendor_id: vendors[0]?.id || "",
+                        do_number: "",
+                        parser_key: "GENERIC",
+                        pack_barcode_raw: "",
+                        part_number: "",
+                        vendor_part_number: "",
+                        vendor_lot: "",
+                        pack_qty_total: 1,
+                        production_date: "",
+                      });
+                      setError(undefined);
+                      setOpen(true);
+                    }}
+                    disabled={receiveMutation.isPending}
+                  >
+                    Receive Pack
+                  </Button>
+              }
+          />
+        </Section>
+      </div>
 
       <Dialog
         open={open}

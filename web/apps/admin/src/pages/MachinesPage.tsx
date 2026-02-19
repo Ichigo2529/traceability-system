@@ -4,7 +4,7 @@ import { sdk } from "../context/AuthContext";
 import { Machine } from "@traceability/sdk";
 import { DataTable } from "../components/shared/DataTable";
 import { formatApiError } from "../lib/errors";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import { 
     Button,
     Input,
@@ -14,11 +14,11 @@ import {
     FlexBox,
     FlexBoxAlignItems,
     Avatar,
-    ObjectStatus,
     Form,
     FormItem
 } from "@ui5/webcomponents-react";
 import { FormDialog } from "../components/shared/FormDialog";
+import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
@@ -152,70 +152,65 @@ export default function MachinesPage() {
       icon="machine"
       iconColor="var(--icon-green)"
     >
-      <Section variant="card">
+      <div className="page-container">
+        <ApiErrorBanner message={error} />
         <DataTable 
             data={machines} 
             columns={columns}
             loading={isLoading}
             actions={
-                <Button icon="add" design="Emphasized" onClick={openCreate}>
+                <Button icon="add" design="Emphasized" className="button-hover-scale" onClick={openCreate}>
                     Add Machine
                 </Button>
             }
         />
+      </div>
 
-        <FormDialog
-            open={isModalOpen}
-            title={editingId ? "Edit Machine" : "Create Machine"}
-            onClose={() => setIsModalOpen(false)}
-            onSubmit={submit}
-            submitting={isSubmitting}
-        >
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: "400px", padding: "1rem" }}>
-                {error && (
-                    <ObjectStatus state="Negative" inverted>
-                        {error}
-                    </ObjectStatus>
-                )}
+      <FormDialog
+          open={isModalOpen}
+          title={editingId ? "Edit Machine" : "Create Machine"}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={submit}
+          submitting={isSubmitting}
+      >
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: "400px", padding: "1rem" }}>
+              <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
+                  <FormItem labelContent={<Label required>Machine Name</Label>}>
+                      <Input 
+                          value={formData.name}
+                          onInput={(e) => setFormData({...formData, name: e.target.value})}
+                      />
+                  </FormItem>
 
-                <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
-                    <FormItem labelContent={<Label required>Machine Name</Label>}>
-                        <Input 
-                            value={formData.name}
-                            onInput={(e) => setFormData({...formData, name: e.target.value})}
-                        />
-                    </FormItem>
+                  <FormItem labelContent={<Label required>Station Type</Label>}>
+                      <Select
+                          onChange={(e) => setFormData({...formData, station_type: (e.target.selectedOption as any).dataset.value!})}
+                      >
+                          {STATION_TYPES.map(type => (
+                              <Option key={type} selected={formData.station_type === type} data-value={type}>
+                                  {type}
+                              </Option>
+                          ))}
+                      </Select>
+                  </FormItem>
 
-                    <FormItem labelContent={<Label required>Station Type</Label>}>
-                        <Select
-                            onChange={(e) => setFormData({...formData, station_type: (e.target.selectedOption as any).dataset.value!})}
-                        >
-                            {STATION_TYPES.map(type => (
-                                <Option key={type} selected={formData.station_type === type} data-value={type}>
-                                    {type}
-                                </Option>
-                            ))}
-                        </Select>
-                    </FormItem>
+                  <FormItem labelContent={<Label>Line Code</Label>}>
+                      <Input 
+                          value={formData.line_code}
+                          onInput={(e) => setFormData({...formData, line_code: e.target.value})}
+                      />
+                  </FormItem>
 
-                    <FormItem labelContent={<Label>Line Code</Label>}>
-                        <Input 
-                            value={formData.line_code}
-                            onInput={(e) => setFormData({...formData, line_code: e.target.value})}
-                        />
-                    </FormItem>
-
-                    <FormItem labelContent={<Label>Supported Variants (comma separated)</Label>}>
-                        <Input 
-                            value={formData.supported_variants}
-                            onInput={(e) => setFormData({...formData, supported_variants: e.target.value})}
-                            placeholder="WITH_SHROUD, NO_SHROUD"
-                        />
-                    </FormItem>
-                </Form>
-            </div>
-        </FormDialog>
-      </Section>
+                  <FormItem labelContent={<Label>Supported Variants (comma separated)</Label>}>
+                      <Input 
+                          value={formData.supported_variants}
+                          onInput={(e) => setFormData({...formData, supported_variants: e.target.value})}
+                          placeholder="WITH_SHROUD, NO_SHROUD"
+                      />
+                  </FormItem>
+              </Form>
+          </div>
+      </FormDialog>
     </PageLayout>
   );
 }

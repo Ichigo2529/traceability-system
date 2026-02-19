@@ -13,7 +13,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Input,
@@ -43,11 +43,11 @@ export function SuppliersPage() {
   const [editing, setEditing] = useState<Vendor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
 
-  const { data: rows = [], isLoading: vendorsLoading } = useQuery({
+  const { data: suppliers = [], isLoading: suppliersLoading } = useQuery({
     queryKey: ["vendors"],
     queryFn: () => sdk.admin.getVendors(),
   });
-  const { data: profiles = [], isLoading: profilesLoading } = useQuery({
+  const { data: profiles = [] } = useQuery({
     queryKey: ["vendor-part-profiles"],
     queryFn: () => sdk.admin.getVendorPartProfiles(),
   });
@@ -55,7 +55,7 @@ export function SuppliersPage() {
   const profileCountByVendor = useMemo(() => {
     const map = new Map<string, number>();
     for (const row of profiles as SupplierPartProfile[]) {
-      const key = row.vendor_id || row.supplier_id;
+      const key = row.vendor_id;
       if (!key) continue;
       map.set(key, (map.get(key) ?? 0) + 1);
     }
@@ -148,12 +148,12 @@ export function SuppliersPage() {
 
   return (
     <PageLayout
-      title="Vendors"
-      subtitle="Vendor master for inbound pack traceability"
+      title="Suppliers"
+      subtitle="Manage external part suppliers"
       icon="supplier"
-      iconColor="var(--icon-indigo)"
+      iconColor="var(--icon-orange)"
     >
-      <Section variant="card">
+      <div className="page-container">
         <ApiErrorBanner
           message={
             createMutation.error
@@ -165,72 +165,73 @@ export function SuppliersPage() {
                   : undefined
           }
         />
-        <DataTable 
-            data={rows} 
-            columns={columns} 
-            loading={vendorsLoading || profilesLoading}
-            filterPlaceholder="Search vendor..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ code: "", name: "", vendor_id: "", is_active: true });
-                    setOpen(true);
-                  }}
-                >
-                  Add Vendor
-                </Button>
-            }
+        <DataTable
+          data={suppliers}
+          columns={columns}
+          loading={suppliersLoading}
+          filterPlaceholder="Search suppliers..."
+          actions={
+            <Button
+              icon="add"
+              design="Emphasized"
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({ name: "", code: "", vendor_id: "", is_active: true }); // Adjusted to match schema
+                setOpen(true);
+              }}
+            >
+              Add Supplier
+            </Button>
+          }
         />
+      </div>
 
-        <FormDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          title={editing ? "Edit Vendor" : "Create Vendor"}
-          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-          submitting={createMutation.isPending || updateMutation.isPending}
-        >
-          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-            <FormItem labelContent={<Label>Vendor Code</Label>}>
-              <Input {...form.register("code")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Vendor ID</Label>}>
-              <Input {...form.register("vendor_id")} placeholder="P / F / I / C / R" />
-            </FormItem>
-            <FormItem labelContent={<Label>Name</Label>}>
-              <Input {...form.register("name")} />
-            </FormItem>
-            <FormItem labelContent={<Label>Status</Label>}>
-                <Controller
-                    name="is_active"
-                    control={form.control}
-                    render={({ field }) => (
-                        <CheckBox
-                            text="Active"
-                            checked={field.value}
-                            onChange={(e) => field.onChange(e.target.checked)}
-                        />
-                    )}
-                />
-            </FormItem>
-          </Form>
-        </FormDialog>
-        <ConfirmDialog
-          open={Boolean(deleteTarget)}
-          title="Delete vendor"
-          description={deleteTarget ? `Delete vendor ${deleteTarget.code}?` : ""}
-          confirmText="Delete"
-          destructive
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={() => {
-            if (!deleteTarget) return;
-            deleteMutation.mutate(deleteTarget.id);
-            setDeleteTarget(null);
-          }}
-        />
-      </Section>
+      <FormDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? "Edit Vendor" : "Create Vendor"}
+        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+        submitting={createMutation.isPending || updateMutation.isPending}
+      >
+        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+          <FormItem labelContent={<Label>Vendor Code</Label>}>
+            <Input {...form.register("code")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Vendor ID</Label>}>
+            <Input {...form.register("vendor_id")} placeholder="P / F / I / C / R" />
+          </FormItem>
+          <FormItem labelContent={<Label>Name</Label>}>
+            <Input {...form.register("name")} />
+          </FormItem>
+          <FormItem labelContent={<Label>Status</Label>}>
+              <Controller
+                  name="is_active"
+                  control={form.control}
+                  render={({ field }) => (
+                      <CheckBox
+                          text="Active"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                  )}
+              />
+          </FormItem>
+        </Form>
+      </FormDialog>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete vendor"
+        description={deleteTarget ? `Delete vendor ${deleteTarget.code}?` : ""}
+        confirmText="Delete"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </PageLayout>
   );
 }

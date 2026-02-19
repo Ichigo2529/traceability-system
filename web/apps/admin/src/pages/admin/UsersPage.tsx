@@ -12,7 +12,7 @@ import { FormDialog } from "../../components/shared/FormDialog";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout} from "@traceability/ui";
 import {
   Button,
   Input,
@@ -152,7 +152,7 @@ export function UsersPage() {
       icon="employee"
       iconColor="var(--icon-indigo)"
     >
-      <Section variant="card">
+      <div className="page-container">
         <ApiErrorBanner
           message={
             createMutation.error
@@ -174,6 +174,7 @@ export function UsersPage() {
                 <Button
                   icon="add"
                   design="Emphasized"
+                  className="button-hover-scale"
                   onClick={() => {
                     setEditing(null);
                     form.reset({ roles: ["OPERATOR"], name: "", username: "", department: "" });
@@ -184,7 +185,8 @@ export function UsersPage() {
                 </Button>
             }
         />
-      </Section>
+      </div>
+      
 
       <FormDialog
         open={open}

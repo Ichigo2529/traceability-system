@@ -13,7 +13,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Input,
@@ -158,7 +158,7 @@ export function SupplierPartProfilesPage() {
       icon="attachment-html"
       iconColor="var(--icon-indigo)"
     >
-      <Section variant="card">
+      <div className="page-container">
         {vendorFilter && (
              <FlexBox 
                 alignItems={FlexBoxAlignItems.Center} 
@@ -171,6 +171,7 @@ export function SupplierPartProfilesPage() {
                 <Button
                   icon="filter"
                   design="Transparent"
+                  className="button-hover-scale"
                   onClick={() => {
                     const next = new URLSearchParams(searchParams);
                     next.delete("vendorId");
@@ -203,6 +204,7 @@ export function SupplierPartProfilesPage() {
                 <Button
                   icon="add"
                   design="Emphasized"
+                  className="button-hover-scale"
                   onClick={() => {
                     setEditing(null);
                     form.reset({
@@ -220,123 +222,123 @@ export function SupplierPartProfilesPage() {
                 </Button>
             }
         />
+      </div>
 
-        <FormDialog
-          open={open}
-          onClose={() => setOpen(false)}
-          title={editing ? "Edit Vendor Part Profile" : "Create Vendor Part Profile"}
-          onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
-          submitting={createMutation.isPending || updateMutation.isPending}
-        >
-          <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-            <FormItem labelContent={<Label>Vendor</Label>}>
-                <Controller
-                    control={form.control}
-                    name="vendor_id"
-                    render={({ field }) => (
-                         <Select
-                            onChange={(e) => {
-                                const selected = e.detail.selectedOption as unknown as { value: string };
-                                field.onChange(selected.value);
-                            }}
-                            value={field.value}
-                        >
-                             {vendors.map((s: Supplier) => (
-                                <Option key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </Option>
-                              ))}
-                        </Select>
-                    )}
-                 />
-            </FormItem>
-            
-            <FormItem labelContent={<Label>Part Number</Label>}>
-                <Controller
-                    control={form.control}
-                    name="part_number"
-                    render={({ field }) => (
-                         <Select
-                            onChange={(e) => {
-                                const selected = e.detail.selectedOption as unknown as { value: string };
-                                field.onChange(selected.value);
-                            }}
-                            value={field.value}
-                        >
-                             {partNumbers.map((pn: PartNumberMaster) => (
-                                <Option key={pn.id} value={pn.part_number}>
-                                  {pn.part_number}
-                                </Option>
-                              ))}
-                        </Select>
-                    )}
-                 />
-            </FormItem>
-            
-            <FormItem labelContent={<Label>Vendor Part Number</Label>}>
-              <Input {...form.register("vendor_part_number")} />
-            </FormItem>
-            
-            <FormItem labelContent={<Label>Parser Key</Label>}>
-                <Controller
-                    control={form.control}
-                    name="parser_key"
-                    render={({ field }) => (
-                         <Select
-                            onChange={(e) => {
-                                const selected = e.detail.selectedOption as unknown as { value: string };
-                                field.onChange(selected.value);
-                            }}
-                            value={field.value}
-                        >
-                            {parserKeys.map((p: SupplierPackParserInfo) => (
-                                <Option key={p.key} value={p.key}>
-                                  {p.key}
-                                </Option>
-                              ))}
-                        </Select>
-                    )}
-                 />
-            </FormItem>
-            
-            <FormItem labelContent={<Label>Default Pack Quantity</Label>}>
-              <Input type="Number" {...form.register("default_pack_qty")} />
-            </FormItem>
-            
-            <FormItem labelContent={<Label>Status</Label>}>
-                <Controller
-                    name="is_active"
-                    control={form.control}
-                    render={({ field }) => (
-                        <CheckBox
-                            text="Active"
-                            checked={field.value}
-                            onChange={(e) => field.onChange(e.target.checked)}
-                        />
-                    )}
-                />
-            </FormItem>
-            
-          </Form>
-        </FormDialog>
-        <ConfirmDialog
-          open={Boolean(deleteTarget)}
-          title="Delete vendor part profile"
-          description={
-            deleteTarget
-              ? `Delete profile ${deleteTarget.vendor_code || deleteTarget.supplier_code || deleteTarget.vendor_id || deleteTarget.supplier_id} / ${deleteTarget.part_number}?`
-              : ""
-          }
-          confirmText="Delete"
-          destructive
-          onCancel={() => setDeleteTarget(null)}
-          onConfirm={() => {
-            if (!deleteTarget) return;
-            deleteMutation.mutate(deleteTarget.id);
-            setDeleteTarget(null);
-          }}
-        />
-      </Section>
+      <FormDialog
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? "Edit Vendor Part Profile" : "Create Vendor Part Profile"}
+        onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+        submitting={createMutation.isPending || updateMutation.isPending}
+      >
+        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+          <FormItem labelContent={<Label>Vendor</Label>}>
+              <Controller
+                  control={form.control}
+                  name="vendor_id"
+                  render={({ field }) => (
+                       <Select
+                          onChange={(e) => {
+                              const selected = e.detail.selectedOption as unknown as { value: string };
+                              field.onChange(selected.value);
+                          }}
+                          value={field.value}
+                      >
+                           {vendors.map((s: Supplier) => (
+                              <Option key={s.id} value={s.id}>
+                                {s.code} - {s.name}
+                              </Option>
+                            ))}
+                      </Select>
+                  )}
+               />
+          </FormItem>
+          
+          <FormItem labelContent={<Label>Part Number</Label>}>
+              <Controller
+                  control={form.control}
+                  name="part_number"
+                  render={({ field }) => (
+                       <Select
+                          onChange={(e) => {
+                              const selected = e.detail.selectedOption as unknown as { value: string };
+                              field.onChange(selected.value);
+                          }}
+                          value={field.value}
+                      >
+                           {partNumbers.map((pn: PartNumberMaster) => (
+                              <Option key={pn.id} value={pn.part_number}>
+                                {pn.part_number}
+                              </Option>
+                            ))}
+                      </Select>
+                  )}
+               />
+          </FormItem>
+          
+          <FormItem labelContent={<Label>Vendor Part Number</Label>}>
+            <Input {...form.register("vendor_part_number")} />
+          </FormItem>
+          
+          <FormItem labelContent={<Label>Parser Key</Label>}>
+              <Controller
+                  control={form.control}
+                  name="parser_key"
+                  render={({ field }) => (
+                       <Select
+                          onChange={(e) => {
+                              const selected = e.detail.selectedOption as unknown as { value: string };
+                              field.onChange(selected.value);
+                          }}
+                          value={field.value}
+                      >
+                          {parserKeys.map((p: SupplierPackParserInfo) => (
+                              <Option key={p.key} value={p.key}>
+                                {p.key}
+                              </Option>
+                            ))}
+                      </Select>
+                  )}
+               />
+          </FormItem>
+          
+          <FormItem labelContent={<Label>Default Pack Quantity</Label>}>
+            <Input type="Number" {...form.register("default_pack_qty")} />
+          </FormItem>
+          
+          <FormItem labelContent={<Label>Status</Label>}>
+              <Controller
+                  name="is_active"
+                  control={form.control}
+                  render={({ field }) => (
+                      <CheckBox
+                          text="Active"
+                          checked={field.value}
+                          onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                  )}
+              />
+          </FormItem>
+          
+        </Form>
+      </FormDialog>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete vendor part profile"
+        description={
+          deleteTarget
+            ? `Delete profile ${deleteTarget.vendor_code || deleteTarget.supplier_code || deleteTarget.vendor_id || deleteTarget.supplier_id} / ${deleteTarget.part_number}?`
+            : ""
+        }
+        confirmText="Delete"
+        destructive
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </PageLayout>
   );
 }

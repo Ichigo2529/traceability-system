@@ -6,7 +6,7 @@ import { DataTable } from "../components/shared/DataTable";
 import { FormDialog } from "../components/shared/FormDialog";
 import { formatApiError } from "../lib/errors";
 import { formatDateTime } from "../lib/datetime";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import { 
     Button,
     Input, 
@@ -135,62 +135,60 @@ export default function LabelTemplatesPage() {
       icon="measure"
       iconColor="var(--icon-orange)"
     >
-      <Section variant="card">
-        <DataTable 
-            data={templates} 
-            columns={columns} 
-            filterPlaceholder="Search templates..."
-            actions={
-                <Button icon="add" design="Emphasized" onClick={openCreate}>
-                    New Template
-                </Button>
-            }
-        />
+      <DataTable 
+          data={templates} 
+          columns={columns} 
+          filterPlaceholder="Search templates..."
+          actions={
+              <Button icon="add" design="Emphasized" onClick={openCreate}>
+                  New Template
+              </Button>
+          }
+      />
 
-        <FormDialog 
-            open={isModalOpen} 
-            onClose={() => setIsModalOpen(false)} 
-            onSubmit={submit}
-            title={editing ? "Edit Template" : "New Label Template"}
-            submitText={isSubmitting ? "Saving..." : "Save"}
-            submitting={isSubmitting}
-        >
-             {error && (
-                <ObjectStatus state="Negative" inverted style={{ marginBottom: "1rem", display: "block" }}>
-                    {error}
-                </ObjectStatus>
-            )}
-            <Form layout="S1 M1 L1 XL1">
-                <FormItem labelContent={<Label required>Name</Label>}>
-                    <Input 
-                        value={form.name}
-                        onInput={(e) => setForm({...form, name: e.target.value})}
-                    />
-                </FormItem>
-                <FormItem labelContent={<Label>Revision ID (optional)</Label>}>
-                    <Input 
-                        value={form.revision_id}
-                        onInput={(e) => setForm({...form, revision_id: e.target.value})}
-                        placeholder="Leave empty for GLOBAL"
-                    />
-                </FormItem>
-                <FormItem labelContent={<Label>Description</Label>}>
-                     <Input 
-                        value={form.description}
-                        onInput={(e) => setForm({...form, description: e.target.value})}
-                    />
-                </FormItem>
-                <FormItem labelContent={<Label required>Template JSON</Label>}>
-                    <TextArea
-                        value={form.template_body}
-                        onInput={(e) => setForm({...form, template_body: e.target.value})}
-                        rows={10}
-                        style={{ fontFamily: "monospace", width: "100%" }}
-                    />
-                </FormItem>
-            </Form>
-        </FormDialog>
-      </Section>
+      <FormDialog 
+          open={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onSubmit={submit}
+          title={editing ? "Edit Template" : "New Label Template"}
+          submitText={isSubmitting ? "Saving..." : "Save"}
+          submitting={isSubmitting}
+      >
+           {error && (
+              <ObjectStatus state="Negative" inverted style={{ marginBottom: "1rem", display: "block" }}>
+                  {error}
+              </ObjectStatus>
+          )}
+          <Form layout="S1 M1 L1 XL1">
+              <FormItem labelContent={<Label required>Name</Label>}>
+                  <Input 
+                      value={form.name}
+                      onInput={(e) => setForm({...form, name: e.target.value})}
+                  />
+              </FormItem>
+              <FormItem labelContent={<Label>Revision ID (optional)</Label>}>
+                  <Input 
+                      value={form.revision_id}
+                      onInput={(e) => setForm({...form, revision_id: e.target.value})}
+                      placeholder="Leave empty for GLOBAL"
+                  />
+              </FormItem>
+              <FormItem labelContent={<Label>Description</Label>}>
+                   <Input 
+                      value={form.description}
+                      onInput={(e) => setForm({...form, description: e.target.value})}
+                  />
+              </FormItem>
+              <FormItem labelContent={<Label required>Template JSON</Label>}>
+                  <TextArea
+                      value={form.template_body}
+                      onInput={(e) => setForm({...form, template_body: e.target.value})}
+                      rows={10}
+                      style={{ fontFamily: "monospace", width: "100%" }}
+                  />
+              </FormItem>
+          </Form>
+      </FormDialog>
     </PageLayout>
   );
 }

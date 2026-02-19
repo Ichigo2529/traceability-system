@@ -6,7 +6,7 @@ import { DataTable } from "../components/shared/DataTable";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { formatDateTime } from "../lib/datetime";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import { 
     Bar, 
     Button, 
@@ -94,7 +94,11 @@ export default function DevicesPage() {
     {
       header: "Action",
       cell: ({ row }: { row: any }) => (
-        <Button onClick={(e) => { e.stopPropagation(); openAssignModal(row.original); }} design="Transparent">
+        <Button 
+            className="button-hover-scale"
+            onClick={(e) => { e.stopPropagation(); openAssignModal(row.original); }} 
+            design="Transparent"
+        >
           {row.original.assigned_machine ? "Reassign" : "Assign Machine"}
         </Button>
       ),
@@ -109,9 +113,9 @@ export default function DevicesPage() {
       icon="laptop"
       iconColor="var(--icon-green)"
     >
-      <Section variant="card">
+      <div className="page-container">
         <DataTable data={rows} columns={columns} />
-      </Section>
+      </div>
 
       <Dialog
         headerText="Assign Machine"

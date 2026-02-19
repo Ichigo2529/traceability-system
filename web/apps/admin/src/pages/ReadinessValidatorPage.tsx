@@ -5,7 +5,7 @@ import { sdk } from "../context/AuthContext";
 import { Model, ModelReadinessResult, ModelReadinessIssue } from "@traceability/sdk";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
-import { PageLayout, Section } from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import { 
     Title, 
     Button, 
@@ -71,97 +71,95 @@ export default function ReadinessValidatorPage() {
         ) : undefined
       }
     >
-      <Section variant="card">
-        <ApiErrorBanner message={validatorMutation.isError ? formatApiError(validatorMutation.error) : undefined} />
+      <ApiErrorBanner message={validatorMutation.isError ? formatApiError(validatorMutation.error) : undefined} />
 
-        <div style={{ padding: "1rem" }}>
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem", marginBottom: "1rem" }}>
-                <Label>Model:</Label>
-                <Select 
-                    disabled={isLoadingModels} 
-                    value={selectedModelId} 
-                    style={{ width: "300px" }}
-                    onChange={(e) => {
-                         const selected = e.detail.selectedOption as unknown as { value: string };
-                         setSelectedModelId(selected.value);
-                    }}
-                >
-                    <Option value="">-- Select Model --</Option>
-                    {models.map((m: Model) => (
-                        <Option key={m.id} value={m.id}>
-                            {m.code} - {m.name}
-                        </Option>
-                    ))}
-                </Select>
-                <Button 
-                    design="Emphasized" 
-                    disabled={!selectedModelId || validatorMutation.isPending} 
-                    onClick={runValidation}
-                    icon="refresh"
-                >
-                    {validatorMutation.isPending ? "Validating..." : "Run Validator"}
-                </Button>
-            </FlexBox>
+      <div style={{ padding: "1rem" }}>
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem", marginBottom: "1rem" }}>
+              <Label>Model:</Label>
+              <Select 
+                  disabled={isLoadingModels} 
+                  value={selectedModelId} 
+                  style={{ width: "300px" }}
+                  onChange={(e) => {
+                       const selected = e.detail.selectedOption as unknown as { value: string };
+                       setSelectedModelId(selected.value);
+                  }}
+              >
+                  <Option value="">-- Select Model --</Option>
+                  {models.map((m: Model) => (
+                      <Option key={m.id} value={m.id}>
+                          {m.code} - {m.name}
+                      </Option>
+                  ))}
+              </Select>
+              <Button 
+                  design="Emphasized" 
+                  disabled={!selectedModelId || validatorMutation.isPending} 
+                  onClick={runValidation}
+                  icon="refresh"
+              >
+                  {validatorMutation.isPending ? "Validating..." : "Run Validator"}
+              </Button>
+          </FlexBox>
 
-            {validatorMutation.isPending && (
-                <FlexBox justifyContent="Center" style={{ padding: "2rem" }}>
-                    <BusyIndicator active text="Validating model..." />
-                </FlexBox>
-            )}
+          {validatorMutation.isPending && (
+              <FlexBox justifyContent="Center" style={{ padding: "2rem" }}>
+                  <BusyIndicator active text="Validating model..." />
+              </FlexBox>
+          )}
 
-            {result && !validatorMutation.isPending && (
-                <div style={{ width: "100%" }}>
-                    <Title level="H4" style={{ marginBottom: "1rem" }}>Validation Results</Title>
+          {result && !validatorMutation.isPending && (
+              <div style={{ width: "100%" }}>
+                  <Title level="H4" style={{ marginBottom: "1rem" }}>Validation Results</Title>
 
-                    {result.issues.length === 0 ? (
-                        <ObjectStatus state="Positive">No issue found. Model configuration is ready.</ObjectStatus>
-                    ) : (
-                        <Table
-                            headerRow={
-                                <TableHeaderRow>
-                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Code</Label></TableHeaderCell>
-                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Scope</Label></TableHeaderCell>
-                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Message / Path</Label></TableHeaderCell>
-                                </TableHeaderRow>
-                            }
-                        >
-                            {result.issues.map((issue: ModelReadinessIssue, idx: number) => (
-                                <TableRow key={`${issue.code}-${idx}`}>
-                                    <TableCell>
-                                        <Title level="H5" style={{ color: "var(--sapNegativeColor)" }}>{issue.code}</Title>
-                                    </TableCell>
-                                    <TableCell>
-                                        {issue.scope && <ObjectStatus state="Critical">{issue.scope}</ObjectStatus>}
-                                    </TableCell>
-                                    <TableCell>
-                                        <FlexBox direction={FlexBoxDirection.Column}>
-                                            <Label style={{ whiteSpace: "normal" }}>{issue.message}</Label>
-                                            {issue.path && (
-                                                <span style={{ marginTop: "0.25rem", fontSize: "0.75rem", fontFamily: "monospace", color: "var(--sapContent_LabelColor)" }}>
-                                                    {issue.path}
-                                                </span>
-                                            )}
-                                        </FlexBox>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </Table>
-                    )}
+                  {result.issues.length === 0 ? (
+                      <ObjectStatus state="Positive">No issue found. Model configuration is ready.</ObjectStatus>
+                  ) : (
+                      <Table
+                          headerRow={
+                              <TableHeaderRow>
+                                  <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Code</Label></TableHeaderCell>
+                                  <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Scope</Label></TableHeaderCell>
+                                  <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Message / Path</Label></TableHeaderCell>
+                              </TableHeaderRow>
+                          }
+                      >
+                          {result.issues.map((issue: ModelReadinessIssue, idx: number) => (
+                              <TableRow key={`${issue.code}-${idx}`}>
+                                  <TableCell>
+                                      <Title level="H5" style={{ color: "var(--sapNegativeColor)" }}>{issue.code}</Title>
+                                  </TableCell>
+                                  <TableCell>
+                                      {issue.scope && <ObjectStatus state="Critical">{issue.scope}</ObjectStatus>}
+                                  </TableCell>
+                                  <TableCell>
+                                      <FlexBox direction={FlexBoxDirection.Column}>
+                                          <Label style={{ whiteSpace: "normal" }}>{issue.message}</Label>
+                                          {issue.path && (
+                                              <span style={{ marginTop: "0.25rem", fontSize: "0.75rem", fontFamily: "monospace", color: "var(--sapContent_LabelColor)" }}>
+                                                  {issue.path}
+                                              </span>
+                                          )}
+                                      </FlexBox>
+                                  </TableCell>
+                              </TableRow>
+                          ))}
+                      </Table>
+                  )}
 
-                    {selectedModelId && (
-                        <div style={{ marginTop: "1.5rem" }}>
-                            <Link 
-                                to={`/admin/models/${selectedModelId}`} 
-                                style={{ color: "var(--sapLinkColor)", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.25rem" }}
-                            >
-                                Open model configuration <Icon name="navigation-right-arrow" style={{ fontSize: "0.75rem" }} />
-                            </Link>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-      </Section>
+                  {selectedModelId && (
+                      <div style={{ marginTop: "1.5rem" }}>
+                          <Link 
+                              to={`/admin/models/${selectedModelId}`} 
+                              style={{ color: "var(--sapLinkColor)", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.25rem" }}
+                          >
+                              Open model configuration <Icon name="navigation-right-arrow" style={{ fontSize: "0.75rem" }} />
+                          </Link>
+                      </div>
+                  )}
+              </div>
+          )}
+      </div>
     </PageLayout>
   );
 }
