@@ -1,146 +1,51 @@
 ﻿# Traceability System (Monorepo)
 
-Production-grade manufacturing traceability platform supporting:
+Production-grade manufacturing traceability platform. Cross-platform monorepo using Bun, Elysia, and UI5 Web Components.
 
-- Multi-model / multi-revision configuration
-- Shared bonding + downstream assembly divergence
-- Device trust + operator session enforcement
-- Offline-capable shopfloor event queue
-- 92-byte label payload with shift-day serial reset (08:00 boundary, Asia/Bangkok)
+## 🚀 Presentation & Roadmap (Start Here)
 
-## Tech Stack
+- **[Executive Summary](file:///d:/Project/Traceability-system-ui5/EXECUTIVE_SUMMARY.md)**: Vision, Tech Stack, and High-level Roadmap for Management.
+- **[Master Program Schedule (2026)](file:///d:/Project/Traceability-system-ui5/docs/MASTER_PROGRAM_SCHEDULE_2026.md)**: Detailed 12-month delivery timeline (Solo Dev).
+- **[Technical Delivery Specification](file:///d:/Project/Traceability-system-ui5/docs/TECHNICAL_DELIVERY_SPEC_v1.md)**: Implementation patterns and code standards for Developers.
+- **[Master Task Structure](file:///d:/Project/Traceability-system-ui5/docs/MASTER_TASK_STRUCTURE.md)**: Comprehensive project scope and technical backlog.
+- **[Single Go-Live Roadmap](file:///d:/Project/Traceability-system-ui5/ROADMAP_STABILITY.md)**: Operational timeline and program targets.
 
-- Backend: Bun + Elysia + TypeScript + PostgreSQL + Drizzle
-- Frontend:- React + Vite
-- UI5 Web Components (SAP Horizon Theme)
-- Offline queue: Dexie
-- Target infra: Ubuntu 24 + Nginx + systemd/PM2
+## 🛠️ Tech Stack
 
-## Repository Structure
+- **Frontend**:
+  - React + Vite
+  - UI5 Web Components for React (SAP Horizon Theme)
+  - TanStack React Query + Eden Treaty (SDK)
+  - Offline queue: Dexie
+- **Backend**: Bun + Elysia + TypeScript + PostgreSQL + Drizzle
+- **Target infra**: Ubuntu 24 + Nginx + systemd/PM2
 
-- `backend/`
-- `web/apps/admin/`
-- `web/apps/kiosk-pi5/`
-- `web/apps/station-assembly/`
-- `web/apps/station-label/`
-- `web/apps/station-packing/`
-- `web/apps/station-fg/`
-- `web/packages/sdk/`
-- `web/packages/offline-queue/`
-- `web/packages/ui/`
-- `docs/design-bible/`
+## 📁 Repository Structure
 
-## Design Bible (Source of Truth)
+- `backend/`: Core API, business rules, and DB migrations.
+- `web/apps/admin/`: Central governance console (UI5).
+- `web/apps/kiosk-pi5/`: Shopfloor kiosk application.
+- `web/packages/sdk/`: Shared API client and types.
+- `docs/design-bible/`: Authoritative technical specification (v1.0).
 
-Read first:
+## 📖 Design Bible (Source of Truth)
 
-- `docs/design-bible/00_README.md`
+Read the authoritative specs here: [docs/design-bible/00_README.md](file:///d:/Project/Traceability-system-ui5/docs/design-bible/00_README.md)
 
-If any implementation conflicts with design-bible docs, design-bible wins.
+## ⚙️ Developer Setup
 
-## API Baseline
+1. **Install Dependencies**: `bun install`
+2. **Database**: `bun run db:migrate` then `bun run db:seed`
+3. **Run Dev**:
+   - Backend: `bun run dev:backend`
+   - Admin: `bun run dev:admin`
+   - Kiosk: `bun run dev:kiosk`
 
-- `docs/contracts/API_BASELINE_v1.md` keeps the currently implemented endpoint surface.
-- Update it whenever contract changes are introduced.
+## 🩺 Quality Assurance
 
-## Working Standard (Skills + Delivery)
+Run all checks: `bun run check`
+Go-live gate: `bun run check:go-live`
 
-- `docs/codex/SKILL_USAGE_BASELINE.md` defines the standard execution flow:
-  requirement alignment -> implementation -> test -> security -> documentation.
-- Use it as the default operating baseline for all feature and fix work.
+---
 
-## Prerequisites (Windows 11)
-
-- Bun
-- PostgreSQL (local install)
-- Git
-
-Recommended:
-
-- Configure business timezone as `Asia/Bangkok` where relevant
-
-## Environment
-
-### `backend/.env`
-
-Required minimum:
-
-- `DATABASE_URL=postgres://USER:PASSWORD@localhost:5432/traceability`
-- `JWT_SECRET=...`
-- `REFRESH_TOKEN_SECRET=...`
-- `DEVICE_TOKEN_SECRET=...`
-- `ADMIN_USERNAME=admin`
-- `ADMIN_PASSWORD=change_me`
-- `TZ=Asia/Bangkok`
-
-### `web/.env`
-
-- `VITE_API_BASE_URL=http://localhost:3000`
-- `VITE_APP_TIMEZONE=Asia/Bangkok`
-- `VITE_EDEN_STRICT_SCOPES=` (optional, comma-separated scopes; e.g. `material,admin`)
-  - empty = Eden-first with SDK fallback
-  - set scope = strict Eden for that scope (fallback disabled, errors surface immediately)
-- `VITE_EDEN_STRICT_PRESET=` (optional; `critical` enables strict mode for: `material.issue`, `material.approve`, `material.reject`, `admin.workflow`)
-- `VITE_EDEN_FALLBACK_DEBUG=false` (set `true` in dev to show realtime fallback monitor)
-
-## Install
-
-From repo root:
-
-```bash
-bun install
-```
-
-## Database
-
-```bash
-bun --cwd backend run db:migrate
-bun --cwd backend run db:seed
-```
-
-## Run
-
-### Backend
-
-```bash
-bun run dev:backend
-```
-
-### Admin UI
-
-```bash
-bun run dev:admin
-```
-
-### Kiosk UI
-
-```bash
-bun run dev:kiosk
-```
-
-## Quality Checks
-
-From repo root:
-
-```bash
-bun run check
-```
-
-This runs:
-
-- backend typecheck
-- all web package checks
-- all app builds
-
-Go-live gate (includes DB connectivity + format check):
-
-```bash
-bun run check:go-live
-```
-
-## Notes
-
-- Label generation and serial allocation are online-only operations.
-- Shopfloor event submission requires valid device trust and active operator session.
-- Use `IMPLEMENTATION_CHECKLIST.md` for delivery status.
-- Use `ROADMAP_STABILITY.md` for controlled rollout plan.
+_For delivery status, see [IMPLEMENTATION_CHECKLIST.md](file:///d:/Project/Traceability-system-ui5/IMPLEMENTATION_CHECKLIST.md)_

@@ -51,8 +51,8 @@ export function UsersPage() {
     defaultValues: { roles: ["OPERATOR"], name: "", username: "", department: "" },
   });
 
-  const { data: users = [] } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
-  const { data: departments = [] } = useQuery({ queryKey: ["departments"], queryFn: () => sdk.admin.getDepartments() });
+  const { data: users = [], isLoading: usersLoading } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
+  const { data: departments = [], isLoading: departmentsLoading } = useQuery({ queryKey: ["departments"], queryFn: () => sdk.admin.getDepartments() });
 
   const departmentOptions = useMemo(() => {
     const active = departments.filter((department) => department.is_active);
@@ -168,7 +168,7 @@ export function UsersPage() {
         <DataTable 
             data={users} 
             columns={columns} 
-            loading={!users.length}
+            loading={usersLoading || departmentsLoading}
             filterPlaceholder="Search users..." 
             actions={
                 <Button

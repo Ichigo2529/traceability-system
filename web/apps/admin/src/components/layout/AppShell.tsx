@@ -11,6 +11,10 @@ import {
   Avatar,
   Button,
   Input,
+  Popover,
+  List,
+  ListItemStandard,
+  Label,
   SideNavigationDomRef,
   FlexBox,
   FlexBoxAlignItems,
@@ -266,18 +270,26 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
               title={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
               aria-label={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
             />
-            <Avatar 
-               id="shellbar-avatar"
-               initials={user?.display_name?.[0] ?? "U"}
-               colorScheme="Accent6"
-               aria-label={`User profile: ${user?.display_name}`}
+            <Avatar
+              id="shellbar-avatar"
+              initials={user?.display_name?.[0] ?? "U"}
+              colorScheme="Accent6"
+              aria-label={`User profile: ${user?.display_name}`}
+              style={{ cursor: "pointer" }}
+              onClick={() => setProfileOpen(true)}
             />
           </div>
         }
         onProfileClick={() => setProfileOpen(true)}
       >
         <ShellBarSpacer />
-        <ShellBarItem id="shellbar-notifications" icon="bell" text="Notifications" onClick={() => setNotificationsOpen(true)} aria-label="Open notifications" />
+        <ShellBarItem
+          id="shellbar-notifications"
+          icon="bell"
+          text="Notifications"
+          onClick={() => setNotificationsOpen(true)}
+          aria-label="Open notifications"
+        />
         <ShellBarItem icon="add" text="Quick Create" onClick={() => {/* quick create stub */}} aria-label="Quick create" />
       </ShellBar>
       
@@ -311,12 +323,6 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
                if (section.key === "governance") sectionColor = "var(--icon-purple)";
 
                const normalizedPath = location.pathname.replace(/\/$/, "");
-               const sectionIsSelected = items.some(item => {
-                 const normalizedTo = item.to.replace(/\/$/, "");
-                 return normalizedTo === "/admin" 
-                   ? normalizedPath === "/admin" 
-                   : (normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/"));
-               });
 
                return (
                  <SideNavigationItem 
@@ -412,27 +418,65 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
         </div>
       </div>
 
-      {/* Notifications popover (lightweight) */}
-      {notificationsOpen && (
-        <div style={{ position: "fixed", top: 56, right: 120, width: 320, background: "var(--sapCard_Background)", border: "1px solid var(--sapContent_BorderColor)", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", zIndex: 1000, borderRadius: 6, padding: "0.5rem" }}>
-          <div style={{ padding: "0.5rem 0", borderBottom: "1px solid var(--sapContent_BorderColor)", fontWeight: 600 }}>Notifications</div>
-          <div style={{ maxHeight: 300, overflow: "auto" }}>
-            <div style={{ padding: "0.5rem 0", borderBottom: "1px solid var(--sapContent_BorderColor)" }}>Sample notification 1</div>
-            <div style={{ padding: "0.5rem 0" }}>Sample notification 2</div>
-          </div>
+      {/* Notifications Popover — UI5 */}
+      <Popover
+        open={notificationsOpen}
+        opener="shellbar-notifications"
+        placement="Bottom"
+        onClose={() => setNotificationsOpen(false)}
+        style={{ width: "320px" }}
+        headerText="Notifications"
+      >
+        <List>
+          <ListItemStandard
+            description="System started successfully"
+            icon="sys-monitor"
+            additionalText="Just now"
+            additionalTextState="Positive"
+          >
+            System Health OK
+          </ListItemStandard>
+          <ListItemStandard
+            description="No pending approvals"
+            icon="approvals"
+            additionalText="Today"
+          >
+            Approvals
+          </ListItemStandard>
+        </List>
+        <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--sapContent_BorderColor)", textAlign: "center" }}>
+          <Button design="Transparent" onClick={() => { setNotificationsOpen(false); navigate("/admin/system-health"); }}>
+            View All
+          </Button>
         </div>
-      )}
+      </Popover>
 
-      {/* Profile popover (lightweight) */}
-      {profileOpen && (
-        <div style={{ position: "fixed", top: 56, right: 24, width: 220, background: "var(--sapCard_Background)", border: "1px solid var(--sapContent_BorderColor)", borderRadius: 6, padding: "1rem", zIndex: 1000 }}>
-          <div style={{ marginBottom: "0.5rem" }}>{user?.display_name}</div>
-          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
-            <Button design="Transparent" onClick={() => { setProfileOpen(false); navigate('/admin'); }}>Profile</Button>
-            <Button design="Transparent" onClick={() => { setProfileOpen(false); logout(); }}>Sign out</Button>
-          </div>
+      {/* Profile Popover — UI5 */}
+      <Popover
+        open={profileOpen}
+        opener="shellbar-avatar"
+        placement="Bottom"
+        onClose={() => setProfileOpen(false)}
+        style={{ width: "240px" }}
+      >
+        <div style={{ padding: "1rem 1rem 0.75rem 1rem", borderBottom: "1px solid var(--sapContent_BorderColor)" }}>
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.75rem" }}>
+            <Avatar initials={user?.display_name?.[0] ?? "U"} colorScheme="Accent6" size="S" />
+            <div>
+              <Text style={{ fontWeight: 600, fontSize: "0.9rem", display: "block" }}>{user?.display_name ?? "User"}</Text>
+              <Label style={{ fontSize: "0.75rem", opacity: 0.65 }}>{(user?.roles ?? []).join(", ") || "No role"}</Label>
+            </div>
+          </FlexBox>
         </div>
-      )}
+        <List>
+          <ListItemStandard icon="employee" onClick={() => { setProfileOpen(false); navigate("/admin/users"); }}>
+            My Profile
+          </ListItemStandard>
+          <ListItemStandard icon="log" onClick={() => { setProfileOpen(false); logout(); }}>
+            Sign Out
+          </ListItemStandard>
+        </List>
+      </Popover>
     </div>
   );
 });

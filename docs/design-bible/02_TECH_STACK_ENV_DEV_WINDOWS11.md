@@ -13,10 +13,11 @@
 ## Frontend
 
 - React + Vite
-- UI5 Web Components (SAP Horizon Theme)
-- Zustand for state
-- Dexie for offline queue
-- Fetch/Axios
+- UI5 Web Components for React (SAP Horizon Theme)
+- TanStack React Query for data fetching
+- @elysiajs/eden (Eden Treaty) for end-to-end typed API communication
+- Dexie for offline queueing (Kiosk/Station apps)
+- React Hook Form + Zod for validation
 
 ## Dev setup (Windows 11)
 

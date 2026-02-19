@@ -6,7 +6,7 @@ This folder is the authoritative specification for implementing the Traceability
 
 - No Docker for dev on Windows 11.
 - Backend: Bun + Elysia + TypeScript + PostgreSQL (+ Drizzle).
-- Frontend: React + Vite + Tailwind.
+- Frontend: React + Vite + UI5 Web Components for React (SAP Horizon).
 - Pi5 stations run in kiosk mode and support offline event queue.
 - Serial for 92-byte labels resets by shift-day window: 08:00–07:59 (next day).
 - Multi-model, multi-revision; revisions are immutable once active.

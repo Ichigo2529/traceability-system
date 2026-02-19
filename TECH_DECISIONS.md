@@ -40,9 +40,11 @@
 
 | Decision                                                               | Rationale                                  |
 | ---------------------------------------------------------------------- | ------------------------------------------ |
-| React + Vite + TailwindCSS                                             | Bible §02                                  |
-| Zustand for client state                                               | Bible §02                                  |
-| Dexie for offline event queue                                          | Bible §02, §09                             |
+| **React + Vite**                                                       | Bible §02                                  |
+| **UI5 Web Components for React** (SAP Horizon)                         | Replaces Tailwind for Fiori/Enterprise UI  |
+| **TanStack React Query**                                               | Robust server state management             |
+| **@elysiajs/eden** (Eden Treaty)                                       | End-to-end type safety (Bible §07)         |
+| **Dexie** for offline event queue                                      | Bible §02, §09                             |
 | Separate apps per concern: `admin`, `kiosk-pi5`, station-specific apps | Bible §02 (run commands), README structure |
 | Shared packages: `sdk` (typed API client), `offline-queue`, `ui`       | README repo structure                      |
 

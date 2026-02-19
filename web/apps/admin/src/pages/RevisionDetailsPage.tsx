@@ -4,33 +4,31 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ColumnDef } from "@tanstack/react-table";
 import { sdk } from "../context/AuthContext";
 import { RevisionStatus, Variant, BomRow, RoutingStep, LabelBinding, LabelTemplate } from "@traceability/sdk";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
-import { 
-    Page, 
-    Bar, 
-    Title, 
-    Button, 
-    Dialog, 
-    FlexBox, 
-    FlexBoxAlignItems, 
-    FlexBoxDirection,
-    Label,
-    Input,
-    Select,
-    Option,
-    TabContainer,
-    Tab,
-    Table,
-    TableRow,
-    TableCell,
-    TableHeaderRow,
-    TableHeaderCell,
-    ObjectStatus,
-    CheckBox
+import { DataTable } from "../components/shared/DataTable";
+import {
+  Bar,
+  Button,
+  Dialog,
+  FlexBox,
+  FlexBoxAlignItems,
+  FlexBoxDirection,
+  Label,
+  Input,
+  Select,
+  Option,
+  TabContainer,
+  Tab,
+  ObjectStatus,
+  CheckBox,
+  BusyIndicator,
+  MessageStrip,
 } from "@ui5/webcomponents-react";
+import { PageLayout } from "@traceability/ui";
 import { BomRowDialog, BomRowForm } from "../components/shared/BomRowDialog";
 import "@ui5/webcomponents-icons/dist/nav-back.js";
 import "@ui5/webcomponents-icons/dist/add.js";
@@ -321,127 +319,364 @@ export default function RevisionDetailsPage() {
       editBinding.error,
       deleteBinding.error,
     ];
-
     const first = errors.find(Boolean);
     return first ? formatApiError(first) : undefined;
   }, [
-    createVariant.error,
-    editVariant.error,
-    deleteVariant.error,
-    setDefaultVariant.error,
-    createBom.error,
-    editBom.error,
-    deleteBom.error,
-    createRouting.error,
-    editRouting.error,
-    deleteRouting.error,
-    createBinding.error,
-    editBinding.error,
-    deleteBinding.error,
+    createVariant.error, editVariant.error, deleteVariant.error, setDefaultVariant.error,
+    createBom.error, editBom.error, deleteBom.error,
+    createRouting.error, editRouting.error, deleteRouting.error,
+    createBinding.error, editBinding.error, deleteBinding.error,
   ]);
 
-  if (isLoading) return <div>Loading...</div>;
-  if (!revision) return <div>Revision not found</div>;
+  // ── Column definitions ───────────────────────────────────────────────────────
+
+  const variantColumns = useMemo<ColumnDef<Variant>[]>(() => [
+    {
+      header: "Code",
+      accessorKey: "code",
+      cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.code}</span>,
+    },
+    {
+      header: "Default",
+      accessorKey: "is_default",
+      size: 100,
+      cell: ({ row }) =>
+        row.original.is_default
+          ? <ObjectStatus state="Positive">Default</ObjectStatus>
+          : <span style={{ opacity: 0.35 }}>—</span>,
+    },
+    {
+      header: "Description",
+      accessorKey: "description",
+      cell: ({ row }) => row.original.description || "—",
+    },
+    {
+      header: "Actions",
+      size: 220,
+      cell: ({ row }) => {
+        const v = row.original;
+        if (isReadOnly) return null;
+        return (
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.25rem" }}>
+            <Button
+              onClick={(e) => { e.stopPropagation(); setDefaultVariant.mutate(v.id); }}
+              design="Transparent"
+              style={{ fontSize: "0.8rem" }}
+            >
+              Set Default
+            </Button>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingVariant(v);
+                variantForm.reset({ code: v.code, description: v.description || "", is_default: Boolean(v.is_default) });
+                setVariantDialogOpen(true);
+              }}
+              icon="edit"
+              design="Transparent"
+            />
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm("Delete this variant?")) deleteVariant.mutate(v.id);
+              }}
+              icon="delete"
+              design="Transparent"
+            />
+          </FlexBox>
+        );
+      },
+    },
+  ], [isReadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const bomColumns = useMemo<ColumnDef<BomRow>[]>(() => [
+    {
+      header: "Component",
+      accessorKey: "component_name",
+      cell: ({ row }) => (
+        <span style={{ fontWeight: 600 }}>{row.original.component_name || row.original.component_unit_type}</span>
+      ),
+    },
+    {
+      header: "Part Number",
+      accessorKey: "component_part_number",
+      cell: ({ row }) => row.original.component_part_number || "—",
+    },
+    {
+      header: "Location",
+      accessorKey: "rm_location",
+      cell: ({ row }) => row.original.rm_location || "—",
+    },
+    {
+      header: "Qty",
+      accessorKey: "qty_per_assy",
+      size: 70,
+    },
+    {
+      header: "Required",
+      accessorKey: "required",
+      size: 100,
+      cell: ({ row }) =>
+        row.original.required
+          ? <ObjectStatus state="Positive">Yes</ObjectStatus>
+          : <ObjectStatus state="None">No</ObjectStatus>,
+    },
+    {
+      header: "Actions",
+      size: 120,
+      cell: ({ row }) => {
+        const b = row.original;
+        if (isReadOnly) return null;
+        return (
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.25rem" }}>
+            <Button
+              onClick={(e) => { e.stopPropagation(); setEditingBomRow(b); setBomDialogOpen(true); }}
+              icon="edit"
+              design="Transparent"
+            />
+            <Button
+              onClick={(e) => { e.stopPropagation(); if (confirm("Delete this BOM row?")) deleteBom.mutate(b.id); }}
+              icon="delete"
+              design="Transparent"
+            />
+          </FlexBox>
+        );
+      },
+    },
+  ], [isReadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const routingColumns = useMemo<ColumnDef<RoutingStep>[]>(() => [
+    {
+      header: "#",
+      accessorKey: "sequence",
+      size: 60,
+    },
+    {
+      header: "Step Code",
+      accessorKey: "step_code",
+      cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.step_code}</span>,
+    },
+    {
+      header: "Mandatory",
+      accessorKey: "mandatory",
+      size: 110,
+      cell: ({ row }) =>
+        row.original.mandatory
+          ? <ObjectStatus state="Positive">Yes</ObjectStatus>
+          : <ObjectStatus state="None">No</ObjectStatus>,
+    },
+    {
+      header: "Component Type",
+      accessorKey: "component_type",
+      cell: ({ row }) => row.original.component_type || "—",
+    },
+    {
+      header: "Description",
+      accessorKey: "description",
+      cell: ({ row }) => row.original.description || "—",
+    },
+    {
+      header: "Actions",
+      size: 120,
+      cell: ({ row }) => {
+        const r = row.original;
+        if (isReadOnly) return null;
+        return (
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.25rem" }}>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingRouting(r);
+                routingForm.reset({
+                  step_code: r.step_code,
+                  sequence: r.sequence,
+                  mandatory: r.mandatory,
+                  description: r.description || "",
+                  component_type: r.component_type || "",
+                });
+                setRoutingDialogOpen(true);
+              }}
+              icon="edit"
+              design="Transparent"
+            />
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm("Delete this routing step?")) deleteRouting.mutate(r.id);
+              }}
+              icon="delete"
+              design="Transparent"
+            />
+          </FlexBox>
+        );
+      },
+    },
+  ], [isReadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const bindingColumns = useMemo<ColumnDef<LabelBinding>[]>(() => [
+    {
+      header: "Unit Type",
+      accessorKey: "unit_type",
+      cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.unit_type}</span>,
+    },
+    {
+      header: "Process Point",
+      accessorKey: "process_point",
+    },
+    {
+      header: "Template",
+      accessorKey: "label_template_id",
+      cell: ({ row }) =>
+        (templates as LabelTemplate[]).find((t) => t.id === row.original.label_template_id)?.name ||
+        row.original.label_template_id,
+    },
+    {
+      header: "Actions",
+      size: 120,
+      cell: ({ row }) => {
+        const b = row.original;
+        if (isReadOnly) return null;
+        return (
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.25rem" }}>
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingBinding(b);
+                bindingForm.reset({
+                  unit_type: b.unit_type,
+                  process_point: b.process_point,
+                  label_template_id: b.label_template_id,
+                });
+                setBindingDialogOpen(true);
+              }}
+              icon="edit"
+              design="Transparent"
+            />
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm("Delete this binding?")) deleteBinding.mutate(b.id);
+              }}
+              icon="delete"
+              design="Transparent"
+            />
+          </FlexBox>
+        );
+      },
+    },
+  ], [isReadOnly, templates]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Early returns ────────────────────────────────────────────────────────────
+
+  if (isLoading) {
+    return (
+      <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center" }}>
+        <FlexBox direction={FlexBoxDirection.Column} alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem" }}>
+          <BusyIndicator active size="L" />
+          <Label style={{ opacity: 0.65 }}>Loading revision…</Label>
+        </FlexBox>
+      </div>
+    );
+  }
+
+  if (!revision) {
+    return (
+      <PageLayout title="Not Found" icon="warning" iconColor="red">
+        <MessageStrip design="Negative" hideCloseButton style={{ borderRadius: "8px" }}>
+          Revision not found. It may have been deleted.
+        </MessageStrip>
+      </PageLayout>
+    );
+  }
 
   const handleTabChange = (e: any) => {
     setTab(e.detail.tab.dataset.key);
   };
 
   return (
-    <Page
-      backgroundDesign="List"
-      header={
-        <Bar
-          startContent={
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-              <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)} />
-              <FlexBox direction="Column">
-                <Title level="H2">Revision {revision.revision_code}</Title>
-                <span style={{ fontSize: "0.875rem", color: "var(--sapContent_LabelColor)" }}>
-                  Status: {revision.status}
-                </span>
-              </FlexBox>
-            </FlexBox>
-          }
-          endContent={
-            isReadOnly && <ObjectStatus state="Critical">Read-only (ACTIVE)</ObjectStatus>
-          }
-        />
-      }
-      style={{ height: "100%" }}
+    <PageLayout
+      title={`Revision ${revision.revision_code}`}
+      subtitle={`Model revision — Status: ${revision.status}`}
+      icon="chain-link"
+      iconColor={revision.status === RevisionStatus.ACTIVE ? "green" : "blue"}
     >
-      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
+      <div style={{ paddingRight: "2rem", paddingBottom: "2rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+
+        {/* Toolbar row */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Button icon="nav-back" design="Default" onClick={() => navigate(`/admin/models/${modelId}`)}>
+            Back to Revisions
+          </Button>
+          {isReadOnly && (
+            <ObjectStatus state="Positive" style={{ fontSize: "0.875rem" }}>
+              Read-only (ACTIVE)
+            </ObjectStatus>
+          )}
+        </div>
+
         <ApiErrorBanner message={errorMessage} />
 
-        <TabContainer onTabSelect={handleTabChange} contentBackgroundDesign="Translucent">
+        <TabContainer onTabSelect={handleTabChange} contentBackgroundDesign="Transparent" style={{ marginTop: "0.25rem" }}>
+
+          {/* ── Variants ─────────────────────────────────────────────────────── */}
           <Tab text="Variants" icon="action" selected={tab === "variants"} data-key="variants">
-            <Section
-              title="Variants"
-              onAdd={
-                !isReadOnly
-                  ? () => {
+            <DataTable
+              data={variants as Variant[]}
+              columns={variantColumns}
+              filterPlaceholder="Search variants…"
+              actions={
+                !isReadOnly ? (
+                  <Button
+                    icon="add"
+                    design="Emphasized"
+                    onClick={() => {
                       setEditingVariant(null);
                       variantForm.reset({ code: "", description: "", is_default: variants.length === 0 });
                       setVariantDialogOpen(true);
-                    }
-                  : undefined
+                    }}
+                  >
+                    Add Variant
+                  </Button>
+                ) : undefined
               }
-            >
-              <SimpleTable
-                rows={(variants as Variant[]).map((v) => ({
-                  id: v.id,
-                  col1: v.code,
-                  col2: v.is_default ? "DEFAULT" : "",
-                  onEdit: !isReadOnly
-                    ? () => {
-                        setEditingVariant(v);
-                        variantForm.reset({ code: v.code, description: v.description || "", is_default: Boolean(v.is_default) });
-                        setVariantDialogOpen(true);
-                      }
-                    : undefined,
-                  onDelete: !isReadOnly ? () => { if(confirm("Delete this variant?")) deleteVariant.mutate(v.id); } : undefined,
-                  onExtra: !isReadOnly ? () => setDefaultVariant.mutate(v.id) : undefined,
-                  extraLabel: "Set Default",
-                }))}
-                headers={["Code", "Default"]}
-              />
-            </Section>
+            />
           </Tab>
 
+          {/* ── BOM ──────────────────────────────────────────────────────────── */}
           <Tab text="BOM" icon="shipping-status" selected={tab === "bom"} data-key="bom">
-            <Section
-              title="BOM"
-              onAdd={
-                !isReadOnly
-                  ? () => {
+            <DataTable
+              data={bom as BomRow[]}
+              columns={bomColumns}
+              filterPlaceholder="Search BOM…"
+              actions={
+                !isReadOnly ? (
+                  <Button
+                    icon="add"
+                    design="Emphasized"
+                    onClick={() => {
                       setEditingBomRow(null);
                       setBomDialogOpen(true);
-                    }
-                  : undefined
+                    }}
+                  >
+                    Add Row
+                  </Button>
+                ) : undefined
               }
-            >
-              <SimpleTable
-                rows={(bom as BomRow[]).map((b) => ({
-                  id: b.id,
-                  col1: b.component_name || b.component_unit_type,
-                  col2: `${b.component_part_number || "-"} | loc ${b.rm_location || "-"} | qty ${b.qty_per_assy} ${b.required ? "(required)" : "(optional)"}`,
-                  onEdit: !isReadOnly ? () => {
-                    setEditingBomRow(b);
-                    setBomDialogOpen(true);
-                  } : undefined,
-                  onDelete: !isReadOnly ? () => { if(confirm("Delete this row?")) deleteBom.mutate(b.id); } : undefined,
-                }))}
-                headers={["Component", "RM PN / Location / Qty"]}
-              />
-            </Section>
+            />
           </Tab>
 
+          {/* ── Routing ──────────────────────────────────────────────────────── */}
           <Tab text="Routing" icon="list" selected={tab === "routing"} data-key="routing">
-            <Section
-              title="Routing"
-              onAdd={
-                !isReadOnly
-                  ? () => {
+            <DataTable
+              data={routing as RoutingStep[]}
+              columns={routingColumns}
+              filterPlaceholder="Search steps…"
+              actions={
+                !isReadOnly ? (
+                  <Button
+                    icon="add"
+                    design="Emphasized"
+                    onClick={() => {
                       setEditingRouting(null);
                       routingForm.reset({
                         step_code: "",
@@ -451,41 +686,27 @@ export default function RevisionDetailsPage() {
                         component_type: "",
                       });
                       setRoutingDialogOpen(true);
-                    }
-                  : undefined
+                    }}
+                  >
+                    Add Step
+                  </Button>
+                ) : undefined
               }
-            >
-              <SimpleTable
-                rows={(routing as RoutingStep[]).map((r) => ({
-                  id: r.id,
-                  col1: `${r.sequence} - ${r.step_code}`,
-                  col2: r.mandatory ? "Mandatory" : "Optional",
-                  onEdit: !isReadOnly
-                    ? () => {
-                        setEditingRouting(r);
-                        routingForm.reset({
-                          step_code: r.step_code,
-                          sequence: r.sequence,
-                          mandatory: r.mandatory,
-                          description: r.description || "",
-                          component_type: r.component_type || "",
-                        });
-                        setRoutingDialogOpen(true);
-                      }
-                    : undefined,
-                  onDelete: !isReadOnly ? () => { if(confirm("Delete this routing step?")) deleteRouting.mutate(r.id); } : undefined,
-                }))}
-                headers={["Step", "Mandatory"]}
-              />
-            </Section>
+            />
           </Tab>
 
+          {/* ── Bindings ─────────────────────────────────────────────────────── */}
           <Tab text="Bindings" icon="chain-link" selected={tab === "bindings"} data-key="bindings">
-            <Section
-              title="Label Bindings"
-              onAdd={
-                !isReadOnly
-                  ? () => {
+            <DataTable
+              data={bindings as LabelBinding[]}
+              columns={bindingColumns}
+              filterPlaceholder="Search bindings…"
+              actions={
+                !isReadOnly ? (
+                  <Button
+                    icon="add"
+                    design="Emphasized"
+                    onClick={() => {
                       setEditingBinding(null);
                       bindingForm.reset({
                         unit_type: "FOF_TRAY_20",
@@ -493,35 +714,19 @@ export default function RevisionDetailsPage() {
                         label_template_id: templates[0]?.id || "",
                       });
                       setBindingDialogOpen(true);
-                    }
-                  : undefined
+                    }}
+                  >
+                    Add Binding
+                  </Button>
+                ) : undefined
               }
-            >
-              <SimpleTable
-                rows={(bindings as LabelBinding[]).map((b) => ({
-                  id: b.id,
-                  col1: `${b.unit_type} @ ${b.process_point}`,
-                  col2: templates.find((t: LabelTemplate) => t.id === b.label_template_id)?.name || b.label_template_id,
-                  onEdit: !isReadOnly
-                    ? () => {
-                        setEditingBinding(b);
-                        bindingForm.reset({
-                          unit_type: b.unit_type,
-                          process_point: b.process_point,
-                          label_template_id: b.label_template_id,
-                        });
-                        setBindingDialogOpen(true);
-                      }
-                    : undefined,
-                  onDelete: !isReadOnly ? () => { if(confirm("Delete this binding?")) deleteBinding.mutate(b.id); } : undefined,
-                }))}
-                headers={["Binding Key", "Template"]}
-              />
-            </Section>
+            />
           </Tab>
+
         </TabContainer>
       </div>
 
+      {/* ── BOM Dialog ──────────────────────────────────────────────────────── */}
       <BomRowDialog
         open={bomDialogOpen}
         row={editingBomRow}
@@ -537,7 +742,8 @@ export default function RevisionDetailsPage() {
           else createBom.mutate(values);
         }}
       />
-      
+
+      {/* ── Variant Dialog ───────────────────────────────────────────────────── */}
       <Dialog
         headerText={editingVariant ? "Edit Variant" : "Create Variant"}
         open={variantDialogOpen}
@@ -546,23 +752,27 @@ export default function RevisionDetailsPage() {
           setEditingVariant(null);
         }}
         footer={
-            <Bar
-                endContent={
-                    <>
-                        <Button onClick={() => setVariantDialogOpen(false)}>Cancel</Button>
-                        <Button
-                            design="Emphasized"
-                            onClick={() => variantForm.handleSubmit((values) => {
-                                if (editingVariant) editVariant.mutate(values);
-                                else createVariant.mutate(values);
-                            })()}
-                            disabled={createVariant.isPending || editVariant.isPending}
-                        >
-                            {createVariant.isPending || editVariant.isPending ? "Submitting..." : (editingVariant ? "Save Changes" : "Create Variant")}
-                        </Button>
-                    </>
-                }
-            />
+          <Bar
+            endContent={
+              <>
+                <Button onClick={() => setVariantDialogOpen(false)}>Cancel</Button>
+                <Button
+                  design="Emphasized"
+                  onClick={() =>
+                    variantForm.handleSubmit((values) => {
+                      if (editingVariant) editVariant.mutate(values);
+                      else createVariant.mutate(values);
+                    })()
+                  }
+                  disabled={createVariant.isPending || editVariant.isPending}
+                >
+                  {createVariant.isPending || editVariant.isPending
+                    ? "Submitting…"
+                    : editingVariant ? "Save Changes" : "Create Variant"}
+                </Button>
+              </>
+            }
+          />
         }
       >
         <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "320px" }}>
@@ -575,7 +785,7 @@ export default function RevisionDetailsPage() {
             <Input {...variantForm.register("description")} />
           </FlexBox>
           <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-            <CheckBox 
+            <CheckBox
               checked={variantForm.watch("is_default")}
               onChange={(e) => variantForm.setValue("is_default", e.target.checked)}
             />
@@ -584,6 +794,7 @@ export default function RevisionDetailsPage() {
         </FlexBox>
       </Dialog>
 
+      {/* ── Routing Dialog ───────────────────────────────────────────────────── */}
       <Dialog
         headerText={editingRouting ? "Edit Routing Step" : "Create Routing Step"}
         open={routingDialogOpen}
@@ -592,57 +803,59 @@ export default function RevisionDetailsPage() {
           setEditingRouting(null);
         }}
         footer={
-            <Bar
-                endContent={
-                    <>
-                        <Button onClick={() => setRoutingDialogOpen(false)}>Cancel</Button>
-                        <Button
-                            design="Emphasized"
-                            onClick={() => routingForm.handleSubmit((values) => {
-                                if (editingRouting) editRouting.mutate(values);
-                                else createRouting.mutate(values);
-                            })()}
-                            disabled={createRouting.isPending || editRouting.isPending}
-                        >
-                            {createRouting.isPending || editRouting.isPending ? "Submitting..." : (editingRouting ? "Save Changes" : "Create Step")}
-                        </Button>
-                    </>
-                }
-            />
+          <Bar
+            endContent={
+              <>
+                <Button onClick={() => setRoutingDialogOpen(false)}>Cancel</Button>
+                <Button
+                  design="Emphasized"
+                  onClick={() =>
+                    routingForm.handleSubmit((values) => {
+                      if (editingRouting) editRouting.mutate(values);
+                      else createRouting.mutate(values);
+                    })()
+                  }
+                  disabled={createRouting.isPending || editRouting.isPending}
+                >
+                  {createRouting.isPending || editRouting.isPending
+                    ? "Submitting…"
+                    : editingRouting ? "Save Changes" : "Create Step"}
+                </Button>
+              </>
+            }
+          />
         }
       >
         <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "400px" }}>
           <FlexBox style={{ gap: "1rem" }}>
             <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
-                <Label required>Step Code</Label>
-                <Input {...routingForm.register("step_code")} placeholder="PRESS_FIT" />
+              <Label required>Step Code</Label>
+              <Input {...routingForm.register("step_code")} placeholder="PRESS_FIT" />
             </FlexBox>
             <FlexBox direction={FlexBoxDirection.Column} style={{ width: "100px" }}>
-                <Label required>Sequence</Label>
-                <Input type="Number" {...routingForm.register("sequence")} />
+              <Label required>Sequence</Label>
+              <Input type="Number" {...routingForm.register("sequence")} />
             </FlexBox>
           </FlexBox>
-          
           <FlexBox direction={FlexBoxDirection.Column}>
             <Label>Component Type</Label>
             <Input {...routingForm.register("component_type")} placeholder="PIN430_JIG" />
           </FlexBox>
-          
           <FlexBox direction={FlexBoxDirection.Column}>
             <Label>Description</Label>
             <Input {...routingForm.register("description")} />
           </FlexBox>
-          
           <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-            <CheckBox 
-                checked={routingForm.watch("mandatory")}
-                onChange={(e) => routingForm.setValue("mandatory", e.target.checked)}
+            <CheckBox
+              checked={routingForm.watch("mandatory")}
+              onChange={(e) => routingForm.setValue("mandatory", e.target.checked)}
             />
             <Label>Mandatory step</Label>
           </FlexBox>
         </FlexBox>
       </Dialog>
 
+      {/* ── Binding Dialog ───────────────────────────────────────────────────── */}
       <Dialog
         headerText={editingBinding ? "Edit Label Binding" : "Create Label Binding"}
         open={bindingDialogOpen}
@@ -651,45 +864,54 @@ export default function RevisionDetailsPage() {
           setEditingBinding(null);
         }}
         footer={
-            <Bar
-                endContent={
-                    <>
-                        <Button onClick={() => setBindingDialogOpen(false)}>Cancel</Button>
-                        <Button
-                            design="Emphasized"
-                            onClick={() => bindingForm.handleSubmit((values) => {
-                                if (editingBinding) editBinding.mutate(values);
-                                else createBinding.mutate(values);
-                            })()}
-                            disabled={createBinding.isPending || editBinding.isPending}
-                        >
-                            {createBinding.isPending || editBinding.isPending ? "Submitting..." : (editingBinding ? "Save Changes" : "Create Binding")}
-                        </Button>
-                    </>
-                }
-            />
+          <Bar
+            endContent={
+              <>
+                <Button onClick={() => setBindingDialogOpen(false)}>Cancel</Button>
+                <Button
+                  design="Emphasized"
+                  onClick={() =>
+                    bindingForm.handleSubmit((values) => {
+                      if (editingBinding) editBinding.mutate(values);
+                      else createBinding.mutate(values);
+                    })()
+                  }
+                  disabled={createBinding.isPending || editBinding.isPending}
+                >
+                  {createBinding.isPending || editBinding.isPending
+                    ? "Submitting…"
+                    : editingBinding ? "Save Changes" : "Create Binding"}
+                </Button>
+              </>
+            }
+          />
         }
       >
         <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "400px" }}>
           <FlexBox style={{ gap: "1rem" }}>
             <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
-                <Label required>Unit Type</Label>
-                <Input {...bindingForm.register("unit_type")} placeholder="FOF_TRAY_20" />
+              <Label required>Unit Type</Label>
+              <Input {...bindingForm.register("unit_type")} placeholder="FOF_TRAY_20" />
             </FlexBox>
             <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
-                <Label required>Process Point</Label>
-                <Input {...bindingForm.register("process_point")} placeholder="POST_FVMI" />
+              <Label required>Process Point</Label>
+              <Input {...bindingForm.register("process_point")} placeholder="POST_FVMI" />
             </FlexBox>
           </FlexBox>
-          
           <FlexBox direction={FlexBoxDirection.Column}>
             <Label required>Label Template</Label>
             <Select
               value={bindingForm.watch("label_template_id")}
-              onChange={(e) => bindingForm.setValue("label_template_id", (e.target.selectedOption as any).value)}
+              onChange={(e) =>
+                bindingForm.setValue("label_template_id", (e.target.selectedOption as any).value)
+              }
             >
               {templates.map((t: LabelTemplate) => (
-                <Option key={t.id} value={t.id} selected={bindingForm.watch("label_template_id") === t.id}>
+                <Option
+                  key={t.id}
+                  value={t.id}
+                  selected={bindingForm.watch("label_template_id") === t.id}
+                >
                   {t.name}
                 </Option>
               ))}
@@ -697,74 +919,6 @@ export default function RevisionDetailsPage() {
           </FlexBox>
         </FlexBox>
       </Dialog>
-    </Page>
-  );
-}
-
-function Section({ title, onAdd, children }: { title: string; onAdd?: () => void; children: React.ReactNode }) {
-  return (
-    <div style={{ padding: "1rem", borderBottom: "1px solid var(--sapGroup_ContentBorderColor)" }}>
-      <FlexBox alignItems={FlexBoxAlignItems.Center} justifyContent="SpaceBetween" style={{ marginBottom: "1rem" }}>
-        <Title level="H3">{title}</Title>
-        {onAdd && (
-          <Button onClick={onAdd} icon="add" design="Transparent">
-            Add
-          </Button>
-        )}
-      </FlexBox>
-      {children}
-    </div>
-  );
-}
-
-function SimpleTable({
-  headers,
-  rows,
-}: {
-  headers: [string, string];
-  rows: Array<{
-    id: string;
-    col1: string;
-    col2: string;
-    onEdit?: () => void;
-    onDelete?: () => void;
-    onExtra?: () => void;
-    extraLabel?: string;
-  }>;
-}) {
-  if (!rows.length) return <Label style={{ fontStyle: "italic", padding: "1rem", display: "block" }}>No data available</Label>;
-
-  return (
-    <Table
-        headerRow={
-            <TableHeaderRow>
-                <TableHeaderCell><Label style={{ fontWeight: "bold" }}>{headers[0]}</Label></TableHeaderCell>
-                <TableHeaderCell><Label style={{ fontWeight: "bold" }}>{headers[1]}</Label></TableHeaderCell>
-                <TableHeaderCell style={{ textAlign: "right" }}><Label style={{ fontWeight: "bold" }}>Actions</Label></TableHeaderCell>
-            </TableHeaderRow>
-        }
-    >
-        {rows.map((r) => (
-            <TableRow key={r.id}>
-                <TableCell><Label style={{ fontWeight: "bold" }}>{r.col1}</Label></TableCell>
-                <TableCell><Label>{r.col2}</Label></TableCell>
-                <TableCell style={{ textAlign: "right" }}>
-                    <FlexBox justifyContent="End" style={{ gap: "0.25rem" }}>
-                        {r.onExtra && (
-                            <Button onClick={r.onExtra} design="Transparent" style={{ fontSize: "0.75rem" }}>
-                                {r.extraLabel || "Action"}
-                            </Button>
-                        )}
-                        {r.onEdit && (
-                            <Button onClick={r.onEdit} icon="edit" design="Transparent" />
-                        )}
-                        {r.onDelete && (
-                            <Button onClick={r.onDelete} icon="delete" design="Transparent" style={{ color: "var(--sapNegativeColor)" }} />
-                        )}
-                    </FlexBox>
-                </TableCell>
-            </TableRow>
-        ))}
-    </Table>
+    </PageLayout>
   );
 }
