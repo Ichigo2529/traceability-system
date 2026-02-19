@@ -13,6 +13,7 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -40,6 +41,7 @@ export function ComponentTypesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ComponentType | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ComponentType | null>(null);
+  const { showToast, ToastComponent } = useToast();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["component-types"],
@@ -57,6 +59,7 @@ export function ComponentTypesPage() {
       queryClient.invalidateQueries({ queryKey: ["component-types"] });
       setOpen(false);
       form.reset({ code: "", name: "", description: "", is_active: true });
+      showToast("Component type created successfully");
     },
   });
 
@@ -66,12 +69,14 @@ export function ComponentTypesPage() {
       queryClient.invalidateQueries({ queryKey: ["component-types"] });
       setOpen(false);
       setEditing(null);
+      showToast("Component type updated successfully");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteComponentType(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["component-types"] });
+      showToast("Component type deleted");
     },
   });
 
@@ -120,7 +125,7 @@ export function ComponentTypesPage() {
       title="Component Types"
       subtitle="Canonical component categories for BOM and routing"
       icon="dimension"
-      iconColor="var(--icon-indigo)"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -201,6 +206,7 @@ export function ComponentTypesPage() {
           setDeleteTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

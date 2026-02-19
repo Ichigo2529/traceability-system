@@ -14,6 +14,7 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -51,6 +52,7 @@ export function SupplierPartProfilesPage() {
   const [editing, setEditing] = useState<SupplierPartProfile | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SupplierPartProfile | null>(null);
   const vendorFilter = searchParams.get("vendorId") ?? "";
+  const { showToast, ToastComponent } = useToast();
 
   const { data: rows = [], isLoading: profilesLoading } = useQuery({
     queryKey: ["vendor-part-profiles"],
@@ -89,6 +91,7 @@ export function SupplierPartProfilesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendor-part-profiles"] });
       setOpen(false);
+      showToast("Profile created successfully");
     },
   });
 
@@ -98,12 +101,14 @@ export function SupplierPartProfilesPage() {
       queryClient.invalidateQueries({ queryKey: ["vendor-part-profiles"] });
       setOpen(false);
       setEditing(null);
+      showToast("Profile updated successfully");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteVendorPartProfile(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendor-part-profiles"] });
+      showToast("Profile deleted");
     },
   });
 
@@ -156,7 +161,7 @@ export function SupplierPartProfilesPage() {
       title="Vendor Part Profiles"
       subtitle="Map vendor part number and parser profile per internal part number"
       icon="attachment-html"
-      iconColor="var(--icon-indigo)"
+      iconColor="indigo"
     >
       <div className="page-container">
         {vendorFilter && (
@@ -339,6 +344,7 @@ export function SupplierPartProfilesPage() {
           setDeleteTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

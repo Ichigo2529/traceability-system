@@ -13,6 +13,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -58,6 +59,7 @@ export function StationsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Station | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Station | null>(null);
+  const { showToast, ToastComponent } = useToast();
   const { data: stations = [], isLoading: stationsLoading } = useQuery({ queryKey: ["stations"], queryFn: () => sdk.admin.getStations() });
   const { data: processes = [], isLoading: processesLoading } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
   const form = useForm<StationForm>({ resolver: zodResolver(schema), defaultValues: { active: true } });
@@ -68,6 +70,7 @@ export function StationsPage() {
       queryClient.invalidateQueries({ queryKey: ["stations"] });
       setOpen(false);
       form.reset({ station_code: "", name: "", active: true });
+      showToast("Station created successfully");
     },
   });
   const updateMutation = useMutation({
@@ -76,12 +79,14 @@ export function StationsPage() {
       queryClient.invalidateQueries({ queryKey: ["stations"] });
       setOpen(false);
       setEditing(null);
+      showToast("Station updated successfully");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteStation(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["stations"] });
+      showToast("Station deleted");
     },
   });
 
@@ -139,7 +144,7 @@ export function StationsPage() {
         </FlexBox>
       }
       icon="factory"
-      iconColor="var(--icon-orange)"
+      iconColor="orange"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -245,6 +250,7 @@ export function StationsPage() {
           setDeleteTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

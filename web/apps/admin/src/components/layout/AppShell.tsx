@@ -101,6 +101,7 @@ const adminNav: NavItem[] = [
   { to: "/admin/inbound-packs", label: "Inbound Vendor Packs", icon: "shipping-status", group: "operations" },
   { to: "/admin/machines", label: "Machines", icon: "machine", group: "operations" },
   { to: "/admin/devices", label: "Devices", icon: "laptop", group: "operations" },
+  { to: "/admin/recovery", label: "Set Recovery", icon: "wrench", group: "operations" },
   { to: "/admin/approvals", label: "Workflow Approvals", icon: "approvals", group: "governance" },
   { to: "/admin/heartbeat", label: "Device Heartbeat", icon: "heart", group: "governance" },
   { to: "/admin/system-health", label: "System Health", icon: "sys-monitor", group: "governance" },

@@ -28,6 +28,7 @@ import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/product.js";
 import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
+import { useToast } from "../../hooks/useToast";
 
 const schema = z.object({
   code: z.string().min(1),
@@ -45,6 +46,7 @@ export function ModelsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Model | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Model | null>(null);
+  const { showToast, ToastComponent } = useToast();
   const { data: models = [], isLoading } = useQuery({ queryKey: ["models"], queryFn: () => sdk.admin.getModels() });
   const form = useForm<ModelForm>({ resolver: zodResolver(schema), defaultValues: { active: true, pack_size: 1 } });
 
@@ -54,6 +56,7 @@ export function ModelsPage() {
       queryClient.invalidateQueries({ queryKey: ["models"] });
       setOpen(false);
       form.reset({ code: "", name: "", part_number: "", active: true, pack_size: 1, description: "" });
+      showToast("Model created successfully");
     },
   });
   const updateMutation = useMutation({
@@ -62,12 +65,14 @@ export function ModelsPage() {
       queryClient.invalidateQueries({ queryKey: ["models"] });
       setOpen(false);
       setEditing(null);
+      showToast("Model updated successfully");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteModel(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["models"] });
+      showToast("Model deleted");
     },
   });
 
@@ -126,7 +131,7 @@ export function ModelsPage() {
       title="Models"
       subtitle="Manage product models and specifications"
       icon="product"
-      iconColor="var(--icon-blue)"
+      iconColor="blue"
     >
       <div className="page-container">
         <ApiErrorBanner 
@@ -211,6 +216,7 @@ export function ModelsPage() {
             setDeleteTarget(null);
           }}
         />
+      <ToastComponent />
     </PageLayout>
   );
 }

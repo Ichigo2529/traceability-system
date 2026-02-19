@@ -13,6 +13,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -39,6 +40,7 @@ export function ProcessesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Process | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Process | null>(null);
+  const { showToast, ToastComponent } = useToast();
   const { data: rows = [], isLoading } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
   const form = useForm<ProcessForm>({ resolver: zodResolver(schema), defaultValues: { active: true, sequence_order: 1 } });
 
@@ -48,6 +50,7 @@ export function ProcessesPage() {
       queryClient.invalidateQueries({ queryKey: ["processes"] });
       setOpen(false);
       form.reset({ process_code: "", name: "", sequence_order: 1, active: true });
+      showToast("Process created successfully");
     },
   });
   const updateMutation = useMutation({
@@ -56,12 +59,14 @@ export function ProcessesPage() {
       queryClient.invalidateQueries({ queryKey: ["processes"] });
       setOpen(false);
       setEditing(null);
+      showToast("Process updated successfully");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteProcess(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["processes"] });
+      showToast("Process deleted");
     },
   });
 
@@ -105,7 +110,7 @@ export function ProcessesPage() {
       title="Processes"
       subtitle="Manufacturing process master with sequence ordering"
       icon="process"
-      iconColor="var(--icon-orange)"
+      iconColor="orange"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -186,6 +191,7 @@ export function ProcessesPage() {
           setDeleteTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

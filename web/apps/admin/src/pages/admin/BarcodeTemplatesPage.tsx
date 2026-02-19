@@ -13,6 +13,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -70,6 +71,7 @@ export function BarcodeTemplatesPage() {
   const [editing, setEditing] = useState<BarcodeTemplate | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BarcodeTemplate | null>(null);
   const [parseResult, setParseResult] = useState<Record<string, unknown> | null>(null);
+  const { showToast, ToastComponent } = useToast();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["barcode-templates"],
@@ -130,6 +132,7 @@ export function BarcodeTemplatesPage() {
           notes: "",
           is_active: true,
       });
+      showToast("Template created successfully");
     },
   });
 
@@ -152,6 +155,7 @@ export function BarcodeTemplatesPage() {
       queryClient.invalidateQueries({ queryKey: ["vendor-pack-parsers"] });
       setOpen(false);
       setEditing(null);
+      showToast("Template updated successfully");
     },
   });
 
@@ -160,6 +164,7 @@ export function BarcodeTemplatesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["barcode-templates"] });
       queryClient.invalidateQueries({ queryKey: ["vendor-pack-parsers"] });
+      showToast("Template deleted");
     },
   });
 
@@ -171,6 +176,7 @@ export function BarcodeTemplatesPage() {
       }),
     onSuccess: (result) => {
       setParseResult(result);
+      showToast("Parser tested successfully");
     },
   });
 
@@ -239,7 +245,7 @@ export function BarcodeTemplatesPage() {
       title="Barcode Template Master"
       subtitle="Configurable 2D barcode parsing templates by vendor/component without code changes"
       icon="bar-code"
-      iconColor="var(--icon-indigo)"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner message={errorMessage} />
@@ -381,6 +387,7 @@ export function BarcodeTemplatesPage() {
           setDeleteTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

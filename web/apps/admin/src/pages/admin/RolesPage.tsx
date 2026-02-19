@@ -23,6 +23,7 @@ import {
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/role.js";
+import { useToast } from "../../hooks/useToast";
 
 const roleSchema = z.object({
   name: z.string().min(2),
@@ -35,6 +36,7 @@ export function RolesPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Role | null>(null);
+  const { showToast, ToastComponent } = useToast();
   const { data: roles = [], isLoading: rolesLoading } = useQuery({ queryKey: ["roles"], queryFn: () => sdk.admin.getRoles() });
   const { data: permissions = [], isLoading: permissionsLoading } = useQuery({ queryKey: ["permissions"], queryFn: () => sdk.admin.getPermissions() });
 
@@ -46,6 +48,7 @@ export function RolesPage() {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
       setOpen(false);
       form.reset({ name: "", permissions: [] });
+      showToast("Role created successfully");
     },
   });
 
@@ -55,6 +58,7 @@ export function RolesPage() {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
       setOpen(false);
       setEditing(null);
+      showToast("Role updated successfully");
     },
   });
 
@@ -97,7 +101,7 @@ export function RolesPage() {
       title="Roles & Permissions"
       subtitle="Role CRUD and permission matrix"
       icon="role"
-      iconColor="var(--icon-indigo)"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner 
@@ -181,6 +185,7 @@ export function RolesPage() {
           </FormItem>
         </Form>
       </FormDialog>
+      <ToastComponent />
     </PageLayout>
   );
 }

@@ -13,6 +13,7 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -45,6 +46,7 @@ export function PartNumbersPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PartNumberMaster | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PartNumberMaster | null>(null);
+  const { showToast, ToastComponent } = useToast();
 
   const { data: rows = [], isLoading: rowsLoading } = useQuery({
     queryKey: ["part-numbers"],
@@ -66,6 +68,7 @@ export function PartNumbersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["part-numbers"] });
       setOpen(false);
+      showToast("Part number created successfully");
     },
   });
 
@@ -75,12 +78,14 @@ export function PartNumbersPage() {
       queryClient.invalidateQueries({ queryKey: ["part-numbers"] });
       setOpen(false);
       setEditing(null);
+      showToast("Part number updated successfully");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deletePartNumber(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["part-numbers"] });
+      showToast("Part number deleted");
     },
   });
 
@@ -131,7 +136,7 @@ export function PartNumbersPage() {
       title="Part Numbers"
       subtitle="Master FG/RM part numbers mapped to component type"
       icon="number-sign"
-      iconColor="var(--icon-indigo)"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -238,6 +243,7 @@ export function PartNumbersPage() {
           setDeleteTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

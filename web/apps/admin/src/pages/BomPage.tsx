@@ -6,6 +6,7 @@ import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { BomRowDialog, BomRowForm } from "../components/shared/BomRowDialog";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../hooks/useToast";
 import { DataTable } from "../components/shared/DataTable";
 import { 
     Button, 
@@ -30,6 +31,7 @@ export default function BomPage() {
   const [revisionId, setRevisionId] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<BomRow | null>(null);
+  const { showToast, ToastComponent } = useToast();
 
   const { data: models = [], isLoading: modelsLoading } = useQuery({
     queryKey: ["models"],
@@ -100,6 +102,7 @@ export default function BomPage() {
       refresh();
       setDialogOpen(false);
       setEditingRow(null);
+      showToast("BOM row added successfully");
     },
   });
 
@@ -119,12 +122,16 @@ export default function BomPage() {
       refresh();
       setDialogOpen(false);
       setEditingRow(null);
+      showToast("BOM row updated successfully");
     },
   });
 
   const deleteBom = useMutation({
     mutationFn: async (id: string) => sdk.admin.deleteBomRow(modelId, revisionId, id),
-    onSuccess: refresh,
+    onSuccess: () => {
+      refresh();
+      showToast("BOM row deleted");
+    },
   });
 
   const error = createBom.error || editBom.error || deleteBom.error;
@@ -197,7 +204,7 @@ export default function BomPage() {
       title="BOM Management"
       subtitle="Manage BOM rows by model revision"
       icon="list"
-      iconColor="var(--icon-orange)"
+      iconColor="orange"
     >
       <div className="page-container">
        <ApiErrorBanner message={error ? formatApiError(error) : undefined} />
@@ -285,6 +292,7 @@ export default function BomPage() {
         }}
       />
       </div>
+      <ToastComponent />
     </PageLayout>
   );
 }

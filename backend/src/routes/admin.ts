@@ -40,6 +40,9 @@ import {
   holds,
   events,
   departments,
+  setRuns,
+  containers,
+  consumption,
 } from "../db/schema";
 import { randomBytes } from "crypto";
 import {
@@ -4260,3 +4263,257 @@ adminRoutes.get("/audit-logs", async ({ query }: { query: { entity_type?: string
 
   return { success: true, data: rows };
 });
+
+// ─── Set Recovery Endpoints ─────────────────────────────
+
+adminRoutes.post(
+  "/set/force-close",
+  async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
+    const { set_run_id, status: targetStatus } = body;
+    const finalStatus = targetStatus === "CANCELLED" ? "CANCELLED" : "COMPLETED";
+
+    const [setRun] = await db
+      .select()
+      .from(setRuns)
+      .where(eq(setRuns.id, set_run_id))
+      .limit(1);
+
+    if (!setRun) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Set run not found" };
+    }
+
+    if (setRun.status !== "ACTIVE" && setRun.status !== "HOLD") {
+      set.status = 409;
+      return {
+        success: false,
+        error_code: "INVALID_STATE",
+        message: `Set run is ${setRun.status}, can only force-close ACTIVE or HOLD`,
+      };
+    }
+
+    await db
+      .update(setRuns)
+      .set({ status: finalStatus, endedAt: new Date() })
+      .where(eq(setRuns.id, set_run_id));
+
+    await auditConfigChange(
+      user.userId,
+      "SET_RUN",
+      set_run_id,
+      "FORCE_CLOSE",
+      { status: setRun.status },
+      { status: finalStatus }
+    );
+
+    console.log(`[ADMIN] Force-closed set_run="${set_run_id}" → ${finalStatus} by user="${user.userId}"`);
+    return { success: true, data: { set_run_id, previous_status: setRun.status, new_status: finalStatus } };
+  },
+  {
+    body: t.Object({
+      set_run_id: t.String(),
+      status: t.Optional(t.String()),
+    }),
+  }
+);
+
+adminRoutes.post(
+  "/set/reopen-last",
+  async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
+    const { assy_unit_id } = body;
+
+    const [lastClosed] = await db
+      .select()
+      .from(setRuns)
+      .where(
+        and(
+          eq(setRuns.assyUnitId, assy_unit_id),
+          sql`${setRuns.status} IN ('COMPLETED', 'CANCELLED', 'HOLD')`
+        )
+      )
+      .orderBy(desc(setRuns.endedAt))
+      .limit(1);
+
+    if (!lastClosed) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "No closed set_run found for this assy" };
+    }
+
+    await db
+      .update(setRuns)
+      .set({ status: "ACTIVE", endedAt: null })
+      .where(eq(setRuns.id, lastClosed.id));
+
+    await auditConfigChange(
+      user.userId,
+      "SET_RUN",
+      lastClosed.id,
+      "REOPEN",
+      { status: lastClosed.status },
+      { status: "ACTIVE" }
+    );
+
+    console.log(`[ADMIN] Reopened set_run="${lastClosed.id}" for assy="${assy_unit_id}" by user="${user.userId}"`);
+    return { success: true, data: { set_run_id: lastClosed.id, previous_status: lastClosed.status, new_status: "ACTIVE" } };
+  },
+  {
+    body: t.Object({
+      assy_unit_id: t.String(),
+    }),
+  }
+);
+
+adminRoutes.post(
+  "/material/reassign",
+  async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
+    const { container_id, from_set_run_id, to_set_run_id, reason } = body;
+
+    // Validate reason (non-space)
+    const trimmedReason = String(reason ?? "").trim();
+    if (trimmedReason.length < 5) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_INPUT",
+        message: "reason must contain at least 5 non-space characters",
+      };
+    }
+
+    // Patch 1: reject same-set reassign
+    if (from_set_run_id === to_set_run_id) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_INPUT",
+        message: "from_set_run_id and to_set_run_id must be different",
+      };
+    }
+
+    try {
+      const result = await db.transaction(async (tx) => {
+        // Verify container belongs to from_set_run_id
+        const [container] = await tx
+          .select()
+          .from(containers)
+          .where(and(eq(containers.id, container_id), eq(containers.setRunId, from_set_run_id)))
+          .limit(1);
+
+        if (!container) {
+          throw { httpStatus: 404, error_code: "NOT_FOUND", message: "Container not found in source set_run" };
+        }
+
+        // Block reassign if consumption exists for this container's unitId in source set
+        if (container.unitId) {
+          const [existing] = await tx
+            .select({ id: consumption.id })
+            .from(consumption)
+            .where(and(eq(consumption.setRunId, from_set_run_id), eq(consumption.sourceUid, container.unitId)))
+            .limit(1);
+
+          if (existing) {
+            throw {
+              httpStatus: 409,
+              error_code: "CONSUMPTION_EXISTS",
+              message: `Cannot reassign: material "${container.unitId}" has already been consumed in set_run "${from_set_run_id}"`,
+            };
+          }
+        }
+
+        // Validate target set_run exists and is ACTIVE
+        const [targetSetRun] = await tx
+          .select({ id: setRuns.id, status: setRuns.status })
+          .from(setRuns)
+          .where(eq(setRuns.id, to_set_run_id))
+          .limit(1);
+
+        if (!targetSetRun) {
+          throw { httpStatus: 404, error_code: "NOT_FOUND", message: "Target set_run not found" };
+        }
+
+        if (targetSetRun.status !== "ACTIVE") {
+          throw {
+            httpStatus: 409,
+            error_code: "INVALID_STATE",
+            message: `Target set_run is ${targetSetRun.status}, must be ACTIVE`,
+          };
+        }
+
+        // Patch 2: concurrency-safe conditional UPDATE with returning
+        // If someone already moved the container, this will affect 0 rows.
+        const updated = await tx
+          .update(containers)
+          .set({ setRunId: to_set_run_id })
+          .where(and(eq(containers.id, container_id), eq(containers.setRunId, from_set_run_id)))
+          .returning({ id: containers.id });
+
+        if (updated.length === 0) {
+          throw {
+            httpStatus: 409,
+            error_code: "CONCURRENT_MODIFICATION",
+            message: "Container was reassigned by another action; retry with latest state",
+          };
+        }
+
+        const now = new Date();
+
+        // Patch 4: Asia/Bangkok shiftDay (stable formatting)
+        const shiftDay = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Bangkok",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(now); // YYYY-MM-DD
+
+        // Patch 3: receivedAtServer on trace event
+        await tx.insert(events).values({
+          id: crypto.randomUUID(),
+          unitId: container.unitId ?? null,
+          eventType: "ADMIN_CONTAINER_REASSIGNED",
+          payload: {
+            container_id,
+            from_set_run_id,
+            to_set_run_id,
+            reason: trimmedReason,
+            admin_user_id: user.userId,
+          },
+          createdAtDevice: now,
+          receivedAtServer: now,
+          shiftDay,
+        });
+
+        // Audit log (atomic with the move)
+        await auditConfigChange(
+          user.userId,
+          "CONTAINER",
+          container_id,
+          "REASSIGN",
+          { set_run_id: from_set_run_id, reason: trimmedReason },
+          { set_run_id: to_set_run_id, reason: trimmedReason }
+        );
+
+        return { container_id, from_set_run_id, to_set_run_id, reason: trimmedReason };
+      });
+
+      console.log(
+        `[ADMIN] Reassigned container="${container_id}" from set="${from_set_run_id}" to set="${to_set_run_id}" reason="${trimmedReason}" by user="${user.userId}"`
+      );
+      return { success: true, data: result };
+    } catch (err: any) {
+      if (err?.httpStatus) {
+        set.status = err.httpStatus;
+        return { success: false, error_code: err.error_code, message: err.message };
+      }
+      throw err;
+    }
+  },
+  {
+    body: t.Object({
+      container_id: t.String(),
+      from_set_run_id: t.String(),
+      to_set_run_id: t.String(),
+      reason: t.String({ minLength: 5 }),
+    }),
+  }
+);
+
+

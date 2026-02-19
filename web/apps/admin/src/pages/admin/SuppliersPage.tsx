@@ -14,6 +14,7 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -42,6 +43,7 @@ export function SuppliersPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Vendor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
+  const { showToast, ToastComponent } = useToast();
 
   const { data: suppliers = [], isLoading: suppliersLoading } = useQuery({
     queryKey: ["vendors"],
@@ -73,6 +75,7 @@ export function SuppliersPage() {
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
       setOpen(false);
       form.reset({ code: "", name: "", vendor_id: "", is_active: true });
+      showToast("Supplier created successfully");
     },
   });
 
@@ -82,12 +85,14 @@ export function SuppliersPage() {
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
       setOpen(false);
       setEditing(null);
+      showToast("Supplier updated successfully");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteVendor(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["vendors"] });
+      showToast("Supplier deleted");
     },
   });
 
@@ -151,7 +156,7 @@ export function SuppliersPage() {
       title="Suppliers"
       subtitle="Manage external part suppliers"
       icon="supplier"
-      iconColor="var(--icon-orange)"
+      iconColor="orange"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -232,6 +237,7 @@ export function SuppliersPage() {
           setDeleteTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

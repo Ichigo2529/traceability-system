@@ -24,6 +24,7 @@ const BarcodeTemplatesPage = lazy(() =>
 );
 const InboundPacksPage = lazy(() => import("../pages/admin/InboundPacksPage").then((m) => ({ default: m.InboundPacksPage })));
 const MaterialRequestsPage = lazy(() => import("../pages/admin/MaterialRequestsPage"));
+const SetRecoveryPage = lazy(() => import("../pages/admin/SetRecoveryPage").then((m) => ({ default: m.SetRecoveryPage })));
 
 const Ui5SmokeTest = lazy(() => import("../pages/Ui5SmokeTest"));
 const MachinesPage = lazy(() => import("../pages/MachinesPage"));
@@ -95,6 +96,7 @@ export function AppRoutes() {
           <Route path="audit-logs" element={<AuditLogsPage />} />
           <Route path="heartbeat" element={<HeartbeatMonitorPage />} />
           <Route path="system-health" element={<SystemHealthPage />} />
+          <Route path="recovery" element={<SetRecoveryPage />} />
         </Route>
 
         <Route

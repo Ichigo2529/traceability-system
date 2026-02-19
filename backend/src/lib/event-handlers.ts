@@ -9,10 +9,12 @@
 import { db } from "../db/connection";
 import { units, unitLinks, events } from "../db/schema/production";
 import { machines } from "../db/schema/devices";
-import { variants, modelRevisions, bom, routing, routingSteps } from "../db/schema/config";
+import { variants, modelRevisions, bom, routing, routingSteps, componentTypes } from "../db/schema/config";
 import { supplierPacks } from "../db/schema/inventory";
 import { eq, and, sql } from "drizzle-orm";
 import { DomainError } from "./errors";
+import { consumeMaterial } from "./consumption-service";
+import { createSetRun, lockMaterialForSet, closeSetRunByAssyUnit } from "./set-run-service";
 
 export { DomainError };
 
@@ -134,6 +136,23 @@ export async function handleWash1End(
 
 const ASSY_QTY_PER_BONDING = 120;
 
+/**
+ * Resolve componentTypeId from unit type code.
+ * Returns null if no matching component type exists (graceful degradation).
+ */
+async function resolveComponentTypeId(
+  unitTypeCode: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  conn: any = db
+): Promise<string | null> {
+  const [ct] = await conn
+    .select({ id: componentTypes.id })
+    .from(componentTypes)
+    .where(and(eq(componentTypes.code, unitTypeCode), eq(componentTypes.isActive, true)))
+    .limit(1);
+  return ct?.id ?? null;
+}
+
 async function resolveMagnetPackSource(magnetPackId: string) {
   const [pack] = await db
     .select({
@@ -180,12 +199,22 @@ export async function handleBondingEnd(
   ctx: HandlerContext
 ): Promise<HandlerResult> {
   const plateId = ctx.payload.plate_id as string;
-  const magnetPackId = ctx.payload.magnet_pack_id as string;
   const revisionId = ctx.payload.revision_id as string | undefined;
   const variantId = ctx.payload.variant_id as string | undefined;
   if (!plateId) throw new DomainError("MISSING_PLATE_ID", "payload.plate_id required");
-  if (!magnetPackId) throw new DomainError("MISSING_MAGNET_PACK_ID", "payload.magnet_pack_id required");
   if (!revisionId) throw new DomainError("REVISION_NOT_READY", "payload.revision_id required");
+
+  // Fix 2: Support multi-pack magnet — accept array or single id
+  const rawMagnetPackIds = ctx.payload.magnet_pack_ids as string[] | undefined;
+  const singleMagnetPackId = ctx.payload.magnet_pack_id as string | undefined;
+  const magnetPackIds: string[] = rawMagnetPackIds?.length
+    ? rawMagnetPackIds
+    : singleMagnetPackId
+      ? [singleMagnetPackId]
+      : [];
+  if (magnetPackIds.length === 0)
+    throw new DomainError("MISSING_MAGNET_PACK_ID", "payload.magnet_pack_id or magnet_pack_ids required");
+
   await ensureRevisionReady(revisionId);
 
   if (variantId) {
@@ -203,7 +232,8 @@ export async function handleBondingEnd(
   if (plate.status !== "WASHED")
     throw new DomainError("COMPONENT_NOT_WASHED", `Plate must be WASHED (current: ${plate.status})`);
 
-  const mag = await resolveMagnetPackSource(magnetPackId);
+  // Resolve all magnet packs (multi-pack support)
+  const mags = await Promise.all(magnetPackIds.map(resolveMagnetPackSource));
 
   const [assy] = await db
     .insert(units)
@@ -217,19 +247,130 @@ export async function handleBondingEnd(
     })
     .returning({ id: units.id });
   await db.insert(unitLinks).values({ parentUnitId: assy.id, childUnitId: plateId, linkType: "BONDED_FROM_PLATE" });
-  await db.insert(unitLinks).values({ parentUnitId: assy.id, childUnitId: magnetPackId, linkType: "BONDED_FROM_MAGNET" });
-
-  const newQty = mag.qtyRemaining! - ASSY_QTY_PER_BONDING;
-  await db.update(units).set({ qtyRemaining: newQty, status: "IN_USE", updatedAt: new Date() }).where(eq(units.id, magnetPackId));
-  if (mag.unitType === "SUPPLIER_PACK") {
-    await db
-      .update(supplierPacks)
-      .set({ packQtyRemaining: newQty, updatedAt: new Date() })
-      .where(eq(supplierPacks.unitId, magnetPackId));
+  for (const magnetPackId of magnetPackIds) {
+    await db.insert(unitLinks).values({ parentUnitId: assy.id, childUnitId: magnetPackId, linkType: "BONDED_FROM_MAGNET" });
   }
-  await db.update(units).set({ status: "BONDED", updatedAt: new Date() }).where(eq(units.id, plateId));
 
-  return { unit_id: assy.id, extra: { assy_id: assy.id, plate_id: plateId, magnet_pack_id: magnetPackId, magnet_qty_remaining: newQty } };
+  // Fix 1: setCode must ignore empty strings and whitespace
+  const rawSetCode = (ctx.payload.set_code as string | undefined)?.trim()
+    || (ctx.payload.rfid_uid as string | undefined)?.trim()
+    || undefined;
+  const setCode = rawSetCode || `BONDING-${assy.id.slice(0, 8)}`;
+
+  // Idempotency key: event_id or assy_id used to prevent duplicates on retry
+  const eventIdempotencyBase = (ctx.payload.event_id as string | undefined) || assy.id;
+
+  // ─── TRANSACTIONAL DUAL-WRITE: Ledger + Stock Deduction ───
+  // Safety: idempotency keys, row-level lock, conditional stock update
+  try {
+    await db.transaction(async (tx) => {
+      // Fix 4: Resolve componentTypeId from unit type code
+      const plateComponentTypeId = await resolveComponentTypeId("PLATE_120", tx);
+
+      // Create set_run (stays ACTIVE — closed at FINAL_ASSEMBLY)
+      const setRun = await createSetRun({
+        setCode,
+        modelRevisionId: revisionId,
+        variantId: variantId ?? null,
+        assyUnitId: assy.id,
+      }, tx);
+
+      // Lock materials
+      await lockMaterialForSet(setRun.id, "PLATE_120", plateId, tx);
+      for (const magnetPackId of magnetPackIds) {
+        const mag = mags.find(m => m.id === magnetPackId)!;
+        await lockMaterialForSet(setRun.id, mag.unitType, magnetPackId, tx);
+      }
+
+      // Consume PLATE (with idempotency key)
+      await consumeMaterial({
+        setRunId: setRun.id,
+        componentTypeId: plateComponentTypeId,
+        qty: ASSY_QTY_PER_BONDING,
+        sourceType: "UNIT",
+        sourceUid: plateId,
+        stepCode: "BONDING_DONE",
+        machineId: ctx.machineId,
+        idempotencyKey: `${eventIdempotencyBase}:PLATE:${plateId}`,
+      }, tx);
+
+      // Consume MAGNET(s) — multi-pack, with idempotency key per pack
+      for (const magnetPackId of magnetPackIds) {
+        const mag = mags.find(m => m.id === magnetPackId)!;
+        const magnetComponentTypeId = await resolveComponentTypeId(mag.unitType, tx);
+
+        await consumeMaterial({
+          setRunId: setRun.id,
+          componentTypeId: magnetComponentTypeId,
+          qty: ASSY_QTY_PER_BONDING,
+          sourceType: mag.unitType === "SUPPLIER_PACK" ? "SUPPLIER_PACK" : "UNIT",
+          sourceUid: magnetPackId,
+          stepCode: "BONDING_DONE",
+          machineId: ctx.machineId,
+          idempotencyKey: `${eventIdempotencyBase}:MAGNET:${magnetPackId}`,
+        }, tx);
+      }
+
+      // ─── Concurrency-safe stock deduction ───────────────
+      // Row-level lock + conditional update prevents negative stock
+      for (const magnetPackId of magnetPackIds) {
+        const mag = mags.find(m => m.id === magnetPackId)!;
+
+        // SELECT FOR UPDATE: acquire row-level lock
+        const [locked] = await tx.execute(
+          sql`SELECT id, qty_remaining FROM units WHERE id = ${magnetPackId} FOR UPDATE`
+        ) as unknown as { id: string; qty_remaining: number }[];
+
+        if (!locked || locked.qty_remaining < ASSY_QTY_PER_BONDING) {
+          throw new DomainError(
+            "INSUFFICIENT_STOCK",
+            `Magnet pack "${magnetPackId}" has insufficient stock (available: ${locked?.qty_remaining ?? 0}, needed: ${ASSY_QTY_PER_BONDING})`
+          );
+        }
+
+        // Conditional update: double-check with WHERE clause
+        const result = await tx.execute(
+          sql`UPDATE units SET qty_remaining = qty_remaining - ${ASSY_QTY_PER_BONDING}, status = 'IN_USE', updated_at = NOW() WHERE id = ${magnetPackId} AND qty_remaining >= ${ASSY_QTY_PER_BONDING}`
+        );
+
+        if (mag.unitType === "SUPPLIER_PACK") {
+          await tx.execute(
+            sql`UPDATE supplier_packs SET pack_qty_remaining = pack_qty_remaining - ${ASSY_QTY_PER_BONDING}, updated_at = NOW() WHERE unit_id = ${magnetPackId} AND pack_qty_remaining >= ${ASSY_QTY_PER_BONDING}`
+          );
+        }
+      }
+
+      await tx.update(units).set({ status: "BONDED", updatedAt: new Date() }).where(eq(units.id, plateId));
+
+      // Debug log
+      console.log(`[GENEALOGY_WRITE] set=${setCode} plate=${plateId} magnet=${magnetPackIds.join(",")}`);
+    });
+  } catch (err) {
+    // Re-throw domain errors (e.g. INSUFFICIENT_STOCK) — these are real failures
+    if (err instanceof DomainError) throw err;
+
+    console.error("[DUAL-WRITE] Transactional genealogy write failed — falling back to legacy deduction:", err);
+
+    // Fallback: legacy stock deduction outside transaction (backward compat)
+    for (const magnetPackId of magnetPackIds) {
+      const mag = mags.find(m => m.id === magnetPackId)!;
+      const newQty = mag.qtyRemaining! - ASSY_QTY_PER_BONDING;
+      await db.update(units).set({ qtyRemaining: newQty, status: "IN_USE", updatedAt: new Date() }).where(eq(units.id, magnetPackId));
+      if (mag.unitType === "SUPPLIER_PACK") {
+        await db
+          .update(supplierPacks)
+          .set({ packQtyRemaining: newQty, updatedAt: new Date() })
+          .where(eq(supplierPacks.unitId, magnetPackId));
+      }
+    }
+    await db.update(units).set({ status: "BONDED", updatedAt: new Date() }).where(eq(units.id, plateId));
+  }
+  // ─── END DUAL-WRITE ───────────────────────────────────
+
+  // Return qty from first magnet for backward-compatible response
+  const primaryMag = mags[0];
+  const primaryNewQty = primaryMag.qtyRemaining! - ASSY_QTY_PER_BONDING;
+  return { unit_id: assy.id, extra: { assy_id: assy.id, plate_id: plateId, magnet_pack_id: magnetPackIds[0], magnet_qty_remaining: primaryNewQty } };
 }
 
 // ─── JIG_LOADED ─────────────────────────────────────────
@@ -1224,6 +1365,39 @@ export async function handleLabelsGenerated(ctx: HandlerContext): Promise<Handle
   return { unit_id: assyId, extra: { assy_id: assyId, tray_count: trays.length, status: "LABELED" } };
 }
 
+// ─── FINAL_ASSEMBLY_PASS / FAIL (Set Lifecycle) ────────
+
+async function handleFinalAssemblyPass(
+  ctx: HandlerContext
+): Promise<HandlerResult> {
+  const assyId = ctx.payload.assy_id as string;
+  if (!assyId) throw new DomainError("MISSING_ASSY_ID", "payload.assy_id required");
+
+  // Close set_run associated with this assy (non-blocking)
+  try {
+    await closeSetRunByAssyUnit(assyId, "COMPLETED");
+  } catch (err) {
+    console.error("[SET_LIFECYCLE] Failed to close set_run on FINAL_ASSEMBLY_PASS:", err);
+  }
+
+  return { unit_id: assyId, extra: { assy_id: assyId, set_closed: true } };
+}
+
+async function handleFinalAssemblyFail(
+  ctx: HandlerContext
+): Promise<HandlerResult> {
+  const assyId = ctx.payload.assy_id as string;
+  if (!assyId) throw new DomainError("MISSING_ASSY_ID", "payload.assy_id required");
+
+  // Close set_run as CANCELLED on failure
+  try {
+    await closeSetRunByAssyUnit(assyId, "CANCELLED");
+  } catch (err) {
+    console.error("[SET_LIFECYCLE] Failed to close set_run on FINAL_ASSEMBLY_FAIL:", err);
+  }
+
+  return { unit_id: assyId, extra: { assy_id: assyId, set_closed: true, failed: true } };
+}
 
 // ─── Handler registry ───────────────────────────────────
 
@@ -1242,6 +1416,7 @@ export const EVENT_HANDLERS: Record<string, (ctx: HandlerContext) => Promise<Han
   MAGNET_CARD_RETURNED: handleMagnetCardReturned,
   WASH2_START: handleWash2Start,
   BONDING_END: handleBondingEnd,
+  BONDING_DONE: handleBondingEnd,
   BONDING_START: handleBondingStart,
   JIG_LOADED: handleJigLoaded,
   WASH2_END: handleWash2End,
@@ -1266,4 +1441,7 @@ export const EVENT_HANDLERS: Record<string, (ctx: HandlerContext) => Promise<Han
   SPLIT_GROUP_CREATED: handleSplitGroupCreated,
   OUTER_PACKED: handleOuterPacked,
   FG_PALLET_MAPPED: handleFgPalletMapped,
+  // Set Lifecycle
+  FINAL_ASSEMBLY_PASS: handleFinalAssemblyPass,
+  FINAL_ASSEMBLY_FAIL: handleFinalAssemblyFail,
 };

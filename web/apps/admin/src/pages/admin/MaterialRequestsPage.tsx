@@ -13,8 +13,8 @@ import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsReal
 import { useDelayedBusy } from "../../hooks/useDelayedBusy";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import { IssueAllocationWorkbench } from "../../components/material/IssueAllocationWorkbench";
-import { toast } from "sonner";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -98,6 +98,7 @@ export default function MaterialRequestsPage() {
   const [confirmIssueOpen, setConfirmIssueOpen] = useState(false);
   const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const { showToast, ToastComponent } = useToast();
 
   const requestsQuery = useQuery({
     queryKey: ["admin-material-requests"],
@@ -233,18 +234,7 @@ export default function MaterialRequestsPage() {
       setLines([blankLine(1)]);
       setCostCenter("");
       setHeaderRemarks("");
-      const recipientText =
-        (created.alert_recipients ?? []).length > 0
-          ? (created.alert_recipients ?? [])
-              .map((row) => row.display_name || row.email || "-")
-              .join(", ")
-          : "workflow approver group";
-      toast.success(`Request submitted: ${created.request_no}${created.dmi_no ? ` (${created.dmi_no})` : ""}`, {
-        description:
-          created.alert_status === "QUEUED_MOCK"
-            ? `Email alert queued (mock) to: ${recipientText}`
-            : `Email alert prepared to: ${recipientText}`,
-      });
+      showToast(`Request submitted: ${created.request_no}${created.dmi_no ? ` (${created.dmi_no})` : ""}`);
       await queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
       await queryClient.invalidateQueries({ queryKey: ["material-request-next-numbers-admin"] });
       setCreateDialogOpen(false);
@@ -253,12 +243,18 @@ export default function MaterialRequestsPage() {
 
   const approveMutation = useMutation({
     mutationFn: (id: string) => approveMaterialRequest(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
+      showToast("Material request approved");
+    },
   });
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason?: string }) => rejectMaterialRequest(id, reason),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
+      showToast("Material request rejected");
+    },
   });
 
   const issueMutation = useMutation({
@@ -288,6 +284,7 @@ export default function MaterialRequestsPage() {
       await queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-material-request"] });
       await queryClient.invalidateQueries({ queryKey: ["admin-material-request-issue-options"] });
+      showToast("Material issued successfully");
     },
   });
 
@@ -379,7 +376,7 @@ export default function MaterialRequestsPage() {
       title="Material Requests"
       subtitle="Production submits direct material requests; Store approves and issues by DMI/DO."
       icon="request"
-      iconColor="var(--icon-indigo)"
+      iconColor="green"
     >
       <div className="page-container">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
@@ -687,6 +684,7 @@ export default function MaterialRequestsPage() {
                 />
            </div>
       </Dialog>
+      <ToastComponent />
     </PageLayout>
   );
 }

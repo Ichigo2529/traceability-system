@@ -9,6 +9,7 @@ import { sdk } from "../../context/AuthContext";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { PageLayout, Section } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Label,
@@ -76,6 +77,7 @@ export function ApprovalsPage() {
   const [editing, setEditing] = useState<WorkflowApprovalConfig | null>(null);
   const [heartbeatValue, setHeartbeatValue] = useState("2");
   const [approverRows, setApproverRows] = useState<ApproverRow[]>([{ ...EMPTY_APPROVER_ROW }]);
+  const { showToast, ToastComponent } = useToast();
 
   const { data: approvals = [], isLoading: approvalsLoading } = useQuery({ queryKey: ["workflow-approvals"], queryFn: () => sdk.admin.getWorkflowApprovals() });
   const { data: roles = [], isLoading: rolesLoading } = useQuery({ queryKey: ["roles"], queryFn: () => sdk.admin.getRoles() });
@@ -127,6 +129,7 @@ export function ApprovalsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflow-approvals"] });
       setOpen(false);
+      showToast("Approval rule created successfully");
     },
   });
 
@@ -154,6 +157,7 @@ export function ApprovalsPage() {
       queryClient.invalidateQueries({ queryKey: ["workflow-approvals"] });
       setOpen(false);
       setEditing(null);
+      showToast("Approval rule updated successfully");
     },
   });
 
@@ -161,6 +165,7 @@ export function ApprovalsPage() {
     mutationFn: (id: string) => sdk.admin.deleteWorkflowApproval(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflow-approvals"] });
+      showToast("Approval rule deleted");
     },
   });
 
@@ -169,6 +174,7 @@ export function ApprovalsPage() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["heartbeat-settings"] });
       setHeartbeatValue(String(data.online_window_minutes));
+      showToast("Heartbeat settings updated");
     },
   });
 
@@ -288,7 +294,7 @@ export function ApprovalsPage() {
       title="Workflow Approvals"
       subtitle="Configure L1/L2/L3 approver gates and transition routes."
       icon="approvals"
-      iconColor="var(--icon-indigo)"
+      iconColor="teal"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -597,6 +603,7 @@ export function ApprovalsPage() {
                 setDeleteTarget(null);
             }}
         />
+      <ToastComponent />
     </PageLayout>
   );
 }

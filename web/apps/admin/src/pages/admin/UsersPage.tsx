@@ -27,6 +27,7 @@ import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/group.js";
+import { useToast } from "../../hooks/useToast";
 
 const ROLES = ["ADMIN", "SUPERVISOR", "OPERATOR", "STORE", "PRODUCTION", "QA"];
 
@@ -46,6 +47,7 @@ export function UsersPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const { showToast, ToastComponent } = useToast();
   const form = useForm<UserForm>({
     resolver: zodResolver(userSchema),
     defaultValues: { roles: ["OPERATOR"], name: "", username: "", department: "" },
@@ -76,6 +78,7 @@ export function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setOpen(false);
       form.reset({ roles: ["OPERATOR"], name: "", username: "", department: "" });
+      showToast("User created successfully");
     },
   });
 
@@ -93,12 +96,14 @@ export function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setOpen(false);
       setEditing(null);
+      showToast("User updated successfully");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteUser(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      showToast("User deleted");
     },
   });
 
@@ -150,7 +155,7 @@ export function UsersPage() {
       title="Users"
       subtitle="Manage operator and admin identities"
       icon="employee"
-      iconColor="var(--icon-indigo)"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -274,6 +279,7 @@ export function UsersPage() {
           setDeleteTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

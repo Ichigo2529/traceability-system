@@ -12,6 +12,7 @@ import { formatDateTime } from "../../lib/datetime";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Label,
@@ -63,6 +64,7 @@ export function DevicesPage() {
   const [secretTarget, setSecretTarget] = useState<DeviceInfo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeviceInfo | null>(null);
   const [newSecret, setNewSecret] = useState<string | null>(null);
+  const { showToast, ToastComponent } = useToast();
 
   const { data: devices = [], isLoading: devicesLoading } = useQuery({ queryKey: ["devices"], queryFn: () => sdk.admin.getDevices() });
   const { data: stations = [], isLoading: stationsLoading } = useQuery({ queryKey: ["stations"], queryFn: () => sdk.admin.getStations() });
@@ -99,6 +101,7 @@ export function DevicesPage() {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setNewSecret(data.secret_key ?? null);
       setOpen(false);
+      showToast("Device created successfully");
     },
   });
 
@@ -117,6 +120,7 @@ export function DevicesPage() {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setOpen(false);
       setEditing(null);
+      showToast("Device updated successfully");
     },
   });
 
@@ -125,6 +129,7 @@ export function DevicesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setStatusTarget(null);
+      showToast("Device status updated");
     },
   });
 
@@ -134,12 +139,14 @@ export function DevicesPage() {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setNewSecret(data.secret_key);
       setSecretTarget(null);
+      showToast("Secret key regenerated");
     },
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteDevice(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
+      showToast("Device deleted");
     },
   });
 
@@ -257,6 +264,7 @@ export function DevicesPage() {
         </FlexBox>
       }
       icon="laptop"
+      iconColor="green"
     >
       <div className="page-container">
         <ApiErrorBanner 
@@ -487,6 +495,7 @@ export function DevicesPage() {
           }}
       />
        </div>
+      <ToastComponent />
     </PageLayout>
   );
 }

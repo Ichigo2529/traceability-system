@@ -75,7 +75,7 @@ export function AdminDashboardPage() {
       title="Admin Console"
       subtitle="System Overview & Real-time Stats"
       icon="bbyd-dashboard"
-      iconColor="var(--icon-indigo)"
+      iconColor="indigo"
     >
       <div className={layouts.content} style={{ marginTop: "0.5rem" }}>
 

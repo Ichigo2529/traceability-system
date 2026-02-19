@@ -7,6 +7,7 @@ import { FormDialog } from "../components/shared/FormDialog";
 import { formatApiError } from "../lib/errors";
 import { formatDateTime } from "../lib/datetime";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../hooks/useToast";
 import { 
     Button,
     Input, 
@@ -30,6 +31,7 @@ export default function LabelTemplatesPage() {
   const [editing, setEditing] = useState<LabelTemplate | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | undefined>();
+  const { showToast, ToastComponent } = useToast();
 
   const { data: templates = [] } = useQuery({
     queryKey: ["templates"],
@@ -44,6 +46,7 @@ export default function LabelTemplatesPage() {
       setEditing(null);
       setForm(EMPTY);
       setError(undefined);
+      showToast("Template created successfully");
     },
     onError: (err) => setError(formatApiError(err))
   });
@@ -56,13 +59,17 @@ export default function LabelTemplatesPage() {
       setEditing(null);
       setForm(EMPTY);
       setError(undefined);
+      showToast("Template updated successfully");
     },
     onError: (err) => setError(formatApiError(err))
   });
 
   const deleteTemplate = useMutation({
     mutationFn: (id: string) => sdk.admin.deleteLabelTemplate(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["templates"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["templates"] });
+      showToast("Template deleted");
+    },
   });
 
   const openCreate = () => {
@@ -134,7 +141,7 @@ export default function LabelTemplatesPage() {
       title="Label Templates"
       subtitle="Manage ZPL label templates for printing"
       icon="measure"
-      iconColor="var(--icon-orange)"
+      iconColor="orange"
     >
       <div className="page-container">
           <DataTable 
@@ -192,6 +199,7 @@ export default function LabelTemplatesPage() {
               </FormItem>
           </Form>
       </FormDialog>
+      <ToastComponent />
     </PageLayout>
   );
 }

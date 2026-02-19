@@ -13,6 +13,7 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Input,
@@ -39,6 +40,7 @@ export function DepartmentsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Department | null>(null);
   const [disableTarget, setDisableTarget] = useState<Department | null>(null);
+  const { showToast, ToastComponent } = useToast();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["departments"],
@@ -56,6 +58,7 @@ export function DepartmentsPage() {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       setOpen(false);
       form.reset({ code: "", name: "", sort_order: 100, is_active: true });
+      showToast("Department created successfully");
     },
   });
 
@@ -65,6 +68,7 @@ export function DepartmentsPage() {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
       setOpen(false);
       setEditing(null);
+      showToast("Department updated successfully");
     },
   });
 
@@ -72,6 +76,7 @@ export function DepartmentsPage() {
     mutationFn: (id: string) => sdk.admin.deleteDepartment(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["departments"] });
+      showToast("Department deleted");
     },
   });
 
@@ -120,7 +125,7 @@ export function DepartmentsPage() {
       title="Departments"
       subtitle="Department master used by user profile and request section"
       icon="org-chart"
-      iconColor="var(--icon-indigo)"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -205,6 +210,7 @@ export function DepartmentsPage() {
           setDisableTarget(null);
         }}
       />
+      <ToastComponent />
     </PageLayout>
   );
 }

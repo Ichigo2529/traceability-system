@@ -5,6 +5,7 @@ import { Machine } from "@traceability/sdk";
 import { DataTable } from "../components/shared/DataTable";
 import { formatApiError } from "../lib/errors";
 import { PageLayout } from "@traceability/ui";
+import { useToast } from "../hooks/useToast";
 import { 
     Button,
     Input,
@@ -33,6 +34,7 @@ export default function MachinesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | undefined>();
+  const { showToast, ToastComponent } = useToast();
 
   const { data: machines = [], isLoading } = useQuery({
     queryKey: ["machines"],
@@ -47,6 +49,7 @@ export default function MachinesPage() {
       setFormData(EMPTY_FORM);
       setEditingId(null);
       setError(undefined);
+      showToast("Machine created successfully");
     },
     onError: (err) => setError(formatApiError(err))
   });
@@ -59,13 +62,17 @@ export default function MachinesPage() {
       setFormData(EMPTY_FORM);
       setEditingId(null);
       setError(undefined);
+      showToast("Machine updated successfully");
     },
     onError: (err) => setError(formatApiError(err))
   });
 
   const deleteMachine = useMutation({
     mutationFn: async (id: string) => sdk.admin.deleteMachine(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["machines"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["machines"] });
+      showToast("Machine deactivated");
+    },
   });
 
   const openCreate = () => {
@@ -150,7 +157,7 @@ export default function MachinesPage() {
       title="Machines"
       subtitle="Manage machine configurations and line assignments."
       icon="machine"
-      iconColor="var(--icon-green)"
+      iconColor="green"
     >
       <div className="page-container">
         <ApiErrorBanner message={error} />
@@ -211,6 +218,7 @@ export default function MachinesPage() {
               </Form>
           </div>
       </FormDialog>
+      <ToastComponent />
     </PageLayout>
   );
 }

@@ -10,3 +10,4 @@ export * from "./labels";
 export * from "./inventory";
 export * from "./audit";
 export * from "./material-requests";
+export * from "./genealogy";

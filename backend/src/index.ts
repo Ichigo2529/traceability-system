@@ -1,4 +1,5 @@
 import { app } from "./app";
+import { holdStaleSetRuns } from "./lib/set-run-service";
 
 const port = process.env.PORT ?? 3000;
 
@@ -15,3 +16,22 @@ console.log(`   Kiosk:   POST /device/operator/login | /logout | GET /me`);
 console.log(`   Events:  POST /events`);
 console.log(`   Material: /material-requests (Production/Store workflow)`);
 console.log(`   Realtime: GET /realtime/material-requests (SSE)`);
+console.log(`   Trace:   GET /trace/unit/:id | /trace/material/:lot | /trace/set/:code`);
+console.log(`   Admin:   POST /admin/set/force-close | /admin/set/reopen-last | /admin/material/reassign`);
+
+// ─── Background Scheduler ───────────────────────────────
+// Auto-hold stale set_runs every 10 minutes
+const STALE_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+
+setInterval(async () => {
+  try {
+    const count = await holdStaleSetRuns(8);
+    if (count > 0) {
+      console.log(`[SCHEDULER] holdStaleSetRuns: ${count} set_run(s) moved to HOLD`);
+    }
+  } catch (err) {
+    console.error("[SCHEDULER] holdStaleSetRuns failed:", err);
+  }
+}, STALE_CHECK_INTERVAL_MS);
+
+console.log(`[SCHEDULER] Stale set_run check running every ${STALE_CHECK_INTERVAL_MS / 60000} minutes`);

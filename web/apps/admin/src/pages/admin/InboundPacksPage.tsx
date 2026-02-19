@@ -10,6 +10,7 @@ import { DataTable } from "../../components/shared/DataTable";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout, Section } from "@traceability/ui";
+import { useToast } from "../../hooks/useToast";
 import {
   Button,
   Dialog,
@@ -43,6 +44,7 @@ export function InboundPacksPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  const { showToast, ToastComponent } = useToast();
 
   const { data: vendors = [], isLoading: vendorsLoading } = useQuery({
     queryKey: ["vendors"],
@@ -114,6 +116,7 @@ export function InboundPacksPage() {
         production_date: "",
       });
       setError(undefined);
+      showToast("Pack received successfully");
     },
     onError: (err) => setError(formatApiError(err))
   });
@@ -176,7 +179,7 @@ export function InboundPacksPage() {
         </FlexBox>
       }
       icon="shipping-status"
-      iconColor="var(--icon-green)"
+      iconColor="green"
     >
       <div className="page-container">
         <Section title="Delivery Orders" variant="card">
@@ -432,6 +435,7 @@ export function InboundPacksPage() {
           ) : null}
         </div>
       </Dialog>
+      <ToastComponent />
     </PageLayout>
   );
 }
