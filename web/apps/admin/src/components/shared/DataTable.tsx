@@ -144,13 +144,7 @@ export function DataTable<TData>({
                   <TableHeaderCell
                     key={header.id}
                     style={{
-                      width:
-                        header.column.columnDef.size !== 150
-                          ? `${header.getSize()}px`
-                          : "auto",
-                      minWidth: header.column.columnDef.minSize
-                        ? `${header.column.columnDef.minSize}px`
-                        : `${header.getSize()}px`,
+                      width: header.column.columnDef.size !== 150 ? `${header.column.columnDef.size}px` : "auto",
                       position: "relative",
                     }}
                   >
@@ -215,7 +209,12 @@ export function DataTable<TData>({
                 style={{ cursor: onRowClick ? "pointer" : "default" }}
               >
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell 
+                    key={cell.id}
+                    style={{
+                        width: cell.column.columnDef.size !== 150 ? `${cell.column.columnDef.size}px` : "auto",
+                    }}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}

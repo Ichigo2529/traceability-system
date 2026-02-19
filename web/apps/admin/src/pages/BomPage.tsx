@@ -170,6 +170,7 @@ export default function BomPage() {
             <Button
               icon="edit"
               design="Transparent"
+              className="button-hover-scale"
               onClick={() => {
                 setEditingRow(row.original);
                 setDialogOpen(true);
@@ -179,6 +180,7 @@ export default function BomPage() {
             <Button
               icon="delete"
               design="Transparent"
+              className="button-hover-scale"
                onClick={() => deleteBom.mutate(row.original.id)}
               tooltip="Delete BOM Row"
             />
@@ -197,6 +199,7 @@ export default function BomPage() {
       icon="list"
       iconColor="var(--icon-orange)"
     >
+      <div className="page-container">
        <ApiErrorBanner message={error ? formatApiError(error) : undefined} />
       
       <FlexBox 
@@ -281,6 +284,7 @@ export default function BomPage() {
           else createBom.mutate(values);
         }}
       />
+      </div>
     </PageLayout>
   );
 }

@@ -220,10 +220,11 @@ export function ApprovalsPage() {
       {
         header: "Actions",
         cell: ({ row }) => (
-          <FlexBox>
+          <FlexBox style={{ gap: "0.25rem" }}>
             <Button
               icon="edit"
               design="Transparent"
+              className="button-hover-scale"
               onClick={() => {
                 setEditing(row.original);
                 reset({
@@ -249,6 +250,7 @@ export function ApprovalsPage() {
             <Button 
                 icon="delete" 
                 design="Transparent" 
+                className="button-hover-scale"
                 style={{ color: "var(--sapNegativeColor)" }}
                 onClick={() => {
                    setDeleteTarget(row.original.id);
@@ -300,34 +302,37 @@ export function ApprovalsPage() {
                   : undefined
           }
         />
-        <Section title="Online Indicator Window" variant="card">
-            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "1rem", padding: "1rem" }}>
-              <FlexBox direction={FlexBoxDirection.Column}>
-                  <Label>Heartbeat window (minutes)</Label>
-                  <Input
-                      value={heartbeatValue}
-                      onInput={(e: any) => setHeartbeatValue(e.target.value)}
-                      style={{ width: "150px" }}
-                  />
+        <div className="ui-section-entry">
+          <Section title="Online Indicator Window" variant="card">
+              <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "1rem", padding: "1rem" }}>
+                <FlexBox direction={FlexBoxDirection.Column}>
+                    <Label>Heartbeat window (minutes)</Label>
+                    <Input
+                        value={heartbeatValue}
+                        onInput={(e: any) => setHeartbeatValue(e.target.value)}
+                        style={{ width: "150px" }}
+                    />
+                </FlexBox>
+                <Button
+                    icon="save"
+                    className="button-hover-scale"
+                    onClick={() => {
+                        const minutes = Number(heartbeatValue);
+                        if (!Number.isFinite(minutes) || minutes < 1) return;
+                        heartbeatMutation.mutate(minutes);
+                    }}
+                >
+                    Save
+                </Button>
+                <ObjectStatus state="Information">
+                    Current: {heartbeatSettings?.online_window_minutes ?? 2} minute(s)
+                </ObjectStatus>
               </FlexBox>
-              <Button
-                  icon="save"
-                  className="button-hover-scale"
-                  onClick={() => {
-                      const minutes = Number(heartbeatValue);
-                      if (!Number.isFinite(minutes) || minutes < 1) return;
-                      heartbeatMutation.mutate(minutes);
-                  }}
-              >
-                  Save
-              </Button>
-              <ObjectStatus state="Information">
-                  Current: {heartbeatSettings?.online_window_minutes ?? 2} minute(s)
-              </ObjectStatus>
-            </FlexBox>
-        </Section>
+          </Section>
+        </div>
 
-        <Section title="Approval Rules" variant="card">
+        <div className="ui-section-entry" style={{ marginBottom: "2rem" }}>
+          <Title level="H4" style={{ marginBottom: "1rem", paddingLeft: "0.5rem" }}>Approval Rules</Title>
           <DataTable 
               data={approvals} 
               columns={columns} 
@@ -357,9 +362,10 @@ export function ApprovalsPage() {
                   </Button>
               }
           />
-        </Section>
+        </div>
         
-        <Section title="Status Transitions" variant="card">
+        <div className="ui-section-entry">
+          <Section title="Status Transitions" variant="card">
            <div style={{ display: "flex", flexDirection: "column" }}>
             {transitionGroups.length === 0 ? (
               <div style={{ textAlign: "center", padding: "2rem", color: "var(--sapContent_LabelColor)" }}>No transition rules configured.</div>
@@ -391,6 +397,7 @@ export function ApprovalsPage() {
             )}
            </div>
         </Section>
+        </div>
       </div>
 
         <FormDialog

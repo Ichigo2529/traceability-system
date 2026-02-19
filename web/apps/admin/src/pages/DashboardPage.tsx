@@ -70,7 +70,7 @@ export default function DashboardPage() {
       showFooter={false}
       style={{ height: "100%" }}
     >
-      <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
+      <div className="page-container" style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
         <Grid defaultSpan="XL4 L4 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%" }}>
             {/* Stats Cards */}
             <StatsCard 
@@ -143,7 +143,7 @@ function StatsCard({ icon, label, value, color }: any) {
 
 function ShortcutCard({ label, description, onClick }: { label: string; description: string; onClick: () => void }) {
     return (
-        <Card style={{ cursor: "pointer" }} header={<CardHeader titleText={label} subtitleText={description} interactive onClick={onClick} />}>
+        <Card className="button-hover-scale" style={{ cursor: "pointer" }} header={<CardHeader titleText={label} subtitleText={description} interactive onClick={onClick} />}>
         </Card>
     )
 }

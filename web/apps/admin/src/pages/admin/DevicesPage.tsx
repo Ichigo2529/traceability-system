@@ -9,6 +9,8 @@ import { sdk } from "../../context/AuthContext";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { formatDateTime } from "../../lib/datetime";
+import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
+import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import {
   Button,
@@ -183,11 +185,13 @@ export function DevicesPage() {
       { header: "Last Seen", cell: ({ row }) => toDateText(row.original.last_heartbeat_at) },
       {
         header: "Actions",
+        size: 250,
         cell: ({ row }) => (
-          <FlexBox>
+          <FlexBox style={{ gap: "0.25rem", flexWrap: "nowrap" }}>
             <Button
               icon="edit"
               design="Transparent"
+              className="button-hover-scale"
               onClick={() => {
                 setEditing(row.original);
                 reset({
@@ -207,24 +211,28 @@ export function DevicesPage() {
             <Button 
                 icon="wrench" 
                 design="Transparent"
+                className="button-hover-scale"
                 onClick={() => setStatusTarget({ device: row.original, status: "maintenance" })}
                 tooltip="Maintenance"
             />
             <Button 
                 icon={row.original.status === "disabled" ? "accept" : "cancel"}
                 design="Transparent"
+                className="button-hover-scale"
                 onClick={() => setStatusTarget({ device: row.original, status: row.original.status === "disabled" ? "active" : "disabled" })}
                 tooltip={row.original.status === "disabled" ? "Enable" : "Disable"}
             />
             <Button 
                 icon="refresh"
                 design="Transparent"
+                className="button-hover-scale"
                 onClick={() => setSecretTarget(row.original)}
                 tooltip="Regenerate Secret"
             />
             <Button
               icon="delete"
               design="Transparent"
+              className="button-hover-scale"
               style={{ color: "var(--sapNegativeColor)" }}
               onClick={() => {
                 if (!row.original.id) return;
@@ -250,6 +258,17 @@ export function DevicesPage() {
       }
       icon="laptop"
     >
+      <div className="page-container">
+        <ApiErrorBanner 
+            message={
+                createMutation.isError ? formatApiError(createMutation.error) :
+                updateMutation.isError ? formatApiError(updateMutation.error) :
+                statusMutation.isError ? formatApiError(statusMutation.error) :
+                secretMutation.isError ? formatApiError(secretMutation.error) :
+                deleteMutation.isError ? formatApiError(deleteMutation.error) :
+                undefined
+            } 
+        />
       {newSecret && (
           <div style={{ margin: "1rem", padding: "1rem", border: "1px solid var(--sapInformationBorderColor)", background: "var(--sapInformationBackground)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
               <FlexBox direction={FlexBoxDirection.Column}>
@@ -268,6 +287,7 @@ export function DevicesPage() {
               <Button
                 icon="add"
                 design="Emphasized"
+                className="button-hover-scale"
                 onClick={() => {
                   setEditing(null);
                   reset({
@@ -466,12 +486,7 @@ export function DevicesPage() {
               setDeleteTarget(null);
           }}
       />
-      
-      {(createMutation.error || updateMutation.error || statusMutation.error || secretMutation.error || deleteMutation.error) && (
-           <MessageBox open type="Error" onClose={() => {}}>
-              Operation failed. Please verify payload and try again.
-           </MessageBox>
-      )}
+       </div>
     </PageLayout>
   );
 }

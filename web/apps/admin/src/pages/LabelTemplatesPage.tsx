@@ -110,10 +110,11 @@ export default function LabelTemplatesPage() {
           header: "Actions",
           cell: ({ row }) => (
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <Button icon="edit" design="Transparent" onClick={() => openEdit(row.original)} tooltip="Edit" />
+              <Button icon="edit" design="Transparent" className="button-hover-scale" onClick={() => openEdit(row.original)} tooltip="Edit" />
               <Button 
                 icon="delete" 
                 design="Transparent" 
+                className="button-hover-scale"
                 onClick={() => {
                    deleteTemplate.mutate(row.original.id);
                 }} 
@@ -135,16 +136,18 @@ export default function LabelTemplatesPage() {
       icon="measure"
       iconColor="var(--icon-orange)"
     >
-      <DataTable 
-          data={templates} 
-          columns={columns} 
-          filterPlaceholder="Search templates..."
-          actions={
-              <Button icon="add" design="Emphasized" onClick={openCreate}>
-                  New Template
-              </Button>
-          }
-      />
+      <div className="page-container">
+          <DataTable 
+              data={templates} 
+              columns={columns} 
+              filterPlaceholder="Search templates..."
+              actions={
+                  <Button icon="add" design="Emphasized" className="button-hover-scale" onClick={openCreate}>
+                      New Template
+                  </Button>
+              }
+          />
+      </div>
 
       <FormDialog 
           open={isModalOpen} 

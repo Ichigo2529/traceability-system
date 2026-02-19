@@ -46,6 +46,7 @@ import "@ui5/webcomponents-icons/dist/accept.js";
 import "@ui5/webcomponents-icons/dist/decline.js";
 import "@ui5/webcomponents-icons/dist/paper-plane.js";
 import "@ui5/webcomponents-icons/dist/request.js";
+import "@ui5/webcomponents-icons/dist/show-edit.js";
 
 
 import {
@@ -342,7 +343,7 @@ export default function MaterialRequestsPage() {
         size: 100,
         cell: ({ row }) => (
           <Button
-            icon="display"
+            icon="show-edit"
             design="Transparent"
             onClick={() => {
               setSelectedId(row.original.id);
