@@ -8,6 +8,7 @@ import {
   Icon,
   FlexBox,
   FlexBoxAlignItems,
+  Button
 } from "@ui5/webcomponents-react";
 
 export interface PageLayoutProps {
@@ -20,6 +21,8 @@ export interface PageLayoutProps {
   filters?: ReactNode;
   children: ReactNode;
   maxWidth?: string;
+  showBackButton?: boolean;
+  onBackClick?: (e: any) => void;
 }
 
 /**
@@ -36,6 +39,8 @@ export function PageLayout({
   filters,
   children,
   maxWidth,
+  showBackButton,
+  onBackClick,
 }: PageLayoutProps) {
   // Map color names or variants to premium gradients
   const getIconStyles = (color?: string) => {
@@ -64,14 +69,19 @@ export function PageLayout({
 
   const iconStyles = getIconStyles(iconColor);
   
+  const DynamicPageCasted = DynamicPage as any;
+
   return (
-    <DynamicPage
+    <DynamicPageCasted
       backgroundDesign="Transparent"
       titleArea={
         <DynamicPageTitle
           heading={
             <div style={{ paddingLeft: "2rem", paddingTop: "1.25rem", paddingBottom: "1rem" }}>
               <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "1.5rem" }}>
+                {showBackButton && (
+                  <Button icon="nav-back" design="Transparent" onClick={onBackClick} />
+                )}
                 {icon && (
                   <div className="page-header-icon-container" style={{
                     width: "3.125rem",
@@ -150,6 +160,6 @@ export function PageLayout({
           {children}
         </div>
       </div>
-    </DynamicPage>
+    </DynamicPageCasted>
   );
 }

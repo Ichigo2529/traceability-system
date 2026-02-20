@@ -10,6 +10,7 @@ const RolesPage = lazy(() => import("../pages/admin/RolesPage").then((m) => ({ d
 const ModelsPage = lazy(() => import("../pages/admin/ModelsPage").then((m) => ({ default: m.ModelsPage })));
 const ComponentTypesPage = lazy(() => import("../pages/admin/ComponentTypesPage").then((m) => ({ default: m.ComponentTypesPage })));
 const PartNumbersPage = lazy(() => import("../pages/admin/PartNumbersPage").then((m) => ({ default: m.PartNumbersPage })));
+const MasterRoutingStepsPage = lazy(() => import("../pages/admin/MasterRoutingStepsPage").then((m) => ({ default: m.MasterRoutingStepsPage })));
 const ProcessesPage = lazy(() => import("../pages/admin/ProcessesPage").then((m) => ({ default: m.ProcessesPage })));
 const StationsPage = lazy(() => import("../pages/admin/StationsPage").then((m) => ({ default: m.StationsPage })));
 const DevicesPage = lazy(() => import("../pages/admin/DevicesPage").then((m) => ({ default: m.DevicesPage })));
@@ -28,6 +29,8 @@ const InboundPacksPage = lazy(() => import("../pages/admin/InboundPacksPage").th
 const InventoryDoPage = lazy(() => import("../pages/admin/InventoryDoPage").then((m) => ({ default: m.InventoryDoPage })));
 const VendorPackDetailPage = lazy(() => import("../pages/admin/VendorPackDetailPage").then((m) => ({ default: m.VendorPackDetailPage })));
 const MaterialRequestsPage = lazy(() => import("../pages/admin/MaterialRequestsPage"));
+const MaterialRequestCreatePage = lazy(() => import("../pages/admin/MaterialRequestCreatePage").then((m) => ({ default: m.MaterialRequestCreatePage })));
+const MaterialRequestDetailsPage = lazy(() => import("../pages/admin/MaterialRequestDetailsPage").then((m) => ({ default: m.MaterialRequestDetailsPage })));
 const SetRecoveryPage = lazy(() => import("../pages/admin/SetRecoveryPage").then((m) => ({ default: m.SetRecoveryPage })));
 
 const Ui5SmokeTest = lazy(() => import("../pages/Ui5SmokeTest"));
@@ -81,6 +84,7 @@ export function AppRoutes() {
           <Route path="models" element={<ModelsPage />} />
           <Route path="component-types" element={<ComponentTypesPage />} />
           <Route path="part-numbers" element={<PartNumbersPage />} />
+          <Route path="master-routing-steps" element={<MasterRoutingStepsPage />} />
           <Route path="processes" element={<ProcessesPage />} />
           <Route path="stations" element={<StationsPage />} />
           <Route path="devices" element={<DevicesPage />} />
@@ -95,6 +99,8 @@ export function AppRoutes() {
           <Route path="vendor-pack-detail" element={<VendorPackDetailPage />} />
           <Route path="inbound-packs" element={<InboundPacksPage />} />
           <Route path="material-requests" element={<MaterialRequestsPage />} />
+          <Route path="material-requests/new" element={<MaterialRequestCreatePage />} />
+          <Route path="material-requests/:id" element={<MaterialRequestDetailsPage />} />
           <Route path="machines" element={<MachinesPage />} />
           <Route path="models/:id" element={<ModelDetailsPage />} />
           <Route path="models/:id/revisions/:revisionId" element={<RevisionDetailsPage />} />

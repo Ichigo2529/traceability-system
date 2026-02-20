@@ -16,6 +16,7 @@ import {
   materialRequests,
   modelRevisions,
   models,
+  partNumbers,
   roles,
   sections,
   sectionCostCenters,
@@ -261,13 +262,16 @@ async function getActiveBomCatalogRows() {
       revision_id: modelRevisions.id,
       revision_code: modelRevisions.revisionCode,
       part_number: bom.componentPartNumber,
-      component_name: bom.componentName,
-      rm_location: bom.rmLocation,
       qty_per_assy: bom.qtyPerBatch,
+      uom_default: supplierPartProfiles.defaultPackQty,
+      component_name: bom.componentName,
+      rm_location: partNumbers.rmLocation,
     })
-    .from(bom)
-    .innerJoin(modelRevisions, eq(bom.revisionId, modelRevisions.id))
-    .innerJoin(models, eq(modelRevisions.modelId, models.id))
+    .from(models)
+    .innerJoin(modelRevisions, eq(models.id, modelRevisions.modelId))
+    .innerJoin(bom, eq(modelRevisions.id, bom.revisionId))
+    .leftJoin(partNumbers, eq(bom.componentPartNumber, partNumbers.partNumber))
+    .leftJoin(supplierPartProfiles, eq(bom.componentPartNumber, supplierPartProfiles.partNumber))
     .where(
       and(eq(modelRevisions.status, "ACTIVE"), eq(models.isActive, true), sql`${bom.componentPartNumber} is not null`)
     )
@@ -586,7 +590,7 @@ export async function resolveUserSectionMeta(currentUser: AccessTokenPayload) {
   if (!section) return null;
 
   // Fetch the requesting user's department name
-  let departmentName: string | null = currentUser.department ?? null;
+  let departmentName: string | null = (currentUser as any).department ?? null;
 
   if (!departmentName) {
     const [userDep] = await db

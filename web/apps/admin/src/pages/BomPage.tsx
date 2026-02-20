@@ -291,7 +291,13 @@ export default function BomPage() {
         row={editingRow}
         submitting={createBom.isPending || editBom.isPending}
         componentTypeOptions={componentTypes.map((ct) => ({ code: ct.code, name: ct.name }))}
-        partNumberOptions={partNumbers.map((pn) => pn.part_number)}
+        partNumberOptions={partNumbers.map((pn) => ({ 
+          part_number: pn.part_number, 
+          component_type_id: pn.component_type_id, 
+          component_type_code: pn.component_type_code, 
+          default_pack_size: pn.default_pack_size, 
+          rm_location: pn.rm_location 
+        }))}
         onClose={() => {
           setDialogOpen(false);
           setEditingRow(null);

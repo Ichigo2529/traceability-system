@@ -1,7 +1,7 @@
 import Elysia, { t } from "elysia";
 import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
-import { type AccessTokenPayload } from "../lib/jwt";
 import { db } from "../db/connection";
+import { type AccessTokenPayload } from "../lib/jwt";
 import { hashPassword } from "../lib/password";
 import { authDerive } from "../middleware/auth";
 import {
@@ -25,11 +25,18 @@ import {
   bom,
   routing,
   routingSteps,
+  masterRoutingSteps,
   labelTemplates,
   labelBindings,
   configAuditLogs,
   suppliers,
   supplierPartProfiles,
+  departments,
+  sections,
+  costCenters,
+  userDepartments,
+  userSections,
+  sectionCostCenters,
   inventoryDo,
   supplierPacks,
   component2dScans,
@@ -39,15 +46,9 @@ import {
   unitLinks,
   holds,
   events,
-  departments,
   setRuns,
   containers,
   consumption,
-  costCenters,
-  sections,
-  sectionCostCenters,
-  userSections,
-  userDepartments,
 } from "../db/schema";
 import { randomBytes } from "crypto";
 import {
@@ -1441,6 +1442,122 @@ adminRoutes.delete("/component-types/:id", async ({ params, set, user }: { param
 
   await db.update(componentTypes).set({ isActive: false, updatedAt: new Date() }).where(eq(componentTypes.id, params.id));
   await auditConfigChange(user.userId, "COMPONENT_TYPE", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
+  return { success: true, data: null };
+});
+
+// ── Master Routing Steps ───────────────────────────────────────────────────
+
+adminRoutes.get("/master-routing-steps", async () => {
+  const rows = await db
+    .select({
+      id: masterRoutingSteps.id,
+      step_code: masterRoutingSteps.stepCode,
+      description: masterRoutingSteps.description,
+      is_active: masterRoutingSteps.isActive,
+      created_at: masterRoutingSteps.createdAt,
+      updated_at: masterRoutingSteps.updatedAt,
+    })
+    .from(masterRoutingSteps)
+    .orderBy(asc(masterRoutingSteps.stepCode));
+  return { success: true, data: rows };
+});
+
+adminRoutes.post(
+  "/master-routing-steps",
+  async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
+    try {
+      const normalizedCode = String(body.step_code ?? "").trim().toUpperCase();
+      if (!normalizedCode) {
+        set.status = 400;
+        return { success: false, error_code: "INVALID_INPUT", message: "step_code is required" };
+      }
+
+      const [existing] = await db.select({ id: masterRoutingSteps.id }).from(masterRoutingSteps).where(eq(masterRoutingSteps.stepCode, normalizedCode)).limit(1);
+      if (existing) {
+        set.status = 400;
+        return { success: false, error_code: "ALREADY_EXISTS", message: "Master routing step code already exists" };
+      }
+
+      const [created] = await db
+        .insert(masterRoutingSteps)
+        .values({
+          stepCode: normalizedCode,
+          description: body.description ?? null,
+          isActive: body.is_active ?? true,
+        })
+        .returning({
+          id: masterRoutingSteps.id,
+          step_code: masterRoutingSteps.stepCode,
+          description: masterRoutingSteps.description,
+          is_active: masterRoutingSteps.isActive,
+          created_at: masterRoutingSteps.createdAt,
+          updated_at: masterRoutingSteps.updatedAt,
+        });
+
+      await auditConfigChange(user.userId, "MASTER_ROUTING_STEP", created.id, "CREATE", null, created as Record<string, unknown>);
+      return { success: true, data: created };
+    } catch (error) {
+      set.status = 400;
+      return { success: false, error_code: parseErrorCode(error), message: "Failed to create master routing step" };
+    }
+  },
+  {
+    body: t.Object({
+      step_code: t.String(),
+      description: t.Optional(t.String()),
+      is_active: t.Optional(t.Boolean()),
+    }),
+  }
+);
+
+adminRoutes.put(
+  "/master-routing-steps/:id",
+  async ({ params, body, set, user }: { params: { id: string }; body: any; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(masterRoutingSteps).where(eq(masterRoutingSteps.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Master routing step not found" };
+    }
+
+    const [updated] = await db
+      .update(masterRoutingSteps)
+      .set({
+        stepCode: body.step_code ? String(body.step_code).trim().toUpperCase() : existing.stepCode,
+        description: body.description ?? existing.description,
+        isActive: body.is_active ?? existing.isActive,
+        updatedAt: new Date(),
+      })
+      .where(eq(masterRoutingSteps.id, params.id))
+      .returning({
+        id: masterRoutingSteps.id,
+        step_code: masterRoutingSteps.stepCode,
+        description: masterRoutingSteps.description,
+        is_active: masterRoutingSteps.isActive,
+        created_at: masterRoutingSteps.createdAt,
+        updated_at: masterRoutingSteps.updatedAt,
+      });
+
+    await auditConfigChange(user.userId, "MASTER_ROUTING_STEP", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
+    return { success: true, data: updated };
+  },
+  {
+    body: t.Object({
+      step_code: t.Optional(t.String()),
+      description: t.Optional(t.String()),
+      is_active: t.Optional(t.Boolean()),
+    }),
+  }
+);
+
+adminRoutes.delete("/master-routing-steps/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+  const [existing] = await db.select().from(masterRoutingSteps).where(eq(masterRoutingSteps.id, params.id)).limit(1);
+  if (!existing) {
+    set.status = 404;
+    return { success: false, error_code: "NOT_FOUND", message: "Master routing step not found" };
+  }
+
+  await db.update(masterRoutingSteps).set({ isActive: false, updatedAt: new Date() }).where(eq(masterRoutingSteps.id, params.id));
+  await auditConfigChange(user.userId, "MASTER_ROUTING_STEP", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
   return { success: true, data: null };
 });
 

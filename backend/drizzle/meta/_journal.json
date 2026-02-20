@@ -120,6 +120,13 @@
       "when": 1771230000000,
       "tag": "0016_section_departments_cc_refactor",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1771601074983,
+      "tag": "0017_useful_jack_flag",
+      "breakpoints": true
     }
   ]
 }

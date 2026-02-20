@@ -551,3 +551,10 @@ ui5-tabcontainer.process-tabs::part(content) {
   flex-direction: column !important;
   height: 100% !important;
 }
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { RoutingStep } from "@traceability/sdk";
+import { MasterRoutingStep, RoutingStep } from "@traceability/sdk";
 import { FormDialog } from "./FormDialog";
-import { CheckBox, Form, FormItem, Input, Label, FlexBox, FlexBoxAlignItems } from "@ui5/webcomponents-react";
+import { CheckBox, Form, FormItem, Input, Label, FlexBox, FlexBoxAlignItems, Select, Option } from "@ui5/webcomponents-react";
 
 export const routingSchema = z.object({
   step_code: z.string().min(1, "Step code is required"),
@@ -32,6 +32,7 @@ export function RoutingDialog({
   nextSequence,
   submitting,
   modelCode,
+  masterSteps,
   onClose,
   onSubmit,
 }: {
@@ -40,6 +41,7 @@ export function RoutingDialog({
   nextSequence?: number;
   modelCode?: string;
   submitting?: boolean;
+  masterSteps?: MasterRoutingStep[];
   onClose: () => void;
   onSubmit: (values: RoutingForm) => void;
 }) {
@@ -66,12 +68,32 @@ export function RoutingDialog({
     >
       <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
         <FormItem labelContent={<Label required>Step Code</Label>}>
-          <Input
-            {...form.register("step_code")}
-            placeholder="PRESS_FIT"
-            valueState={err.step_code ? "Negative" : "None"}
-            valueStateMessage={err.step_code ? <div>{err.step_code.message}</div> : undefined}
+          <Controller
+            control={form.control}
+            name="step_code"
+            render={({ field }) => (
+              <Select
+                onChange={(e) => {
+                  const selected = e.detail.selectedOption as unknown as { value: string };
+                  field.onChange(selected.value);
+                  const step = masterSteps?.find((s: MasterRoutingStep) => s.step_code === selected.value);
+                  if (step && step.description && !form.getValues("description")) {
+                    form.setValue("description", step.description, { shouldValidate: true });
+                  }
+                }}
+                value={field.value}
+                valueState={err.step_code ? "Negative" : "None"}
+              >
+                {!field.value && <Option value="">Select a step...</Option>}
+                {(masterSteps || []).map((ms: MasterRoutingStep) => (
+                  <Option key={ms.id} value={ms.step_code} selected={field.value === ms.step_code}>
+                    {ms.step_code}
+                  </Option>
+                ))}
+              </Select>
+            )}
           />
+          {err.step_code && <div style={{ color: "var(--sapNegativeColor)", fontSize: "0.75rem", marginTop: "0.25rem" }}>{err.step_code.message}</div>}
         </FormItem>
 
         <FormItem labelContent={<Label required>Sequence</Label>}>

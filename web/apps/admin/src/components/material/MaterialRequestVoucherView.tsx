@@ -13,28 +13,43 @@ import {
     TableHeaderCell,
     TableRow,
     TableCell,
-    Grid
+    Grid,
+    Button
 } from "@ui5/webcomponents-react";
+import { StatusBadge } from "../shared/StatusBadge";
+import "@ui5/webcomponents-icons/dist/print.js";
+import "@ui5/webcomponents-icons/dist/nav-back.js";
 
-export function MaterialRequestVoucherView({ detail }: { detail: MaterialRequestDetail }) {
+export function MaterialRequestVoucherView({ detail, onBack }: { detail: MaterialRequestDetail; onBack?: () => void }) {
   return (
-    <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1.5rem", background: "var(--sapGroup_ContentBackground)", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", gap: "1.5rem", width: "100%", boxSizing: "border-box" }}>
-      <FlexBox style={{ gap: "1rem" }} alignItems={FlexBoxAlignItems.Start}>
-        <img src="/logo.png" alt="MMI Logo" style={{ height: "4rem", width: "auto", objectFit: "contain" }} />
-        <FlexBox direction={FlexBoxDirection.Column}>
-            <Title level="H3" style={{ fontStyle: "italic", marginBottom: "0.25rem" }}>MMI Precision Assembly (Thailand) Co., Ltd.</Title>
-            <Text>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</Text>
-            <FlexBox style={{ marginTop: "0.25rem" }}>
-                <Text>TEL : (6644) 000188 &nbsp;&nbsp; FAX : (6644) 000199</Text>
-            </FlexBox>
+    <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1.5rem", background: "var(--sapGroup_ContentBackground)", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", width: "100%", boxSizing: "border-box" }}>
+      <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Start} style={{ width: "100%", paddingBottom: "1.5rem" }}>
+        <FlexBox style={{ gap: "1.5rem" }} alignItems={FlexBoxAlignItems.Start}>
+          <img src="/logo.png" alt="MMI Logo" style={{ height: "4.5rem", width: "auto", objectFit: "contain" }} />
+          <FlexBox direction={FlexBoxDirection.Column}>
+              <Title level="H3" style={{ fontStyle: "italic", marginBottom: "0.25rem", color: "var(--sapTextColor)" }}>MMI Precision Assembly (Thailand) Co., Ltd.</Title>
+              <Text style={{ fontSize: "0.875rem" }}>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</Text>
+              <FlexBox style={{ marginTop: "0.25rem", gap: "1rem" }}>
+                  <Text style={{ fontSize: "0.875rem" }}>TEL : (6644) 000188</Text>
+                  <Text style={{ fontSize: "0.875rem" }}>FAX : (6644) 000199</Text>
+              </FlexBox>
+          </FlexBox>
+        </FlexBox>
+
+        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }} className="no-print">
+            {onBack && <Button icon="nav-back" design="Transparent" onClick={onBack}>Back</Button>}
+            <StatusBadge status={detail.status} />
+            {detail.status === "ISSUED" && (
+                <Button icon="print" design="Transparent" onClick={() => window.print()} tooltip="Print Voucher">Print</Button>
+            )}
         </FlexBox>
       </FlexBox>
 
-      <FlexBox justifyContent={FlexBoxJustifyContent.Center}>
-        <Title level="H2" style={{ textDecoration: "underline" }}>DIRECT MATERIAL ISSUE VOUCHER</Title>
-      </FlexBox>
+      <div style={{ width: "100%", borderBottom: "2px solid var(--sapGroup_ContentBorderColor)", marginBottom: "1.5rem" }}>
+          <Title level="H3" style={{ marginBottom: "0.5rem" }}>DIRECT MATERIAL ISSUE VOUCHER</Title>
+      </div>
 
-      <Grid defaultSpan="XL4 L4 M4 S12" style={{ gap: "1rem" }}>
+      <Grid defaultSpan="XL4 L4 M4 S12" style={{ gap: "1rem", marginBottom: "1rem" }}>
         <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
             <Label>NO.</Label>
             <Text style={{ color: "var(--sapNegativeElementColor)", fontWeight: "bold" }}>{detail.request_no || "-"}</Text>
@@ -49,7 +64,7 @@ export function MaterialRequestVoucherView({ detail }: { detail: MaterialRequest
         </FlexBox>
       </Grid>
 
-      <Grid defaultSpan="XL6 L6 M6 S12" style={{ gap: "1rem" }}>
+      <Grid defaultSpan="XL4 L4 M4 S12" style={{ gap: "1rem", marginBottom: "1.5rem" }}>
         <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
             <Label>SECTION</Label>
             <Text>{detail.section || "-"}</Text>

@@ -45,7 +45,7 @@ function readAccessToken() {
 
 function authHeaders() {
   const token = readAccessToken();
-  return token ? { authorization: `Bearer ${token}` } : undefined;
+  return token ? { authorization: `Bearer ${token}` } : {};
 }
 
 function materialById(id: string) {
@@ -123,7 +123,7 @@ export async function getMaterialRequests(filters?: {
     () =>
       (eden as any)["material-requests"].get({
         headers: authHeaders(),
-        query: filters,
+        query: filters || undefined,
       }),
     () => sdk.material.getRequests(filters),
     "material.list"

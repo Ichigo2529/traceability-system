@@ -18,7 +18,7 @@ function readAccessToken() {
 
 export function authHeaders() {
   const token = readAccessToken();
-  return token ? { authorization: `Bearer ${token}` } : undefined;
+  return token ? { authorization: `Bearer ${token}` } : {};
 }
 
 async function preferEden<T>(call: () => Promise<any>, fallback: () => Promise<T>, scope = "admin"): Promise<T> {

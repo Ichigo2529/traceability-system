@@ -102,6 +102,11 @@ export default function RevisionDetailsPage() {
     queryFn: () => sdk.admin.getPartNumbers(),
   });
 
+  const { data: masterSteps = [] } = useQuery({
+    queryKey: ["master-routing-steps"],
+    queryFn: () => sdk.admin.getMasterRoutingSteps(),
+  });
+
   const usedPartNumbers = useMemo(() => 
     new Set(bom.map(row => row.component_part_number).filter(Boolean)),
     [bom]
@@ -774,21 +779,27 @@ export default function RevisionDetailsPage() {
       />
 
       {/* ── Routing Dialog ───────────────────────────────────────────────────── */}
-      <RoutingDialog
-        open={routingDialogOpen}
-        step={editingRouting}
-        nextSequence={routing.length + 1}
-        modelCode={model?.code}
-        submitting={createRouting.isPending || editRouting.isPending}
-        onClose={() => {
-          setRoutingDialogOpen(false);
-          setEditingRouting(null);
-        }}
-        onSubmit={(values) => {
-          if (editingRouting) editRouting.mutate({ ...values, id: editingRouting.id } as any);
-          else createRouting.mutate(values as any);
-        }}
-      />
+        {routingDialogOpen && (
+          <RoutingDialog
+            open={routingDialogOpen}
+            step={editingRouting}
+            nextSequence={routing.length > 0 ? Math.max(...routing.map((r) => r.sequence)) + 10 : 10}
+            modelCode={modelCode}
+            masterSteps={masterSteps}
+            onClose={() => {
+              setRoutingDialogOpen(false);
+              setEditingRouting(null);
+            }}
+            onSubmit={(v) => {
+              if (editingRouting) {
+                editRouting.mutate(v);
+              } else {
+                createRouting.mutate(v);
+              }
+            }}
+            submitting={createRouting.isPending || editRouting.isPending}
+          />
+        )}
 
       {/* ── Binding Dialog ───────────────────────────────────────────────────── */}
       <BindingDialog

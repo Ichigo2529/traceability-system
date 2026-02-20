@@ -82,34 +82,35 @@ type NavItem = {
 };
 
 const adminNav: NavItem[] = [
-  { to: "/admin", label: "Dashboard", icon: "bbyd-dashboard", group: "overview" },
-  { to: "/admin/users", label: "Users", icon: "employee", group: "master-data" },
-  { to: "/admin/roles", label: "Roles & Permissions", icon: "role", group: "master-data" },
-  { to: "/admin/models", label: "Models", icon: "product", group: "master-data" },
-  { to: "/admin/component-types", label: "Component Types", icon: "dimension", group: "master-data" },
-  { to: "/admin/part-numbers", label: "Part Numbers", icon: "number-sign", group: "master-data" },
-  { to: "/admin/departments", label: "Departments", icon: "org-chart", group: "master-data" },
-  { to: "/admin/cost-centers", label: "Cost Centers", icon: "money-bills", group: "master-data" },
-  { to: "/admin/sections", label: "Sections", icon: "customer-and-supplier", group: "master-data" },
-  { to: "/admin/suppliers", label: "Vendors", icon: "supplier", group: "master-data" },
-  { to: "/admin/supplier-part-profiles", label: "Vendor Part Profiles", icon: "attachment-html", group: "master-data" },
-  { to: "/admin/barcode-templates", label: "Barcode Templates", icon: "bar-code", group: "master-data" },
-  { to: "/admin/processes", label: "Processes", icon: "process", group: "engineering" },
-  { to: "/admin/stations", label: "Stations", icon: "factory", group: "engineering" },
-  { to: "/admin/bom", label: "BOM", icon: "list", group: "engineering" },
-  { to: "/admin/templates", label: "Label Templates", icon: "measure", group: "engineering" },
-  { to: "/admin/readiness", label: "Readiness Validator", icon: "survey", group: "engineering" },
-  { to: "/admin/material-requests", label: "Material Requests", icon: "request", group: "operations" },
-  { to: "/admin/inventory-do", label: "Delivery Orders (DO)", icon: "document", group: "operations" },
-  { to: "/admin/vendor-pack-detail", label: "Vendor Pack Detail", icon: "customer-and-contacts", group: "operations" },
-  { to: "/admin/inbound-packs", label: "Inbound Vendor Packs", icon: "shipping-status", group: "operations" },
-  { to: "/admin/machines", label: "Machines", icon: "machine", group: "operations" },
-  { to: "/admin/devices", label: "Devices", icon: "laptop", group: "operations" },
-  { to: "/admin/recovery", label: "Set Recovery", icon: "wrench", group: "operations" },
-  { to: "/admin/approvals", label: "Workflow Approvals", icon: "approvals", group: "governance" },
-  { to: "/admin/heartbeat", label: "Device Heartbeat", icon: "heart", group: "governance" },
-  { to: "/admin/system-health", label: "System Health", icon: "sys-monitor", group: "governance" },
-  { to: "/admin/audit-logs", label: "Audit Logs", icon: "history", group: "governance" },
+  { to: "/admin", label: "Dashboard", icon: "bbyd-dashboard", group: "overview", roles: ["ADMIN", "STORE", "PROCESS_ENGINEER"] },
+  { to: "/admin/users", label: "Users", icon: "employee", group: "master-data", roles: ["ADMIN"] },
+  { to: "/admin/roles", label: "Roles & Permissions", icon: "role", group: "master-data", roles: ["ADMIN"] },
+  { to: "/admin/models", label: "Models", icon: "product", group: "master-data", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/component-types", label: "Component Types", icon: "dimension", group: "master-data", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/part-numbers", label: "Part Numbers", icon: "number-sign", group: "master-data", roles: ["ADMIN", "PROCESS_ENGINEER", "STORE"] },
+  { to: "/admin/master-routing-steps", label: "Master Routing Steps", icon: "bullet-text", group: "master-data", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/departments", label: "Departments", icon: "org-chart", group: "master-data", roles: ["ADMIN"] },
+  { to: "/admin/cost-centers", label: "Cost Centers", icon: "money-bills", group: "master-data", roles: ["ADMIN"] },
+  { to: "/admin/sections", label: "Sections", icon: "customer-and-supplier", group: "master-data", roles: ["ADMIN"] },
+  { to: "/admin/suppliers", label: "Vendors", icon: "supplier", group: "master-data", roles: ["ADMIN", "STORE"] },
+  { to: "/admin/supplier-part-profiles", label: "Vendor Part Profiles", icon: "attachment-html", group: "master-data", roles: ["ADMIN", "STORE"] },
+  { to: "/admin/barcode-templates", label: "Barcode Templates", icon: "bar-code", group: "master-data", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/processes", label: "Processes", icon: "process", group: "engineering", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/stations", label: "Stations", icon: "factory", group: "engineering", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/bom", label: "BOM", icon: "list", group: "engineering", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/templates", label: "Label Templates", icon: "measure", group: "engineering", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/readiness", label: "Readiness Validator", icon: "survey", group: "engineering", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/material-requests", label: "Material Requests", icon: "request", group: "operations", roles: ["ADMIN", "STORE"] },
+  { to: "/admin/inventory-do", label: "Delivery Orders (DO)", icon: "document", group: "operations", roles: ["ADMIN", "STORE"] },
+  { to: "/admin/vendor-pack-detail", label: "Vendor Pack Detail", icon: "customer-and-contacts", group: "operations", roles: ["ADMIN", "STORE"] },
+  { to: "/admin/inbound-packs", label: "Inbound Vendor Packs", icon: "shipping-status", group: "operations", roles: ["ADMIN", "STORE"] },
+  { to: "/admin/machines", label: "Machines", icon: "machine", group: "operations", roles: ["ADMIN", "PROCESS_ENGINEER"] },
+  { to: "/admin/devices", label: "Devices", icon: "laptop", group: "operations", roles: ["ADMIN"] },
+  { to: "/admin/recovery", label: "Set Recovery", icon: "wrench", group: "operations", roles: ["ADMIN"] },
+  { to: "/admin/approvals", label: "Workflow Approvals", icon: "approvals", group: "governance", roles: ["ADMIN"] },
+  { to: "/admin/heartbeat", label: "Device Heartbeat", icon: "heart", group: "governance", roles: ["ADMIN"] },
+  { to: "/admin/system-health", label: "System Health", icon: "sys-monitor", group: "governance", roles: ["ADMIN"] },
+  { to: "/admin/audit-logs", label: "Audit Logs", icon: "history", group: "governance", roles: ["ADMIN"] },
 ];
 
 const stationNav: NavItem[] = [
@@ -141,7 +142,12 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
   // Filter navigation items based on role
   const nav =
     mode === "admin"
-      ? adminNav
+      ? adminNav.filter((item) => {
+          if (user?.roles?.includes("ADMIN")) return true; // Administrator sees everything
+          const neededRoles = (item as { roles?: string[] }).roles;
+          if (!neededRoles?.length) return false; // If no roles are set, hide for non-admins to be safe, or return true to make public. Currently set to hide.
+          return neededRoles.some((role) => user?.roles?.includes(role));
+        })
       : stationNav.filter((item) => {
           const neededRoles = (item as { roles?: string[] }).roles;
           if (!neededRoles?.length) return true;

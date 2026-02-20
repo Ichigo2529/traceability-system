@@ -188,3 +188,22 @@ export const routingSteps = pgTable(
   },
   (table) => [index("idx_routing_steps_routing_id").on(table.routingId)]
 );
+
+export const masterRoutingSteps = pgTable(
+  "master_routing_steps",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    stepCode: varchar("step_code", { length: 100 }).notNull().unique(),
+    description: text("description"),
+    isActive: boolean("is_active").default(true).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_master_routing_steps_active").on(table.isActive),
+  ]
+);

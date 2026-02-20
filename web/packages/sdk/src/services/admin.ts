@@ -29,6 +29,7 @@ import {
   MaterialRequest,
   MaterialRequestDetail,
   MaterialRequestItem,
+  MasterRoutingStep,
 } from "../types";
 
 export class AdminService {
@@ -324,6 +325,23 @@ export class AdminService {
 
   async deleteRoutingStep(modelId: string, revisionId: string, stepId: string): Promise<void> {
     return this.client.delete(`/admin/models/${modelId}/revisions/${revisionId}/routing/${stepId}`);
+  }
+
+  // Master Routing Steps
+  async getMasterRoutingSteps(): Promise<MasterRoutingStep[]> {
+    return this.client.get<MasterRoutingStep[]>("/admin/master-routing-steps");
+  }
+
+  async createMasterRoutingStep(data: { step_code: string; description?: string; is_active?: boolean }): Promise<MasterRoutingStep> {
+    return this.client.post<MasterRoutingStep>("/admin/master-routing-steps", data);
+  }
+
+  async updateMasterRoutingStep(id: string, data: Partial<{ step_code: string; description: string; is_active: boolean }>): Promise<MasterRoutingStep> {
+    return this.client.put<MasterRoutingStep>(`/admin/master-routing-steps/${id}`, data);
+  }
+
+  async deleteMasterRoutingStep(id: string): Promise<void> {
+    return this.client.delete(`/admin/master-routing-steps/${id}`);
   }
 
   // Readiness Validator

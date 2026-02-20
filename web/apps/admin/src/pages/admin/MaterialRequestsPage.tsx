@@ -1,153 +1,38 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
-import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail, MaterialRequestIssueOptionsResponse } from "@traceability/sdk";
-import { useAuth } from "../../context/AuthContext";
+import { MaterialRequest } from "@traceability/sdk";
 import { DataTable } from "../../components/shared/DataTable";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
-import { formatDate, formatDateTime } from "../../lib/datetime";
+import { formatDateTime } from "../../lib/datetime";
 import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
-import { useDelayedBusy } from "../../hooks/useDelayedBusy";
-import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
-import { IssueAllocationWorkbench } from "../../components/material/IssueAllocationWorkbench";
 import { PageLayout } from "@traceability/ui";
-import { useToast } from "../../hooks/useToast";
+import { useNavigate } from "react-router-dom";
 import {
   Button,
-  Input,
-  Select,
-  Option,
-  TextArea,
-  Label,
-  Title,
   FlexBox,
   FlexBoxAlignItems,
-  FlexBoxJustifyContent,
-  MessageStrip,
-  Table,
-  TableRow,
-  TableCell,
-  TableHeaderRow,
-  TableHeaderCell,
-  BusyIndicator,
-  Dialog,
-  Bar
 } from "@ui5/webcomponents-react";
-import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 
-import "@ui5/webcomponents-icons/dist/history.js";
 import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/navigation-left-arrow.js";
-import "@ui5/webcomponents-icons/dist/print.js";
-import "@ui5/webcomponents-icons/dist/accept.js";
-import "@ui5/webcomponents-icons/dist/decline.js";
-import "@ui5/webcomponents-icons/dist/paper-plane.js";
-import "@ui5/webcomponents-icons/dist/request.js";
 import "@ui5/webcomponents-icons/dist/show-edit.js";
-import "@ui5/webcomponents-icons/dist/comment.js";
+import "@ui5/webcomponents-icons/dist/request.js";
 
-
-import {
-  approveMaterialRequest,
-  createMaterialRequest,
-  getMaterialIssueOptions,
-  getMaterialRequestById,
-  getMaterialRequestCatalog,
-  getMaterialRequestNextNumbers,
-  getMaterialRequests,
-  issueMaterialRequestWithAllocation,
-  rejectMaterialRequest,
-} from "../../lib/material-api";
-import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
-
-// ... existing types ...
-
-type LineForm = {
-  item_no: number;
-  model_id: string;
-  part_number: string;
-  description: string;
-  requested_qty?: number;
-  uom: string;
-  remarks: string;
-};
-
-function blankLine(itemNo: number): LineForm {
-  return {
-    item_no: itemNo,
-    model_id: "",
-    part_number: "",
-    description: "",
-    requested_qty: undefined,
-    uom: "PCS",
-    remarks: "",
-  };
-}
+import { getMaterialRequests } from "../../lib/material-api";
 
 export default function MaterialRequestsPage() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [selectedCostCenterId, setSelectedCostCenterId] = useState("");
-  const [headerRemarks, setHeaderRemarks] = useState("");
-  const [lines, setLines] = useState<LineForm[]>([blankLine(1)]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [openDetails, setOpenDetails] = useState(false);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-  const [confirmIssueOpen, setConfirmIssueOpen] = useState(false);
-  const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-  const { showToast, ToastComponent } = useToast();
-  const { meta, sectionNotSet } = useMaterialRequestMeta();
-  const defaultSetRef = useRef(false);
-
-  // Pre-select default cost center once meta loads
-  useEffect(() => {
-    if (meta?.default_cost_center_id && !defaultSetRef.current) {
-      setSelectedCostCenterId(meta.default_cost_center_id);
-      defaultSetRef.current = true;
-    }
-  }, [meta?.default_cost_center_id]);
+  const navigate = useNavigate();
 
   const requestsQuery = useQuery({
     queryKey: ["admin-material-requests"],
     queryFn: () => getMaterialRequests(),
   });
 
-  const detailsQuery = useQuery<MaterialRequestDetail>({
-    queryKey: ["admin-material-request", selectedId],
-    queryFn: () => getMaterialRequestById(selectedId!),
-    enabled: Boolean(selectedId),
-  });
-  const issueOptionsQuery = useQuery<MaterialRequestIssueOptionsResponse>({
-    queryKey: ["admin-material-request-issue-options", selectedId],
-    queryFn: () => getMaterialIssueOptions(selectedId!),
-    enabled:
-      Boolean(selectedId) &&
-      openDetails &&
-      (detailsQuery.data?.status === "REQUESTED" || detailsQuery.data?.status === "APPROVED"),
-  });
-  const workbench = useIssueAllocationWorkbench(issueOptionsQuery.data);
-
-  const catalogQuery = useQuery({
-    queryKey: ["material-request-catalog-admin"],
-    queryFn: getMaterialRequestCatalog,
-  });
-
-  const nextNumbersQuery = useQuery({
-    queryKey: ["material-request-next-numbers-admin"],
-    queryFn: getMaterialRequestNextNumbers,
-    refetchOnWindowFocus: true,
-  });
-
   const realtimeQueryKeys = useMemo(
     () => [
       ["admin-material-requests"],
-      ["admin-material-request"],
       ["material-request-next-numbers-admin"],
     ],
     []
@@ -157,194 +42,6 @@ export default function MaterialRequestsPage() {
     enabled: true,
     queryKeys: realtimeQueryKeys,
   });
-  
-  useEffect(() => {
-    if (!openDetails) {
-      workbench.reset();
-      return;
-    }
-  }, [openDetails, workbench.reset]);
-
-  const modelOptions = useMemo(() => {
-    const map = new Map<string, { model_id: string; model_code: string; model_name: string }>();
-    for (const row of catalogQuery.data ?? []) {
-      if (!map.has(row.model_id)) {
-        map.set(row.model_id, {
-          model_id: row.model_id,
-          model_code: row.model_code,
-          model_name: row.model_name,
-        });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => a.model_code.localeCompare(b.model_code));
-  }, [catalogQuery.data]);
-
-  const componentOptionsByModel = useMemo(() => {
-    const mapByModel = new Map<string, Map<string, MaterialRequestCatalogItem>>();
-    for (const row of catalogQuery.data ?? []) {
-      const modelId = row.model_id;
-      if (!mapByModel.has(modelId)) mapByModel.set(modelId, new Map<string, MaterialRequestCatalogItem>());
-      const map = mapByModel.get(modelId)!;
-      const key = String(row.part_number).toUpperCase();
-      if (!key) continue;
-      if (!map.has(key)) map.set(key, row);
-    }
-    const result = new Map<string, MaterialRequestCatalogItem[]>();
-    for (const [modelId, itemMap] of mapByModel.entries()) result.set(modelId, Array.from(itemMap.values()));
-    return result;
-  }, [catalogQuery.data]);
-
-  const catalogByModelPart = useMemo(() => {
-    const map = new Map<string, MaterialRequestCatalogItem>();
-    for (const row of catalogQuery.data ?? []) {
-      const key = `${row.model_id}|${String(row.part_number).toUpperCase()}`;
-      if (!map.has(key)) map.set(key, row);
-    }
-    return map;
-  }, [catalogQuery.data]);
-
-  const sectionDisplay = meta?.section
-    ? `${meta.section.section_name} (${meta.section.section_code})`
-    : `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`;
-  const hasInvalidRequestedQty = lines
-    .filter((line) => line.part_number.trim().length > 0)
-    .some((line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
-
-  const createMutation = useMutation({
-    mutationFn: () => {
-      const requestedLines = lines.filter((line) => line.part_number.trim().length > 0);
-      if (!requestedLines.length) {
-        throw new Error("At least one component line is required");
-      }
-      const modelIds = Array.from(new Set(requestedLines.map((line) => line.model_id).filter(Boolean)));
-      if (modelIds.length !== 1) {
-        throw new Error("Each voucher must use one model only");
-      }
-      const invalidQtyLine = requestedLines.find(
-        (line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0
-      );
-      if (invalidQtyLine) {
-        throw new Error(`Requested quantity must be greater than 0 for part ${invalidQtyLine.part_number}`);
-      }
-      return createMaterialRequest({
-        request_no: nextNumbersQuery.data?.request_no,
-        dmi_no: nextNumbersQuery.data?.dmi_no,
-        request_date: nextNumbersQuery.data?.request_date,
-        model_id: modelIds[0],
-        cost_center_id: selectedCostCenterId || undefined,
-        remarks: headerRemarks || undefined,
-        items: requestedLines
-          .map((line, idx) => ({
-            item_no: idx + 1,
-            part_number: line.part_number.trim().toUpperCase(),
-            description: line.description || undefined,
-            requested_qty: line.requested_qty,
-            uom: line.uom || "PCS",
-            remarks: line.remarks || undefined,
-          })),
-      });
-    },
-    onSuccess: async (created) => {
-      setLines([blankLine(1)]);
-      setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
-      setHeaderRemarks("");
-      showToast(`Request submitted: ${created.request_no}${created.dmi_no ? ` (${created.dmi_no})` : ""}`);
-      await queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
-      await queryClient.invalidateQueries({ queryKey: ["material-request-next-numbers-admin"] });
-      setCreateDialogOpen(false);
-    },
-    onError: (err: any) => {
-      const code = err?.error_code;
-      if (code === "SECTION_NOT_SET") {
-        showToast("Error: Your user has no section assigned. Contact an administrator.");
-      } else if (code === "COST_CENTER_DEFAULT_NOT_SET") {
-        showToast("Error: No default cost center set for your section. Contact an administrator.");
-      } else if (code === "INVALID_COST_CENTER") {
-        showToast("Error: Selected cost center is not allowed for your section.");
-        setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
-      } else {
-        showToast(err.message || "Failed to create request");
-      }
-    }
-  });
-
-  const approveMutation = useMutation({
-    mutationFn: (id: string) => approveMaterialRequest(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
-      showToast("Material request approved");
-    },
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason?: string }) => rejectMaterialRequest(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
-      showToast("Material request rejected");
-    },
-  });
-
-  const issueMutation = useMutation({
-    mutationFn: ({
-      id,
-      remarks,
-      allocations,
-    }: {
-      id: string;
-      remarks?: string;
-      allocations: Array<{
-        item_id: string;
-        part_number: string;
-        do_number: string;
-        vendor_id?: string;
-        issued_packs: number;
-        issued_qty: number;
-        vendor_pack_size: number;
-        remarks?: string;
-      }>;
-    }) =>
-      issueMaterialRequestWithAllocation(id, {
-        remarks,
-        allocations,
-      }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-material-request"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-material-request-issue-options"] });
-      showToast("Material issued successfully");
-    },
-  });
-
-  const updateLine = (index: number, patch: Partial<LineForm>) => {
-    setLines((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-  };
-
-  const onModelChange = (index: number, modelId: string) => {
-    updateLine(index, {
-      model_id: modelId,
-      part_number: "",
-      description: "",
-      uom: "PCS",
-    });
-  };
-
-  const onPartNumberChange = (index: number, partNo: string) => {
-    const key = partNo.toUpperCase();
-    const modelId = lines[index]?.model_id || "";
-    const model = catalogByModelPart.get(`${modelId}|${key}`);
-    updateLine(index, {
-      part_number: key,
-      description:
-        [
-          model?.component_name || model?.model_name || "",
-          model?.rm_location ? `Loc ${model.rm_location}` : "",
-          model?.qty_per_assy ? `Use ${model.qty_per_assy}/VCM` : "",
-        ]
-          .filter(Boolean)
-          .join(" | ") || "",
-      uom: model?.uom_default ?? "PCS",
-    });
-  };
 
   const columns = useMemo<ColumnDef<MaterialRequest>[]>(
     () => [
@@ -369,10 +66,7 @@ export default function MaterialRequestsPage() {
           <Button
             icon="show-edit"
             design="Transparent"
-            onClick={() => {
-              setSelectedId(row.original.id);
-              setOpenDetails(true);
-            }}
+            onClick={() => navigate(`/admin/material-requests/${row.original.id}`)}
             tooltip="View Details"
             aria-label="View Details"
           >
@@ -381,24 +75,10 @@ export default function MaterialRequestsPage() {
         ),
       },
     ],
-    [detailsQuery.data?.id, detailsQuery.data?.status, openDetails]
+    [navigate]
   );
 
-  const anyError =
-    requestsQuery.error ??
-    catalogQuery.error ??
-    nextNumbersQuery.error ??
-    createMutation.error ??
-    approveMutation.error ??
-    rejectMutation.error ??
-    issueMutation.error ??
-    detailsQuery.error ??
-    issueOptionsQuery.error;
-    
-  const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
-
-  // Removed TabKey effect
-
+  const anyError = requestsQuery.error;
 
   return (
     <PageLayout
@@ -412,334 +92,26 @@ export default function MaterialRequestsPage() {
       icon="request"
       iconColor="blue"
     >
-      <div className="page-container">
+      <div className="page-container motion-safe:animate-fade-in">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
         
-        {openDetails ? (
-           <div className="motion-safe:animate-panel-slide-in-left">
-                <div style={{ padding: "1rem" }}>
-                    <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center} style={{ marginBottom: "1rem" }}>
-                        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                            <Button icon="navigation-left-arrow" className="button-hover-scale" design="Transparent" onClick={() => { setOpenDetails(false); setSelectedId(null); }}>Back</Button>
-                            <Title level="H4">Material Request Detail {detailsQuery.data?.request_no ? `- ${detailsQuery.data.request_no}` : ""}</Title>
-                        </FlexBox>
-                        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                            <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-                            {detailsQuery.data?.status === "ISSUED" && (
-                              <Button 
-                                icon="print" 
-                                className="button-hover-scale" 
-                                design="Transparent" 
-                                onClick={() => window.print()}
-                                tooltip="Print Voucher"
-                                aria-label="Print Voucher"
-                              >
-                                Print
-                              </Button>
-                            )}
-                        </FlexBox>
-                    </FlexBox>
-
-                    {showDetailsLoading ? (
-                        <BusyIndicator active text="Loading details..." />
-                    ) : detailsQuery.data ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                            <MaterialRequestVoucherView detail={detailsQuery.data} />
-                            
-                            {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-                                 <IssueAllocationWorkbench
-                                   issueOptions={issueOptionsQuery.data}
-                                   isLoading={issueOptionsQuery.isLoading}
-                                   issueRemarks={workbench.issueRemarks}
-                                   onIssueRemarksChange={workbench.setIssueRemarks}
-                                   manualAllocations={workbench.manualAllocations}
-                                   setManualAllocations={workbench.setManualAllocations}
-                                   allocationTotalsByItem={workbench.allocationTotalsByItem}
-                                   addAllocationLine={workbench.addAllocationLine}
-                                   issueValidationError={workbench.issueValidationError}
-                                 />
-                            )}
-
-                            {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-                                <FlexBox justifyContent={FlexBoxJustifyContent.End} style={{ gap: "0.5rem", padding: "1rem", background: "var(--sapObjectHeader_Background)" }}>
-                                    {detailsQuery.data.status === "REQUESTED" && (
-                                        <Button 
-                                           icon="decline" 
-                                           design="Negative" 
-                                           className="button-hover-scale"
-                                           onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
-                                           disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
-                                        >
-                                           Reject
-                                        </Button>
-                                    )}
-                                    <Button
-                                       icon="accept"
-                                       design="Positive"
-                                       className="button-hover-scale"
-                                       onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
-                                       disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
-                                    >
-                                       {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
-                                    </Button>
-                                </FlexBox>
-                            )}
-                        </div>
-                    ) : (
-                        <Label>No details loaded.</Label>
-                    )}
-                </div>
-           </div>
-       ) : (
-           <DataTable 
-               data={requestsQuery.data ?? []} 
-               columns={columns} 
-               loading={requestsQuery.isLoading}
-               filterPlaceholder="Search request no., section, cost center..." 
-               actions={
-                   <Button
-                       icon="add"
-                       design="Emphasized"
-                       className="button-hover-scale"
-                        onClick={() => {
-                            setLines([blankLine(1)]);
-                            setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
-                            setHeaderRemarks("");
-                            setCreateDialogOpen(true);
-                        }}
-                   >
-                       New Request
-                   </Button>
-               }
-           />
-       )}
+        <DataTable 
+            data={requestsQuery.data ?? []} 
+            columns={columns} 
+            loading={requestsQuery.isLoading}
+            filterPlaceholder="Search request no., section, cost center..." 
+            actions={
+                <Button
+                    icon="add"
+                    design="Emphasized"
+                    className="button-hover-scale"
+                    onClick={() => navigate("/admin/material-requests/new")}
+                >
+                    New Request
+                </Button>
+            }
+        />
       </div>
-
-      {/* Create Request Dialog */}
-      <Dialog
-        open={createDialogOpen}
-        headerText="New Material Request"
-        stretch
-        footer={
-            <Bar
-                endContent={
-                    <>
-                        <Button onClick={() => setCreateDialogOpen(false)} design="Transparent">Cancel</Button>
-                        <Button
-                            design="Emphasized"
-                            onClick={() => setConfirmSubmitOpen(true)}
-                            disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty || sectionNotSet}
-                        >
-                            {createMutation.isPending ? "Submitting..." : "Submit Request"}
-                        </Button>
-                    </>
-                }
-            />
-        }
-      >
-        <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem", height: "100%" }}>
-             {sectionNotSet ? (
-               <MessageStrip design="Critical" hideCloseButton style={{ marginBottom: "0.5rem" }}>
-                 Your user account has no section assigned. You cannot create requests.
-               </MessageStrip>
-             ) : null}
-             {/* Header Info - Simplified for Dialog */}
-             <div style={{ padding: "0.75rem 1rem", background: "var(--sapObjectHeader_Background)", border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
-                 <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} wrap="Wrap" style={{ gap: "1rem" }}>
-                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                         <Label style={{ fontWeight: "bold" }}>NO.:</Label>
-                         <Label style={{ color: "var(--sapNegativeColor)" }}>
-                            {nextNumbersQuery.data?.request_no ?? "-"}
-                         </Label>
-                     </FlexBox>
-                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                         <Label style={{ fontWeight: "bold" }}>DMI. NO.:</Label>
-                         <Label style={{ color: "var(--sapNegativeColor)" }}>
-                            {nextNumbersQuery.data?.dmi_no ?? "-"}
-                         </Label>
-                     </FlexBox>
-                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                         <Label style={{ fontWeight: "bold" }}>DATE:</Label>
-                         <Label>
-                            {formatDate(nextNumbersQuery.data?.generated_at ?? new Date().toISOString())}
-                         </Label>
-                     </FlexBox>
-                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                         <Label style={{ fontWeight: "bold" }}>SECTION:</Label>
-                         <Label>
-                            {sectionDisplay || "-"}
-                         </Label>
-                     </FlexBox>
-                     <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem", flexGrow: 1, minWidth: "200px" }}>
-                         <Label showColon required for="admin-cc-select" style={{ fontWeight: "bold" }}>COST CENTER:</Label>
-                         <Select
-                             id="admin-cc-select"
-                             disabled={sectionNotSet}
-                             onChange={(e) => setSelectedCostCenterId(e.detail.selectedOption.getAttribute("data-value") ?? "")}
-                             style={{ flex: 1 }}
-                         >
-                             <Option data-value="" selected={!selectedCostCenterId}>Select Cost Center</Option>
-                             {(meta?.allowed_cost_centers ?? []).map((cc) => (
-                                 <Option
-                                     key={cc.cost_center_id}
-                                     data-value={cc.cost_center_id}
-                                     selected={selectedCostCenterId === cc.cost_center_id}
-                                 >
-                                     {cc.group_code ? `${cc.group_code} | ` : ""}{cc.cost_code}{cc.short_text ? ` — ${cc.short_text}` : ""}
-                                 </Option>
-                             ))}
-                         </Select>
-                     </FlexBox>
-                 </FlexBox>
-             </div>
-
-             {/* Items Table - Using UI5 Table */}
-             <div style={{ flex: 1, overflow: "auto" }}>
-                 <Table
-                    headerRow={
-                        <TableHeaderRow>
-                            <TableHeaderCell minWidth="3rem"><Label>Item</Label></TableHeaderCell>
-                            <TableHeaderCell minWidth="12rem"><Label>Model</Label></TableHeaderCell>
-                            <TableHeaderCell minWidth="14rem"><Label>Part No.</Label></TableHeaderCell>
-                            <TableHeaderCell minWidth="12rem"><Label>Description</Label></TableHeaderCell>
-                            <TableHeaderCell minWidth="6rem"><Label>Qty</Label></TableHeaderCell>
-                            <TableHeaderCell minWidth="4rem"><Label>UOM</Label></TableHeaderCell>
-                            <TableHeaderCell minWidth="8rem"><Label>Remarks</Label></TableHeaderCell>
-                        </TableHeaderRow>
-                    }
-                 >
-                     {lines.map((line, idx) => (
-                         <TableRow key={idx}>
-                             <TableCell><Label>{idx + 1}</Label></TableCell>
-                             <TableCell>
-                                 <Select 
-                                    onChange={(e) => {
-                                        const selected = e.detail.selectedOption as unknown as { value: string };
-                                        onModelChange(idx, selected.value);
-                                    }}
-                                    value={line.model_id}
-                                    style={{ width: "100%" }}
-                                 >
-                                     <Option value="">Select Model</Option>
-                                     {modelOptions.map((model) => (
-                                         <Option key={model.model_id} value={model.model_id}>{model.model_code}</Option>
-                                     ))}
-                                 </Select>
-                             </TableCell>
-                             <TableCell>
-                                 <Select 
-                                     onChange={(e) => {
-                                        const selected = e.detail.selectedOption as unknown as { value: string };
-                                        onPartNumberChange(idx, selected.value);
-                                    }}
-                                    value={line.part_number}
-                                    disabled={!line.model_id}
-                                    style={{ width: "100%" }}
-                                 >
-                                     <Option value="">{line.model_id ? "Select Component" : "Select model"}</Option>
-                                     {(componentOptionsByModel.get(line.model_id) ?? []).map((item) => (
-                                         <Option key={`${item.model_id}-${item.part_number}`} value={item.part_number}>
-                                             {item.part_number} {item.component_name ? `- ${item.component_name}` : ""}
-                                         </Option>
-                                     ))}
-                                 </Select>
-                             </TableCell>
-                             <TableCell>
-                                 <Label wrappingType="Normal">{line.description || "-"}</Label>
-                             </TableCell>
-                             <TableCell>
-                                 <Input 
-                                    type="Number"
-                                    value={line.requested_qty?.toString() ?? ""}
-                                    onInput={(e) => updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined })}
-                                    style={{ width: "100%", textAlign: "right" }}
-                                 />
-                             </TableCell>
-                             <TableCell>
-                                 <Label>{line.uom || "PCS"}</Label>
-                             </TableCell>
-                             <TableCell>
-                                 <Input 
-                                    value={line.remarks}
-                                    onInput={(e) => updateLine(idx, { remarks: e.target.value })}
-                                    style={{ width: "100%" }}
-                                 />
-                             </TableCell>
-                         </TableRow>
-                     ))}
-                 </Table>
-             </div>
-
-             <FlexBox style={{ gap: "0.5rem" }}>
-                 <Button icon="add" className="button-hover-scale" onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}>Add Item</Button>
-                 <Button icon="delete" design="Transparent" onClick={() => setLines((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)))}>Remove Last</Button>
-             </FlexBox>
-        </div>
-      </Dialog>
-      
-      {/* Confirm Dialogs */}
-      <ConfirmDialog
-        open={confirmSubmitOpen}
-        title="Confirm Submit Request"
-        description="Are you sure you want to submit this material request now?"
-        confirmText="Submit"
-        submitting={createMutation.isPending}
-        onCancel={() => setConfirmSubmitOpen(false)}
-        onConfirm={() => createMutation.mutate()}
-      />
-
-      <ConfirmDialog
-           open={confirmIssueOpen}
-           title={detailsQuery.data?.status === "REQUESTED" ? "Confirm Approve & Issue" : "Confirm Issue Material"}
-           description={detailsQuery.data?.status === "REQUESTED" ? "Approve and issue this request now?" : "Issue this approved request now?"}
-           confirmText="Issue"
-           submitting={issueMutation.isPending || approveMutation.isPending}
-           onCancel={() => setConfirmIssueOpen(false)}
-           onConfirm={() => {
-               if (detailsQuery.data) {
-                   issueMutation.mutate({
-                     id: detailsQuery.data.id,
-                     remarks: workbench.issueRemarks || undefined,
-                     allocations: workbench.buildAllocationsPayload(),
-                   }, {
-                     onSuccess: () => setConfirmIssueOpen(false)
-                   });
-               }
-           }}
-      />
-
-      <ConfirmDialog
-          open={confirmRejectOpen}
-          title="Reject Request"
-          description="Please specify the reason for rejecting this material request."
-          confirmText="Reject"
-          destructive
-          submitting={rejectMutation.isPending}
-          onCancel={() => {
-            setConfirmRejectOpen(false);
-            setRejectReason("");
-          }}
-          onConfirm={() => {
-              if (!detailsQuery.data) return;
-              rejectMutation.mutate({ id: detailsQuery.data.id, reason: rejectReason.trim() || undefined }, {
-                onSuccess: () => {
-                  setConfirmRejectOpen(false);
-                  setRejectReason("");
-                }
-              });
-          }}
-      >
-           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.5rem 0" }}>
-                <TextArea
-                    value={rejectReason}
-                    onInput={(e) => setRejectReason(e.target.value)}
-                    rows={3}
-                    placeholder="Enter reason for rejection..."
-                    style={{ width: "100%" }}
-                />
-           </div>
-      </ConfirmDialog>
-      <ToastComponent />
     </PageLayout>
   );
 }

@@ -39,24 +39,25 @@ export function FormDialog({
       style={{ width: width || "800px", ...{ "--_ui5_dialog_content_height": "auto" } as any }}
       state={description ? "Information" : "None"}
       footer={
-        <Bar
-          design="Footer"
-          slot="footer"
-          endContent={
-            footer ? (
-              footer
-            ) : (
-              <>
-                <Button design="Transparent" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button design="Emphasized" onClick={onSubmit} disabled={submitting}>
-                  {submitting ? "Saving..." : submitText}
-                </Button>
-              </>
-            )
-          }
-        />
+        <div slot="footer">
+          <Bar
+            design="Footer"
+            endContent={
+              (footer ? (
+                footer
+              ) : (
+                <>
+                  <Button design="Transparent" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  <Button design="Emphasized" onClick={onSubmit} disabled={submitting}>
+                    {submitting ? "Saving..." : submitText}
+                  </Button>
+                </>
+              )) as any
+            }
+          />
+        </div>
       }
     >
       {open && (

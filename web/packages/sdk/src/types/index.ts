@@ -226,6 +226,15 @@ export interface ComponentType {
   updated_at?: string;
 }
 
+export interface MasterRoutingStep {
+  id: string;
+  step_code: string;
+  description?: string | null;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface PartNumberMaster {
   id: string;
   part_number: string;

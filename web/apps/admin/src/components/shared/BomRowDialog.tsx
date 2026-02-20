@@ -10,6 +10,7 @@ const bomSchema = z.object({
   component_name: z.string().min(1, "Component name is required"),
   component_unit_type: z.string().min(1, "Component unit type is required"),
   component_part_number: z.string().optional(),
+  rm_location: z.string().optional(),
   qty_per_assy: z.coerce.number().int().positive(),
   required: z.boolean().default(true),
 });
@@ -21,6 +22,7 @@ function toDefaultValues(row?: BomRow | null): BomRowForm {
     component_name: row?.component_name || row?.component_unit_type || "",
     component_unit_type: row?.component_unit_type || "",
     component_part_number: row?.component_part_number || "",
+    rm_location: row?.rm_location || "",
     qty_per_assy: row?.qty_per_assy ?? 1,
     required: row?.required ?? true,
   };
