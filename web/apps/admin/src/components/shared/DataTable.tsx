@@ -51,6 +51,7 @@ export function DataTable<TData>({
   hideToolbar,
   actions,
   loading,
+  hideEmptyState,
 }: {
   data: TData[];
   columns: ColumnDef<TData>[];
@@ -62,6 +63,7 @@ export function DataTable<TData>({
   hideToolbar?: boolean;
   actions?: React.ReactNode;
   loading?: boolean;
+  hideEmptyState?: boolean;
 }) {
   const [internalGlobalFilter, setInternalGlobalFilter] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({
@@ -143,7 +145,7 @@ export function DataTable<TData>({
       )}
 
       {/* ── Table ────────────────────────────────────────────────────────── */}
-      <div style={{ overflow: "auto" }}>
+      <div style={{ overflowX: "auto", overflowY: "visible" }}>
         <Table
           headerRow={
             <TableHeaderRow>
@@ -233,7 +235,7 @@ export function DataTable<TData>({
             ))
           ) : null}
         </Table>
-        {!loading && table.getRowModel().rows.length === 0 && (
+        {!loading && !hideEmptyState && table.getRowModel().rows.length === 0 && (
           <div style={{ padding: "4rem 1rem", display: "flex", justifyContent: "center" }}>
             <EmptyState
               title="No records found"

@@ -1,9 +1,6 @@
 import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { ColumnDef } from "@tanstack/react-table";
 import { sdk } from "../context/AuthContext";
 import { RevisionStatus, Variant, BomRow, RoutingStep, LabelBinding, LabelTemplate } from "@traceability/sdk";
@@ -11,26 +8,23 @@ import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { DataTable } from "../components/shared/DataTable";
 import {
-  Bar,
   Button,
-  Dialog,
   FlexBox,
   FlexBoxAlignItems,
   FlexBoxDirection,
   Label,
-  Input,
-  Select,
-  Option,
   TabContainer,
   Tab,
   ObjectStatus,
-  CheckBox,
   BusyIndicator,
   MessageStrip,
 } from "@ui5/webcomponents-react";
 import { PageLayout } from "@traceability/ui";
 import { BomRowDialog, BomRowForm } from "../components/shared/BomRowDialog";
 import { ConfirmDialog } from "../components/shared/ConfirmDialog";
+import { VariantDialog, VariantForm } from "../components/shared/VariantDialog";
+import { RoutingDialog, RoutingForm } from "../components/shared/RoutingDialog";
+import { BindingDialog, BindingForm } from "../components/shared/BindingDialog";
 import "@ui5/webcomponents-icons/dist/nav-back.js";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
@@ -40,28 +34,7 @@ import "@ui5/webcomponents-icons/dist/shipping-status.js";
 import "@ui5/webcomponents-icons/dist/list.js";
 import "@ui5/webcomponents-icons/dist/chain-link.js";
 
-const variantSchema = z.object({
-  code: z.string().min(1),
-  description: z.string().optional(),
-  is_default: z.boolean().default(false),
-});
-type VariantForm = z.infer<typeof variantSchema>;
-
-const routingSchema = z.object({
-  step_code: z.string().min(1),
-  sequence: z.coerce.number().int().positive(),
-  mandatory: z.boolean().default(true),
-  description: z.string().optional(),
-  component_type: z.string().optional(),
-});
-type RoutingForm = z.infer<typeof routingSchema>;
-
-const bindingSchema = z.object({
-  unit_type: z.string().min(1),
-  process_point: z.string().min(1),
-  label_template_id: z.string().min(1),
-});
-type BindingForm = z.infer<typeof bindingSchema>;
+// Schemas and types moved to shared component files
 
 export default function RevisionDetailsPage() {
   const { id: modelId, revisionId } = useParams<{ id: string; revisionId: string }>();
@@ -129,18 +102,23 @@ export default function RevisionDetailsPage() {
     queryFn: () => sdk.admin.getPartNumbers(),
   });
 
-  const variantForm = useForm<VariantForm>({
-    resolver: zodResolver(variantSchema),
-    defaultValues: { code: "", description: "", is_default: false },
-  });
-  const routingForm = useForm<RoutingForm>({
-    resolver: zodResolver(routingSchema),
-    defaultValues: { step_code: "", sequence: 1, mandatory: true, description: "", component_type: "" },
-  });
-  const bindingForm = useForm<BindingForm>({
-    resolver: zodResolver(bindingSchema),
-    defaultValues: { unit_type: "FOF_TRAY_20", process_point: "POST_FVMI_LABEL", label_template_id: "" },
-  });
+  const usedPartNumbers = useMemo(() => 
+    new Set(bom.map(row => row.component_part_number).filter(Boolean)),
+    [bom]
+  );
+
+  const filteredPartNumbers = useMemo(() => {
+    return partNumbers.filter(pn => {
+      // If adding new row: hide if already used
+      // If editing row: show if it's the current row's part number OR not used yet
+      if (!editingBomRow) {
+        return !usedPartNumbers.has(pn.part_number);
+      }
+      return !usedPartNumbers.has(pn.part_number) || pn.part_number === editingBomRow.component_part_number;
+    });
+  }, [partNumbers, usedPartNumbers, editingBomRow]);
+
+  // State handled in dialog components
 
   const isReadOnly = revision?.status !== RevisionStatus.DRAFT;
 
@@ -375,7 +353,6 @@ export default function RevisionDetailsPage() {
               onClick={(e) => {
                 e.stopPropagation();
                 setEditingVariant(v);
-                variantForm.reset({ code: v.code, description: v.description || "", is_default: Boolean(v.is_default) });
                 setVariantDialogOpen(true);
               }}
               icon="edit"
@@ -496,13 +473,6 @@ export default function RevisionDetailsPage() {
               onClick={(e) => {
                 e.stopPropagation();
                 setEditingRouting(r);
-                routingForm.reset({
-                  step_code: r.step_code,
-                  sequence: r.sequence,
-                  mandatory: r.mandatory,
-                  description: r.description || "",
-                  component_type: r.component_type || "",
-                });
                 setRoutingDialogOpen(true);
               }}
               icon="edit"
@@ -551,11 +521,6 @@ export default function RevisionDetailsPage() {
               onClick={(e) => {
                 e.stopPropagation();
                 setEditingBinding(b);
-                bindingForm.reset({
-                  unit_type: b.unit_type,
-                  process_point: b.process_point,
-                  label_template_id: b.label_template_id,
-                });
                 setBindingDialogOpen(true);
               }}
               icon="edit"
@@ -618,45 +583,53 @@ export default function RevisionDetailsPage() {
       icon="product"
       iconColor="indigo"
     >
-      <div className="page-container" style={{ paddingRight: "2rem", paddingBottom: "2rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-        {/* Toolbar row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Button icon="nav-back" design="Default" onClick={() => navigate(`/admin/models/${modelId}`)}>
-            Back to Revisions
-          </Button>
-          {isReadOnly && (
-            <ObjectStatus state="Positive" style={{ fontSize: "0.875rem" }}>
-              Read-only (ACTIVE)
-            </ObjectStatus>
-          )}
+      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div>
+            <ApiErrorBanner message={errorMessage} />
         </div>
 
-        <ApiErrorBanner message={errorMessage} />
-
-        <TabContainer onTabSelect={handleTabChange} contentBackgroundDesign="Transparent" style={{ marginTop: "0.25rem" }}>
+        <div style={{ position: "relative" }}>
+          {isReadOnly && (
+            <div className="tab-header-status">
+              <ObjectStatus state="Positive" style={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                Read-only (ACTIVE)
+              </ObjectStatus>
+            </div>
+          )}
+          <TabContainer 
+            onTabSelect={handleTabChange} 
+            contentBackgroundDesign="Transparent" 
+            tabLayout="Inline"
+            className="process-tabs"
+            style={{ marginTop: "0.25rem" }}
+          >
 
           {/* ── Variants ─────────────────────────────────────────────────────── */}
           <Tab text="Variants" icon="action" selected={tab === "variants"} data-key="variants">
-            <div style={{ padding: "1.5rem 0" }}>
+            <div key={tab} className="page-container tab-content-container">
               <DataTable
                 data={variants as Variant[]}
                 columns={variantColumns}
                 filterPlaceholder="Search variants…"
+                hideEmptyState={true}
                 actions={
-                  !isReadOnly ? (
-                    <Button
-                      icon="add"
-                      design="Emphasized"
-                      onClick={() => {
-                        setEditingVariant(null);
-                        variantForm.reset({ code: "", description: "", is_default: variants.length === 0 });
-                        setVariantDialogOpen(true);
-                      }}
-                    >
-                      Add Variant
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                      Back to Revisions
                     </Button>
-                  ) : undefined
+                    {!isReadOnly && (
+                      <Button
+                        icon="add"
+                        design="Emphasized"
+                        onClick={() => {
+                          setEditingVariant(null);
+                          setVariantDialogOpen(true);
+                        }}
+                      >
+                        Add Variant
+                      </Button>
+                    )}
+                  </div>
                 }
               />
             </div>
@@ -664,24 +637,30 @@ export default function RevisionDetailsPage() {
 
           {/* ── BOM ──────────────────────────────────────────────────────────── */}
           <Tab text="BOM" icon="shipping-status" selected={tab === "bom"} data-key="bom">
-            <div style={{ padding: "1.5rem 0" }}>
+            <div key={tab} className="page-container tab-content-container">
               <DataTable
                 data={bom as BomRow[]}
                 columns={bomColumns}
                 filterPlaceholder="Search BOM…"
+                hideEmptyState={true}
                 actions={
-                  !isReadOnly ? (
-                    <Button
-                      icon="add"
-                      design="Emphasized"
-                      onClick={() => {
-                        setEditingBomRow(null);
-                        setBomDialogOpen(true);
-                      }}
-                    >
-                      Add Row
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                      Back to Revisions
                     </Button>
-                  ) : undefined
+                    {!isReadOnly && (
+                      <Button
+                        icon="add"
+                        design="Emphasized"
+                        onClick={() => {
+                          setEditingBomRow(null);
+                          setBomDialogOpen(true);
+                        }}
+                      >
+                        Add Row
+                      </Button>
+                    )}
+                  </div>
                 }
               />
             </div>
@@ -689,31 +668,30 @@ export default function RevisionDetailsPage() {
 
           {/* ── Routing ──────────────────────────────────────────────────────── */}
           <Tab text="Routing" icon="list" selected={tab === "routing"} data-key="routing">
-            <div style={{ padding: "1.5rem 0" }}>
+            <div key={tab} className="page-container tab-content-container">
               <DataTable
                 data={routing as RoutingStep[]}
                 columns={routingColumns}
                 filterPlaceholder="Search steps…"
+                hideEmptyState={true}
                 actions={
-                  !isReadOnly ? (
-                    <Button
-                      icon="add"
-                      design="Emphasized"
-                      onClick={() => {
-                        setEditingRouting(null);
-                        routingForm.reset({
-                          step_code: "",
-                          sequence: routing.length + 1,
-                          mandatory: true,
-                          description: "",
-                          component_type: "",
-                        });
-                        setRoutingDialogOpen(true);
-                      }}
-                    >
-                      Add Step
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                      Back to Revisions
                     </Button>
-                  ) : undefined
+                    {!isReadOnly && (
+                      <Button
+                        icon="add"
+                        design="Emphasized"
+                        onClick={() => {
+                          setEditingRouting(null);
+                          setRoutingDialogOpen(true);
+                        }}
+                      >
+                        Add Step
+                      </Button>
+                    )}
+                  </div>
                 }
               />
             </div>
@@ -721,35 +699,37 @@ export default function RevisionDetailsPage() {
 
           {/* ── Bindings ─────────────────────────────────────────────────────── */}
           <Tab text="Bindings" icon="chain-link" selected={tab === "bindings"} data-key="bindings">
-            <div style={{ padding: "1.5rem 0" }}>
+            <div key={tab} className="page-container tab-content-container">
               <DataTable
                 data={bindings as LabelBinding[]}
                 columns={bindingColumns}
                 filterPlaceholder="Search bindings…"
+                hideEmptyState={true}
                 actions={
-                  !isReadOnly ? (
-                    <Button
-                      icon="add"
-                      design="Emphasized"
-                      onClick={() => {
-                        setEditingBinding(null);
-                        bindingForm.reset({
-                          unit_type: "FOF_TRAY_20",
-                          process_point: "POST_FVMI_LABEL",
-                          label_template_id: templates[0]?.id || "",
-                        });
-                        setBindingDialogOpen(true);
-                      }}
-                    >
-                      Add Binding
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                      Back to Revisions
                     </Button>
-                  ) : undefined
+                    {!isReadOnly && (
+                      <Button
+                        icon="add"
+                        design="Emphasized"
+                        onClick={() => {
+                          setEditingBinding(null);
+                          setBindingDialogOpen(true);
+                        }}
+                      >
+                        Add Binding
+                      </Button>
+                    )}
+                  </div>
                 }
               />
             </div>
           </Tab>
 
         </TabContainer>
+        </div>
       </div>
 
       {/* ── BOM Dialog ──────────────────────────────────────────────────────── */}
@@ -758,7 +738,7 @@ export default function RevisionDetailsPage() {
         row={editingBomRow}
         submitting={createBom.isPending || editBom.isPending}
         componentTypeOptions={componentTypes.map((ct) => ({ code: ct.code, name: ct.name }))}
-        partNumberOptions={partNumbers}
+        partNumberOptions={filteredPartNumbers}
         modelCode={model?.code}
         onClose={() => {
           setBomDialogOpen(false);
@@ -778,181 +758,54 @@ export default function RevisionDetailsPage() {
       />
 
       {/* ── Variant Dialog ───────────────────────────────────────────────────── */}
-      <Dialog
-        headerText={editingVariant ? "Edit Variant" : "Create Variant"}
+      <VariantDialog
         open={variantDialogOpen}
+        variant={editingVariant}
+        modelCode={model?.code}
+        submitting={createVariant.isPending || editVariant.isPending}
         onClose={() => {
           setVariantDialogOpen(false);
           setEditingVariant(null);
         }}
-        footer={
-          <Bar
-            endContent={
-              <>
-                <Button onClick={() => setVariantDialogOpen(false)}>Cancel</Button>
-                <Button
-                  design="Emphasized"
-                  onClick={() =>
-                    variantForm.handleSubmit((values) => {
-                      if (editingVariant) editVariant.mutate(values);
-                      else createVariant.mutate(values);
-                    })()
-                  }
-                  disabled={createVariant.isPending || editVariant.isPending}
-                >
-                  {createVariant.isPending || editVariant.isPending
-                    ? "Submitting…"
-                    : editingVariant ? "Save Changes" : "Create Variant"}
-                </Button>
-              </>
-            }
-          />
-        }
-      >
-        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "320px" }}>
-          <FlexBox direction={FlexBoxDirection.Column}>
-            <Label required>Variant Code</Label>
-            <Input {...variantForm.register("code")} placeholder="WITH_SHROUD" />
-          </FlexBox>
-          <FlexBox direction={FlexBoxDirection.Column}>
-            <Label>Description</Label>
-            <Input {...variantForm.register("description")} />
-          </FlexBox>
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-            <CheckBox
-              checked={variantForm.watch("is_default")}
-              onChange={(e) => variantForm.setValue("is_default", e.target.checked)}
-            />
-            <Label>Set as default variant</Label>
-          </FlexBox>
-        </FlexBox>
-      </Dialog>
+        onSubmit={(values) => {
+          if (editingVariant) editVariant.mutate({ ...values, id: editingVariant.id } as any);
+          else createVariant.mutate(values as any);
+        }}
+      />
 
       {/* ── Routing Dialog ───────────────────────────────────────────────────── */}
-      <Dialog
-        headerText={editingRouting ? "Edit Routing Step" : "Create Routing Step"}
+      <RoutingDialog
         open={routingDialogOpen}
+        step={editingRouting}
+        nextSequence={routing.length + 1}
+        modelCode={model?.code}
+        submitting={createRouting.isPending || editRouting.isPending}
         onClose={() => {
           setRoutingDialogOpen(false);
           setEditingRouting(null);
         }}
-        footer={
-          <Bar
-            endContent={
-              <>
-                <Button onClick={() => setRoutingDialogOpen(false)}>Cancel</Button>
-                <Button
-                  design="Emphasized"
-                  onClick={() =>
-                    routingForm.handleSubmit((values) => {
-                      if (editingRouting) editRouting.mutate(values);
-                      else createRouting.mutate(values);
-                    })()
-                  }
-                  disabled={createRouting.isPending || editRouting.isPending}
-                >
-                  {createRouting.isPending || editRouting.isPending
-                    ? "Submitting…"
-                    : editingRouting ? "Save Changes" : "Create Step"}
-                </Button>
-              </>
-            }
-          />
-        }
-      >
-        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "400px" }}>
-          <FlexBox style={{ gap: "1rem" }}>
-            <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
-              <Label required>Step Code</Label>
-              <Input {...routingForm.register("step_code")} placeholder="PRESS_FIT" />
-            </FlexBox>
-            <FlexBox direction={FlexBoxDirection.Column} style={{ width: "100px" }}>
-              <Label required>Sequence</Label>
-              <Input type="Number" {...routingForm.register("sequence")} />
-            </FlexBox>
-          </FlexBox>
-          <FlexBox direction={FlexBoxDirection.Column}>
-            <Label>Component Type</Label>
-            <Input {...routingForm.register("component_type")} placeholder="PIN430_JIG" />
-          </FlexBox>
-          <FlexBox direction={FlexBoxDirection.Column}>
-            <Label>Description</Label>
-            <Input {...routingForm.register("description")} />
-          </FlexBox>
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-            <CheckBox
-              checked={routingForm.watch("mandatory")}
-              onChange={(e) => routingForm.setValue("mandatory", e.target.checked)}
-            />
-            <Label>Mandatory step</Label>
-          </FlexBox>
-        </FlexBox>
-      </Dialog>
+        onSubmit={(values) => {
+          if (editingRouting) editRouting.mutate({ ...values, id: editingRouting.id } as any);
+          else createRouting.mutate(values as any);
+        }}
+      />
 
       {/* ── Binding Dialog ───────────────────────────────────────────────────── */}
-      <Dialog
-        headerText={editingBinding ? "Edit Label Binding" : "Create Label Binding"}
+      <BindingDialog
         open={bindingDialogOpen}
+        binding={editingBinding}
+        templates={templates}
+        modelCode={model?.code}
+        submitting={createBinding.isPending || editBinding.isPending}
         onClose={() => {
           setBindingDialogOpen(false);
           setEditingBinding(null);
         }}
-        footer={
-          <Bar
-            endContent={
-              <>
-                <Button onClick={() => setBindingDialogOpen(false)}>Cancel</Button>
-                <Button
-                  design="Emphasized"
-                  onClick={() =>
-                    bindingForm.handleSubmit((values) => {
-                      if (editingBinding) editBinding.mutate(values);
-                      else createBinding.mutate(values);
-                    })()
-                  }
-                  disabled={createBinding.isPending || editBinding.isPending}
-                >
-                  {createBinding.isPending || editBinding.isPending
-                    ? "Submitting…"
-                    : editingBinding ? "Save Changes" : "Create Binding"}
-                </Button>
-              </>
-            }
-          />
-        }
-      >
-        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1rem", gap: "1rem", width: "400px" }}>
-          <FlexBox style={{ gap: "1rem" }}>
-            <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
-              <Label required>Unit Type</Label>
-              <Input {...bindingForm.register("unit_type")} placeholder="FOF_TRAY_20" />
-            </FlexBox>
-            <FlexBox direction={FlexBoxDirection.Column} style={{ flex: 1 }}>
-              <Label required>Process Point</Label>
-              <Input {...bindingForm.register("process_point")} placeholder="POST_FVMI" />
-            </FlexBox>
-          </FlexBox>
-          <FlexBox direction={FlexBoxDirection.Column}>
-            <Label required>Label Template</Label>
-            <Select
-              value={bindingForm.watch("label_template_id")}
-              onChange={(e) =>
-                bindingForm.setValue("label_template_id", (e.target.selectedOption as any).value)
-              }
-            >
-              {templates.map((t: LabelTemplate) => (
-                <Option
-                  key={t.id}
-                  value={t.id}
-                  selected={bindingForm.watch("label_template_id") === t.id}
-                >
-                  {t.name}
-                </Option>
-              ))}
-            </Select>
-          </FlexBox>
-        </FlexBox>
-      </Dialog>
+        onSubmit={(values) => {
+          if (editingBinding) editBinding.mutate({ ...values, id: editingBinding.id } as any);
+          else createBinding.mutate(values as any);
+        }}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
