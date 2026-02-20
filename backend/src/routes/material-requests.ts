@@ -575,21 +575,27 @@ export async function resolveUserSectionMeta(currentUser: AccessTokenPayload) {
 
   if (!section) return null;
 
-  // Fetch allowed cost centers for this section
+  // Fetch the requesting user's department name (text field on users table)
+  const [requestUser] = await db
+    .select({ department: users.department })
+    .from(users)
+    .where(eq(users.id, currentUser.userId))
+    .limit(1);
+  const departmentName = requestUser?.department ?? null;
+
+  // Fetch allowed cost centers for this section (now via cost_centers.section_id direct FK)
   const allowedCostCenters = await db
     .select({
-      mapping_id: sectionCostCenters.id,
-      cost_center_id: sectionCostCenters.costCenterId,
-      is_default: sectionCostCenters.isDefault,
+      cost_center_id: costCenters.id,
+      is_default: costCenters.isDefault,
       cost_code: costCenters.costCode,
       short_text: costCenters.shortText,
       group_code: costCenters.groupCode,
     })
-    .from(sectionCostCenters)
-    .innerJoin(costCenters, eq(costCenters.id, sectionCostCenters.costCenterId))
+    .from(costCenters)
     .where(
       and(
-        eq(sectionCostCenters.sectionId, section.id),
+        eq(costCenters.sectionId, section.id),
         eq(costCenters.isActive, true)
       )
     )
@@ -599,6 +605,7 @@ export async function resolveUserSectionMeta(currentUser: AccessTokenPayload) {
 
   return {
     section,
+    department: departmentName ? { name: departmentName } : null,
     allowed_cost_centers: allowedCostCenters,
     default_cost_center_id: defaultCC?.cost_center_id ?? null,
   };
@@ -759,6 +766,7 @@ materialRequestRoutes.post(
       .from(users)
       .where(eq(users.id, currentUser.userId))
       .limit(1);
+    const departmentSnapshot = requestUser?.department ?? meta?.department?.name ?? null;
     const sectionAuto = [requestUser?.display_name, requestUser?.department].filter(Boolean).join(" / ");
 
     try {

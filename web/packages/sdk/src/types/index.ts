@@ -312,11 +312,16 @@ export interface InventoryDoRecord {
   supplier_name?: string | null;
   vendor_name?: string | null;
   do_number: string;
+  supplier?: string | null;
   part_number?: string | null;
+  description?: string | null;
+  lot_number?: string | null;
+  gr_number?: string | null;
   material_code?: string | null;
   total_qty?: number | null;
   qty_received: number;
   qty_issued: number;
+  reject_qty?: number | null;
   received_date?: string | null;
   received_at?: string | null;
 }
@@ -423,6 +428,7 @@ export interface MaterialRequestMeta {
   } | null;
   allowed_cost_centers: MetaCostCenter[];
   default_cost_center_id: string | null;
+  strict_mode?: boolean;
 }
 
 export interface MaterialRequestDetail extends MaterialRequest {

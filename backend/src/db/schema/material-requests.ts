@@ -35,6 +35,8 @@ export const materialRequests = pgTable(
     costCenter: varchar("cost_center", { length: 120 }),
     requestSectionId: uuid("request_section_id").references(() => sections.id, { onDelete: "set null" }),
     requestCostCenterId: uuid("request_cost_center_id").references(() => costCenters.id, { onDelete: "set null" }),
+    /** Snapshot of the requesting user's department name at time of request (added in 0016) */
+    requestDepartmentName: text("request_department_name"),
     processName: varchar("process_name", { length: 120 }),
     requestedByUserId: uuid("requested_by_user_id").references(() => users.id, { onDelete: "set null" }),
     approvedByUserId: uuid("approved_by_user_id").references(() => users.id, { onDelete: "set null" }),

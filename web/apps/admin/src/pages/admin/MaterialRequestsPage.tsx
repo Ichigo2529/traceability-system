@@ -231,7 +231,6 @@ export default function MaterialRequestsPage() {
         dmi_no: nextNumbersQuery.data?.dmi_no,
         request_date: nextNumbersQuery.data?.request_date,
         model_id: modelIds[0],
-        section: sectionDisplay,
         cost_center_id: selectedCostCenterId || undefined,
         remarks: headerRemarks || undefined,
         items: requestedLines
@@ -256,12 +255,15 @@ export default function MaterialRequestsPage() {
     },
     onError: (err: any) => {
       const code = err?.error_code;
-      if (code === "INVALID_COST_CENTER") {
-        showToast("Error: Selected cost center is invalid.", { type: "Error" });
-      } else if (code === "SECTION_NOT_SET") {
-        showToast("Error: Your user has no section assigned.", { type: "Error" });
+      if (code === "SECTION_NOT_SET") {
+        showToast("Error: Your user has no section assigned. Contact an administrator.");
+      } else if (code === "COST_CENTER_DEFAULT_NOT_SET") {
+        showToast("Error: No default cost center set for your section. Contact an administrator.");
+      } else if (code === "INVALID_COST_CENTER") {
+        showToast("Error: Selected cost center is not allowed for your section.");
+        setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
       } else {
-        showToast(err.message || "Failed to create request", { type: "Error" });
+        showToast(err.message || "Failed to create request");
       }
     }
   });
@@ -523,10 +525,10 @@ export default function MaterialRequestsPage() {
                 endContent={
                     <>
                         <Button onClick={() => setCreateDialogOpen(false)} design="Transparent">Cancel</Button>
-                        <Button 
-                            design="Emphasized" 
+                        <Button
+                            design="Emphasized"
                             onClick={() => setConfirmSubmitOpen(true)}
-                            disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty}
+                            disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty || sectionNotSet}
                         >
                             {createMutation.isPending ? "Submitting..." : "Submit Request"}
                         </Button>
@@ -583,7 +585,7 @@ export default function MaterialRequestsPage() {
                                      data-value={cc.cost_center_id}
                                      selected={selectedCostCenterId === cc.cost_center_id}
                                  >
-                                     {cc.cost_code}{cc.short_text ? ` - ${cc.short_text}` : ""}
+                                     {cc.group_code ? `${cc.group_code} | ` : ""}{cc.cost_code}{cc.short_text ? ` — ${cc.short_text}` : ""}
                                  </Option>
                              ))}
                          </Select>

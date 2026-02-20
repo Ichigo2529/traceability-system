@@ -101,6 +101,8 @@ const adminNav: NavItem[] = [
   { to: "/admin/templates", label: "Label Templates", icon: "measure", group: "engineering" },
   { to: "/admin/readiness", label: "Readiness Validator", icon: "survey", group: "engineering" },
   { to: "/admin/material-requests", label: "Material Requests", icon: "request", group: "operations" },
+  { to: "/admin/inventory-do", label: "Delivery Orders (DO)", icon: "document", group: "operations" },
+  { to: "/admin/vendor-pack-detail", label: "Vendor Pack Detail", icon: "customer-and-contacts", group: "operations" },
   { to: "/admin/inbound-packs", label: "Inbound Vendor Packs", icon: "shipping-status", group: "operations" },
   { to: "/admin/machines", label: "Machines", icon: "machine", group: "operations" },
   { to: "/admin/devices", label: "Devices", icon: "laptop", group: "operations" },

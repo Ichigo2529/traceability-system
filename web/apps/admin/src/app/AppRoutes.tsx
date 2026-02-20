@@ -26,6 +26,8 @@ const BarcodeTemplatesPage = lazy(() =>
   import("../pages/admin/BarcodeTemplatesPage").then((m) => ({ default: m.BarcodeTemplatesPage }))
 );
 const InboundPacksPage = lazy(() => import("../pages/admin/InboundPacksPage").then((m) => ({ default: m.InboundPacksPage })));
+const InventoryDoPage = lazy(() => import("../pages/admin/InventoryDoPage").then((m) => ({ default: m.InventoryDoPage })));
+const VendorPackDetailPage = lazy(() => import("../pages/admin/VendorPackDetailPage").then((m) => ({ default: m.VendorPackDetailPage })));
 const MaterialRequestsPage = lazy(() => import("../pages/admin/MaterialRequestsPage"));
 const SetRecoveryPage = lazy(() => import("../pages/admin/SetRecoveryPage").then((m) => ({ default: m.SetRecoveryPage })));
 
@@ -91,6 +93,8 @@ export function AppRoutes() {
           <Route path="user-sections" element={<UserSectionsPage />} />
           <Route path="supplier-part-profiles" element={<SupplierPartProfilesPage />} />
           <Route path="barcode-templates" element={<BarcodeTemplatesPage />} />
+          <Route path="inventory-do" element={<InventoryDoPage />} />
+          <Route path="vendor-pack-detail" element={<VendorPackDetailPage />} />
           <Route path="inbound-packs" element={<InboundPacksPage />} />
           <Route path="material-requests" element={<MaterialRequestsPage />} />
           <Route path="machines" element={<MachinesPage />} />

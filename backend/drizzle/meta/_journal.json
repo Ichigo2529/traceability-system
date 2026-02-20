@@ -92,6 +92,34 @@
       "when": 1771131600000,
       "tag": "0012_suppliers_vendor_id",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1771200000000,
+      "tag": "0013_genealogy",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1771210000000,
+      "tag": "0014_inventory_receiving",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1771220000000,
+      "tag": "0015_sections_cost_centers",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1771230000000,
+      "tag": "0016_section_departments_cc_refactor",
+      "breakpoints": true
     }
   ]
 }

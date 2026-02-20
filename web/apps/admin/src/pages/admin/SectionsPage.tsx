@@ -269,11 +269,16 @@ export function SectionsPage() {
       {/* Create/Edit Section Dialog */}
       <FormDialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { setOpen(false); createMut.reset(); updateMut.reset(); }}
         title={editing ? "Edit Section" : "Create Section"}
         onSubmit={form.handleSubmit((p) => (editing ? updateMut.mutate(p) : createMut.mutate(p)))}
         submitting={createMut.isPending || updateMut.isPending}
       >
+        {(createMut.isError || updateMut.isError) && (
+          <MessageStrip design="Negative" hideCloseButton style={{ margin: "0 1rem" }}>
+            {formatApiError(createMut.error ?? updateMut.error)}
+          </MessageStrip>
+        )}
         <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
           <FormItem labelContent={<Label required>Section Code</Label>}>
             <Input

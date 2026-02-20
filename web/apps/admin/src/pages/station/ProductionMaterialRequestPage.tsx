@@ -215,7 +215,6 @@ export function ProductionMaterialRequestPage() {
         dmi_no: nextNumbersQuery.data?.dmi_no,
         request_date: nextNumbersQuery.data?.request_date,
         model_id: modelIds[0],
-        section: sectionDisplay,
         cost_center_id: selectedCostCenterId || undefined,
         remarks: headerRemarks || undefined,
         items: requestedLines
@@ -247,6 +246,19 @@ export function ProductionMaterialRequestPage() {
       });
       await queryClient.invalidateQueries({ queryKey: ["station-production-material-requests"] });
       await queryClient.invalidateQueries({ queryKey: ["material-request-next-numbers"] });
+    },
+    onError: (err: any) => {
+      const code = err?.error_code;
+      if (code === "SECTION_NOT_SET") {
+        toast.error("Your user has no section assigned. Contact an administrator.");
+      } else if (code === "COST_CENTER_DEFAULT_NOT_SET") {
+        toast.error("No default cost center set for your section. Contact an administrator.");
+      } else if (code === "INVALID_COST_CENTER") {
+        toast.error("Selected cost center is not allowed. Reverting to default.");
+        setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
+      } else {
+        toast.error(err?.message || "Failed to submit request");
+      }
     },
   });
 
@@ -580,7 +592,7 @@ export function ProductionMaterialRequestPage() {
                                             data-value={cc.cost_center_id}
                                             selected={selectedCostCenterId === cc.cost_center_id}
                                         >
-                                            {cc.cost_code}{cc.short_text ? ` - ${cc.short_text}` : ""}
+                                            {cc.group_code ? `${cc.group_code} | ` : ""}{cc.cost_code}{cc.short_text ? ` — ${cc.short_text}` : ""}
                                         </Option>
                                     ))}
                                 </Select>

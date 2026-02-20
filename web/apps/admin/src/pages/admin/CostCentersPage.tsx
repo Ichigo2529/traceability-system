@@ -23,6 +23,7 @@ import {
   Option,
   FlexBox,
   FlexBoxAlignItems,
+  MessageStrip,
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -184,11 +185,16 @@ export function CostCentersPage() {
 
       <FormDialog
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => { setOpen(false); createMut.reset(); updateMut.reset(); }}
         title={editing ? "Edit Cost Center" : "Create Cost Center"}
         onSubmit={form.handleSubmit((p) => (editing ? updateMut.mutate(p) : createMut.mutate(p)))}
         submitting={createMut.isPending || updateMut.isPending}
       >
+        {(createMut.isError || updateMut.isError) && (
+          <MessageStrip design="Negative" hideCloseButton style={{ margin: "0 1rem" }}>
+            {formatApiError(createMut.error ?? updateMut.error)}
+          </MessageStrip>
+        )}
         <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
           <FormItem labelContent={<Label required>Group Code</Label>}>
             <Controller

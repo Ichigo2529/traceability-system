@@ -169,8 +169,6 @@ export async function createMaterialRequest(payload: {
   dmi_no?: string;
   request_date?: string;
   model_id: string;
-  section?: string;
-  cost_center?: string;
   cost_center_id?: string;
   process_name?: string;
   remarks?: string;

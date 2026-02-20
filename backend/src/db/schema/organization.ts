@@ -20,6 +20,8 @@ export const departments = pgTable(
     name: varchar("name", { length: 160 }).notNull(),
     sortOrder: integer("sort_order").notNull().default(100),
     isActive: boolean("is_active").notNull().default(true),
+    /** Which section this department belongs to (added in 0016) */
+    sectionId: uuid("section_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -28,6 +30,7 @@ export const departments = pgTable(
     uniqueIndex("uq_departments_name").on(table.name),
     index("idx_departments_active").on(table.isActive),
     index("idx_departments_sort_order").on(table.sortOrder),
+    index("idx_departments_section_id").on(table.sectionId),
   ]
 );
 
@@ -104,6 +107,10 @@ export const costCenters = pgTable(
     costCode: varchar("cost_code", { length: 32 }).notNull(),
     shortText: varchar("short_text", { length: 255 }).notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    /** Which section owns this cost center (added in 0016, replaces section_cost_centers mapping) */
+    sectionId: uuid("section_id"),
+    /** Mark the default cost center for a section (at most one per section) */
+    isDefault: boolean("is_default").notNull().default(false),
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -112,6 +119,8 @@ export const costCenters = pgTable(
     uniqueIndex("uq_cost_centers_cost_code").on(table.costCode),
     index("idx_cost_centers_group_code").on(table.groupCode),
     index("idx_cost_centers_active").on(table.isActive),
+    index("idx_cost_centers_section_id").on(table.sectionId),
+    // partial unique index for one default per section is in migration SQL
   ]
 );
 
@@ -169,5 +178,22 @@ export const userSections = pgTable(
   },
   (table) => [
     index("idx_user_sections_section_id").on(table.sectionId),
+  ]
+);
+
+// ─── User ↔ Department mapping (added in 0016) ─────────
+
+export const userDepartments = pgTable(
+  "user_departments",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    departmentId: uuid("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("idx_user_departments_department_id").on(table.departmentId),
   ]
 );
