@@ -260,15 +260,15 @@ export function DevicesPage() {
 
   return (
     <PageLayout
-      title="Devices"
+      title="Devices & Terminals"
       subtitle={
         <FlexBox alignItems={FlexBoxAlignItems.Center}>
-            <span className="indicator-live" />
-            <span>Manage registered edge devices and trust identities.</span>
+          <span className="indicator-live" />
+          <span>Hardware terminals and scanner registration</span>
         </FlexBox>
       }
-      icon="laptop"
-      iconColor="green"
+      icon="wrench"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner 

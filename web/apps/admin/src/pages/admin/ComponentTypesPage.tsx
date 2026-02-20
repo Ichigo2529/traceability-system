@@ -21,7 +21,9 @@ import {
   CheckBox,
   Label,
   Form,
-  FormItem
+  FormItem,
+  FlexBox,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -125,7 +127,12 @@ export function ComponentTypesPage() {
   return (
     <PageLayout
       title="Component Types"
-      subtitle="Canonical component categories for BOM and routing"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Canonical component categories for BOM and routing</span>
+        </FlexBox>
+      }
       icon="dimension"
       iconColor="indigo"
     >

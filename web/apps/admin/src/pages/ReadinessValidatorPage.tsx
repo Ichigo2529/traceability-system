@@ -20,6 +20,7 @@ import {
     Icon,
     FlexBox,
     FlexBoxDirection,
+    FlexBoxAlignItems,
     Label,
     BusyIndicator,
     Card,
@@ -58,7 +59,12 @@ export default function ReadinessValidatorPage() {
   return (
     <PageLayout
       title="Readiness Validator"
-      subtitle="Check model configuration completeness before activation"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Check model configuration completeness before activation</span>
+        </FlexBox>
+      }
       icon="survey"
       iconColor="var(--icon-orange)"
     >

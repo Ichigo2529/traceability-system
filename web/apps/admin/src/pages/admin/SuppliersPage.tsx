@@ -21,7 +21,9 @@ import {
   CheckBox,
   Label,
   Form,
-  FormItem
+  FormItem,
+  FlexBox,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -156,10 +158,15 @@ export function SuppliersPage() {
 
   return (
     <PageLayout
-      title="Suppliers"
-      subtitle="Manage external part suppliers"
+      title="Vendors"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Vendor and external supplier master</span>
+        </FlexBox>
+      }
       icon="supplier"
-      iconColor="orange"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner

@@ -21,7 +21,9 @@ import {
   CheckBox,
   Label,
   Form,
-  FormItem
+  FormItem,
+  FlexBox,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -132,7 +134,12 @@ export function ModelsPage() {
   return (
     <PageLayout
       title="Models"
-      subtitle="Manage product models and specifications"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Manage product models and specifications</span>
+        </FlexBox>
+      }
       icon="product"
       iconColor="blue"
     >

@@ -20,7 +20,9 @@ import {
   CheckBox,
   Label,
   Form,
-  FormItem
+  FormItem,
+  FlexBox,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -110,7 +112,12 @@ export function ProcessesPage() {
   return (
     <PageLayout
       title="Processes"
-      subtitle="Manufacturing process master with sequence ordering"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Manufacturing process master with sequence ordering</span>
+        </FlexBox>
+      }
       icon="process"
       iconColor="orange"
     >

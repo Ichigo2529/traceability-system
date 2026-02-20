@@ -377,9 +377,14 @@ export default function MaterialRequestsPage() {
   return (
     <PageLayout
       title="Material Requests"
-      subtitle="Production submits direct material requests; Store approves and issues by DMI/DO."
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Internal warehouse transfer and material requisitions</span>
+        </FlexBox>
+      }
       icon="request"
-      iconColor="green"
+      iconColor="blue"
     >
       <div className="page-container">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />

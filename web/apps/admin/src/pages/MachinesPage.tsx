@@ -154,10 +154,15 @@ export default function MachinesPage() {
 
   return (
     <PageLayout
-      title="Machines"
-      subtitle="Manage machine configurations and line assignments."
+      title="Production Machines"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Configured physical equipment and assembly lines</span>
+        </FlexBox>
+      }
       icon="machine"
-      iconColor="green"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner message={error} />

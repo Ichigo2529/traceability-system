@@ -20,7 +20,9 @@ import {
   CheckBox,
   Label,
   Form,
-  FormItem
+  FormItem,
+  FlexBox,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -125,7 +127,12 @@ export function DepartmentsPage() {
   return (
     <PageLayout
       title="Departments"
-      subtitle="Department master used by user profile and request section"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Organizational units and cost centers</span>
+        </FlexBox>
+      }
       icon="org-chart"
       iconColor="indigo"
     >

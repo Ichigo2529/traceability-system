@@ -23,7 +23,9 @@ import {
   CheckBox,
   Label,
   Form,
-  FormItem
+  FormItem,
+  FlexBox,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -136,7 +138,12 @@ export function PartNumbersPage() {
   return (
     <PageLayout
       title="Part Numbers"
-      subtitle="Master FG/RM part numbers mapped to component type"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Component master with pack size definitions</span>
+        </FlexBox>
+      }
       icon="number-sign"
       iconColor="indigo"
     >

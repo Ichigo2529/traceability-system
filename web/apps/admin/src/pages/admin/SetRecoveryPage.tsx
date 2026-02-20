@@ -44,7 +44,12 @@ export function SetRecoveryPage() {
   return (
     <PageLayout
       title="Set Recovery Tools"
-      subtitle="Administrative tools for correcting material assignments and set run state"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Administrative tools for correcting material assignments and set run state</span>
+        </FlexBox>
+      }
       icon="wrench"
       iconColor="orange"
     >

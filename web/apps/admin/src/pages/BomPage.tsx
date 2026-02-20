@@ -206,10 +206,15 @@ export default function BomPage() {
 
   return (
     <PageLayout
-      title="BOM Management"
-      subtitle="Manage BOM rows by model revision"
+      title="BOM Configuration"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Maintain Bill of Materials for specific model revisions</span>
+        </FlexBox>
+      }
       icon="list"
-      iconColor="orange"
+      iconColor="indigo"
     >
       <div className="page-container">
        <ApiErrorBanner message={error ? formatApiError(error) : undefined} />

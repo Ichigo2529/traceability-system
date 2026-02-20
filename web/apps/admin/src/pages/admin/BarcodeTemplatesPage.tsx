@@ -25,7 +25,8 @@ import {
   Card,
   CardHeader,
   FlexBox,
-  FlexBoxDirection
+  FlexBoxDirection,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -244,8 +245,13 @@ export function BarcodeTemplatesPage() {
 
   return (
     <PageLayout
-      title="Barcode Template Master"
-      subtitle="Configurable 2D barcode parsing templates by vendor/component without code changes"
+      title="Barcode Templates"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+            <span className="indicator-live" />
+            <span>GS1-128 and 2D barcode parsing rules</span>
+        </FlexBox>
+      }
       icon="bar-code"
       iconColor="indigo"
     >

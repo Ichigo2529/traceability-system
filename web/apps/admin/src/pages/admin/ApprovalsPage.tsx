@@ -293,10 +293,15 @@ export function ApprovalsPage() {
 
   return (
     <PageLayout
-      title="Workflow Approvals"
-      subtitle="Configure L1/L2/L3 approver gates and transition routes."
+      title="Approvals & Configuration"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Workflow rules and approval matrix</span>
+        </FlexBox>
+      }
       icon="approvals"
-      iconColor="teal"
+      iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner

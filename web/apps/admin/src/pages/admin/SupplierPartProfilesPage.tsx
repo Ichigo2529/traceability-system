@@ -161,7 +161,12 @@ export function SupplierPartProfilesPage() {
   return (
     <PageLayout
       title="Vendor Part Profiles"
-      subtitle="Map vendor part number and parser profile per internal part number"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Cross-reference between vendor PN and internal codes</span>
+        </FlexBox>
+      }
       icon="attachment-html"
       iconColor="indigo"
     >

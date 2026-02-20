@@ -66,7 +66,12 @@ export default function SystemHealthPage() {
   return (
     <PageLayout
       title="System Health"
-      subtitle="Real-time diagnostics and fallback monitoring."
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Real-time diagnostics and fallback monitoring.</span>
+        </FlexBox>
+      }
       icon="sys-monitor"
       iconColor="var(--icon-purple)"
     >

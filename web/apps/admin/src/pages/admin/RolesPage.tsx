@@ -18,7 +18,9 @@ import {
   Label,
   Form,
   FormItem,
-  Title
+  Title,
+  FlexBox,
+  FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -100,7 +102,12 @@ export function RolesPage() {
   return (
     <PageLayout
       title="Roles & Permissions"
-      subtitle="Role CRUD and permission matrix"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Role CRUD and permission matrix</span>
+        </FlexBox>
+      }
       icon="role"
       iconColor="indigo"
     >

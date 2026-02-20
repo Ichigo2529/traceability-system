@@ -147,7 +147,12 @@ export default function ModelDetailsPage() {
   return (
     <PageLayout
       title="Model Revisions"
-      subtitle="Create drafts, configure BOM & routing, then activate when ready for production"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Create drafts, configure BOM & routing, then activate when ready for production</span>
+        </FlexBox>
+      }
       icon="chain-link"
       iconColor="blue"
     >

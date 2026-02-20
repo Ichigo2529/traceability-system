@@ -171,15 +171,15 @@ export function InboundPacksPage() {
 
   return (
     <PageLayout
-      title="Inbound Packs"
+      title="Inbound Material Packs"
       subtitle={
         <FlexBox alignItems={FlexBoxAlignItems.Center}>
-            <span className="indicator-live" />
-            <span>Receive vendor 2D packs and keep lot-level traceability.</span>
+          <span className="indicator-live" />
+          <span>Vendor pack reception and DO matching</span>
         </FlexBox>
       }
       icon="shipping-status"
-      iconColor="green"
+      iconColor="blue"
     >
       <div className="page-container">
         <Section title="Delivery Orders" variant="card">

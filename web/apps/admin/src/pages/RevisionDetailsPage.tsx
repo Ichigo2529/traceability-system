@@ -598,12 +598,21 @@ export default function RevisionDetailsPage() {
     setTab(e.detail.tab.dataset.key);
   };
 
+  const revCode = revision.revision_code;
+  const modelName = (revision as any).model?.name || "Model";
+  const modelCode = (revision as any).model?.code || "";
+
   return (
     <PageLayout
-      title={`Revision ${revision.revision_code}`}
-      subtitle={`Model revision — Status: ${revision.status}`}
-      icon="chain-link"
-      iconColor={revision.status === RevisionStatus.ACTIVE ? "green" : "blue"}
+      title={`Revision: ${revCode}`}
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>{modelName} ({modelCode}) — Revision details and BOM profile</span>
+        </FlexBox>
+      }
+      icon="product"
+      iconColor="indigo"
     >
       <div style={{ paddingRight: "2rem", paddingBottom: "2rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
 

@@ -72,9 +72,14 @@ export function AdminDashboardPage() {
 
   return (
     <PageLayout
-      title="Admin Console"
-      subtitle="System Overview & Real-time Stats"
-      icon="bbyd-dashboard"
+      title="Admin Dashboard"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Quick actions and system health overview</span>
+        </FlexBox>
+      }
+      icon="settings"
       iconColor="indigo"
     >
       <div className={layouts.content} style={{ marginTop: "0.5rem" }}>

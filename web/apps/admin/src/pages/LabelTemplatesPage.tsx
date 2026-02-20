@@ -15,7 +15,9 @@ import {
     TextArea,
     Form,
     FormItem,
-    ObjectStatus
+    ObjectStatus,
+    FlexBox,
+    FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
 import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { ColumnDef } from "@tanstack/react-table";
@@ -148,9 +150,14 @@ export default function LabelTemplatesPage() {
   return (
     <PageLayout
       title="Label Templates"
-      subtitle="Manage ZPL label templates for printing"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <span>Manage raw ZPL and JSON template bodies</span>
+        </FlexBox>
+      }
       icon="measure"
-      iconColor="orange"
+      iconColor="indigo"
     >
       <div className="page-container">
           <DataTable 
