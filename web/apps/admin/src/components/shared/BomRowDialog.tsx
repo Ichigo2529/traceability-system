@@ -10,7 +10,6 @@ const bomSchema = z.object({
   component_name: z.string().min(1, "Component name is required"),
   component_unit_type: z.string().min(1, "Component unit type is required"),
   component_part_number: z.string().optional(),
-  rm_location: z.string().optional(),
   qty_per_assy: z.coerce.number().int().positive(),
   required: z.boolean().default(true),
 });
@@ -22,7 +21,6 @@ function toDefaultValues(row?: BomRow | null): BomRowForm {
     component_name: row?.component_name || row?.component_unit_type || "",
     component_unit_type: row?.component_unit_type || "",
     component_part_number: row?.component_part_number || "",
-    rm_location: row?.rm_location || "",
     qty_per_assy: row?.qty_per_assy ?? 1,
     required: row?.required ?? true,
   };
@@ -34,14 +32,16 @@ export function BomRowDialog({
   submitting,
   componentTypeOptions = [],
   partNumberOptions = [],
+  modelCode,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   row?: BomRow | null;
+  modelCode?: string;
   submitting?: boolean;
   componentTypeOptions?: Array<{ code: string; name: string }>;
-  partNumberOptions?: string[];
+  partNumberOptions?: Array<{ part_number: string; component_type_id?: string | null; component_type_code?: string | null; default_pack_size?: number | null; rm_location?: string | null }>;
   onClose: () => void;
   onSubmit: (values: BomRowForm) => void;
 }) {
@@ -55,20 +55,76 @@ export function BomRowDialog({
   }, [form, open, row]);
 
   const err = form.formState.errors;
+  const selectedPartNumber = form.watch("component_part_number");
+  const selectedPnData = partNumberOptions.find((p) => p.part_number === selectedPartNumber);
+  const isAutoFilled = Boolean(selectedPnData);
 
   return (
     <FormDialog
       open={open}
       title={row ? "Edit BOM Row" : "Add BOM Row"}
-      description="Maintain component, part number, location, and qty-per-assembly."
+      description={modelCode ? `Maintain BOM row for model ${modelCode}` : "Maintain component, part number, location, and qty-per-assembly."}
       onClose={onClose}
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={submitting}
     >
       <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-        <FormItem labelContent={<Label>Component</Label>}>
+        <FormItem labelContent={<Label>Part Number RM</Label>}>
+          <Controller
+            name="component_part_number"
+            control={form.control}
+            render={({ field }) =>
+              partNumberOptions.length ? (
+                <Select
+                  onChange={(e) => {
+                    const val = (e.detail.selectedOption as unknown as { value: string }).value;
+                    field.onChange(val === "NONE" ? "" : val);
+
+                    // Auto-fill logic
+                    if (val !== "NONE") {
+                      const pnData = partNumberOptions.find((p) => p.part_number === val);
+                      if (pnData) {
+                        // Attempt to match the related component type code if present
+                        if (pnData.component_type_code) {
+                            form.setValue("component_unit_type", pnData.component_type_code);
+                            // Also default component name to component type if empty
+                            const currentName = form.getValues("component_name");
+                            if (!currentName || currentName === form.getValues("component_unit_type")) {
+                                form.setValue("component_name", pnData.component_type_code);
+                            }
+                        }
+                        // Default the usage qty if a default is set
+                        if (pnData.default_pack_size) {
+                            form.setValue("qty_per_assy", pnData.default_pack_size);
+                        }
+                      }
+                    } else {
+                      // Clear values when "Not assigned" is picked
+                      form.setValue("component_unit_type", "");
+                      form.setValue("component_name", "");
+                      form.setValue("qty_per_assy", 1);
+                    }
+                  }}
+                  value={field.value || "NONE"}
+                >
+                  <Option value="NONE">Not assigned (Manual entry)</Option>
+                  {partNumberOptions.map((pn) => (
+                    <Option key={pn.part_number} value={pn.part_number}>
+                      {pn.part_number}
+                    </Option>
+                  ))}
+                </Select>
+              ) : (
+                <Input {...field} placeholder="Enter part number..." />
+              )
+            }
+          />
+        </FormItem>
+
+        <FormItem labelContent={<Label>Component Name</Label>}>
           <Input
             {...form.register("component_name")}
+            readonly={isAutoFilled}
             valueState={err.component_name ? "Negative" : "None"}
             valueStateMessage={err.component_name ? <div>{err.component_name.message}</div> : undefined}
           />
@@ -81,12 +137,16 @@ export function BomRowDialog({
             render={({ field }) =>
               componentTypeOptions.length ? (
                 <Select
-                  onChange={(e) => field.onChange(e.target.value)}
-                  value={field.value}
+                  onChange={(e) => {
+                    const selected = e.detail.selectedOption as unknown as { value: string };
+                    field.onChange(selected.value === "NONE" ? "" : selected.value);
+                  }}
+                  value={field.value || "NONE"}
                   valueState={err.component_unit_type ? "Negative" : "None"}
                   valueStateMessage={err.component_unit_type ? <div>{err.component_unit_type.message}</div> : undefined}
+                  disabled={isAutoFilled}
                 >
-                  <Option value="">Select component type</Option>
+                  <Option value="NONE">Select component type</Option>
                   {componentTypeOptions.map((option) => (
                     <Option key={option.code} value={option.code}>
                       {option.code} - {option.name}
@@ -96,6 +156,7 @@ export function BomRowDialog({
               ) : (
                 <Input
                   {...field}
+                  readonly={isAutoFilled}
                   placeholder="MAGNET_PACK_UNIT"
                   valueState={err.component_unit_type ? "Negative" : "None"}
                   valueStateMessage={err.component_unit_type ? <div>{err.component_unit_type.message}</div> : undefined}
@@ -104,42 +165,19 @@ export function BomRowDialog({
             }
           />
         </FormItem>
-
-        <FormItem labelContent={<Label>Part Number RM</Label>}>
-          <Controller
-            name="component_part_number"
-            control={form.control}
-            render={({ field }) =>
-              partNumberOptions.length ? (
-                <Select
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    field.onChange(val === "NONE" ? "" : val);
-                  }}
-                  value={field.value || "NONE"}
-                >
-                  <Option value="NONE">Not assigned</Option>
-                  {partNumberOptions.map((pn) => (
-                    <Option key={pn} value={pn}>
-                      {pn}
-                    </Option>
-                  ))}
-                </Select>
-              ) : (
-                <Input {...field} />
-              )
-            }
+        <FormItem labelContent={<Label>Requirement RM (Location)</Label>}>
+          <Input 
+            value={selectedPnData?.rm_location || ""} 
+            readonly 
+            placeholder={isAutoFilled ? "Not set in Part Number" : "Select Part Number..."} 
           />
-        </FormItem>
-
-        <FormItem labelContent={<Label>Location</Label>}>
-          <Input {...form.register("rm_location")} placeholder="2001" />
         </FormItem>
 
         <FormItem labelContent={<Label>Use pcs / 1 VCM</Label>}>
           <Input
             type="Number"
             {...form.register("qty_per_assy")}
+            readonly={isAutoFilled && Boolean(selectedPnData?.default_pack_size)}
             valueState={err.qty_per_assy ? "Negative" : "None"}
             valueStateMessage={err.qty_per_assy ? <div>{err.qty_per_assy.message}</div> : undefined}
           />

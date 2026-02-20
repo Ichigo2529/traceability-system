@@ -84,6 +84,12 @@ export default function RevisionDetailsPage() {
     enabled: !!modelId && !!revisionId,
   });
 
+  const { data: model } = useQuery({
+    queryKey: ["model", modelId],
+    queryFn: () => sdk.admin.getModels().then((models) => models.find((m) => m.id === modelId)),
+    enabled: !!modelId,
+  });
+
   const { data: variants = [] } = useQuery({
     queryKey: ["variants", modelId, revisionId],
     queryFn: () => sdk.admin.getVariants(modelId!, revisionId!),
@@ -192,7 +198,6 @@ export default function RevisionDetailsPage() {
         component_name: values.component_name,
         component_unit_type: values.component_unit_type,
         component_part_number: values.component_part_number || undefined,
-        rm_location: values.rm_location || undefined,
         qty_per_assy: values.qty_per_assy,
         required: values.required,
       });
@@ -211,7 +216,6 @@ export default function RevisionDetailsPage() {
         component_name: values.component_name,
         component_unit_type: values.component_unit_type,
         component_part_number: values.component_part_number || undefined,
-        rm_location: values.rm_location || undefined,
         qty_per_assy: values.qty_per_assy,
         required: values.required,
       });
@@ -359,7 +363,7 @@ export default function RevisionDetailsPage() {
         const v = row.original;
         if (isReadOnly) return null;
         return (
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.25rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
               onClick={(e) => { e.stopPropagation(); setDefaultVariant.mutate(v.id); }}
               design="Transparent"
@@ -385,7 +389,7 @@ export default function RevisionDetailsPage() {
               icon="delete"
               design="Transparent"
             />
-          </FlexBox>
+          </div>
         );
       },
     },
@@ -430,7 +434,7 @@ export default function RevisionDetailsPage() {
         const b = row.original;
         if (isReadOnly) return null;
         return (
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.25rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
               onClick={(e) => { e.stopPropagation(); setEditingBomRow(b); setBomDialogOpen(true); }}
               icon="edit"
@@ -444,7 +448,7 @@ export default function RevisionDetailsPage() {
               icon="delete"
               design="Transparent"
             />
-          </FlexBox>
+          </div>
         );
       },
     },
@@ -487,7 +491,7 @@ export default function RevisionDetailsPage() {
         const r = row.original;
         if (isReadOnly) return null;
         return (
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.25rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
               onClick={(e) => {
                 e.stopPropagation();
@@ -512,7 +516,7 @@ export default function RevisionDetailsPage() {
               icon="delete"
               design="Transparent"
             />
-          </FlexBox>
+          </div>
         );
       },
     },
@@ -542,7 +546,7 @@ export default function RevisionDetailsPage() {
         const b = row.original;
         if (isReadOnly) return null;
         return (
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.25rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem" }}>
             <Button
               onClick={(e) => {
                 e.stopPropagation();
@@ -565,7 +569,7 @@ export default function RevisionDetailsPage() {
               icon="delete"
               design="Transparent"
             />
-          </FlexBox>
+          </div>
         );
       },
     },
@@ -614,7 +618,7 @@ export default function RevisionDetailsPage() {
       icon="product"
       iconColor="indigo"
     >
-      <div style={{ paddingRight: "2rem", paddingBottom: "2rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div className="page-container" style={{ paddingRight: "2rem", paddingBottom: "2rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
 
         {/* Toolbar row */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -634,107 +638,115 @@ export default function RevisionDetailsPage() {
 
           {/* ── Variants ─────────────────────────────────────────────────────── */}
           <Tab text="Variants" icon="action" selected={tab === "variants"} data-key="variants">
-            <DataTable
-              data={variants as Variant[]}
-              columns={variantColumns}
-              filterPlaceholder="Search variants…"
-              actions={
-                !isReadOnly ? (
-                  <Button
-                    icon="add"
-                    design="Emphasized"
-                    onClick={() => {
-                      setEditingVariant(null);
-                      variantForm.reset({ code: "", description: "", is_default: variants.length === 0 });
-                      setVariantDialogOpen(true);
-                    }}
-                  >
-                    Add Variant
-                  </Button>
-                ) : undefined
-              }
-            />
+            <div style={{ padding: "1.5rem 0" }}>
+              <DataTable
+                data={variants as Variant[]}
+                columns={variantColumns}
+                filterPlaceholder="Search variants…"
+                actions={
+                  !isReadOnly ? (
+                    <Button
+                      icon="add"
+                      design="Emphasized"
+                      onClick={() => {
+                        setEditingVariant(null);
+                        variantForm.reset({ code: "", description: "", is_default: variants.length === 0 });
+                        setVariantDialogOpen(true);
+                      }}
+                    >
+                      Add Variant
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           </Tab>
 
           {/* ── BOM ──────────────────────────────────────────────────────────── */}
           <Tab text="BOM" icon="shipping-status" selected={tab === "bom"} data-key="bom">
-            <DataTable
-              data={bom as BomRow[]}
-              columns={bomColumns}
-              filterPlaceholder="Search BOM…"
-              actions={
-                !isReadOnly ? (
-                  <Button
-                    icon="add"
-                    design="Emphasized"
-                    onClick={() => {
-                      setEditingBomRow(null);
-                      setBomDialogOpen(true);
-                    }}
-                  >
-                    Add Row
-                  </Button>
-                ) : undefined
-              }
-            />
+            <div style={{ padding: "1.5rem 0" }}>
+              <DataTable
+                data={bom as BomRow[]}
+                columns={bomColumns}
+                filterPlaceholder="Search BOM…"
+                actions={
+                  !isReadOnly ? (
+                    <Button
+                      icon="add"
+                      design="Emphasized"
+                      onClick={() => {
+                        setEditingBomRow(null);
+                        setBomDialogOpen(true);
+                      }}
+                    >
+                      Add Row
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           </Tab>
 
           {/* ── Routing ──────────────────────────────────────────────────────── */}
           <Tab text="Routing" icon="list" selected={tab === "routing"} data-key="routing">
-            <DataTable
-              data={routing as RoutingStep[]}
-              columns={routingColumns}
-              filterPlaceholder="Search steps…"
-              actions={
-                !isReadOnly ? (
-                  <Button
-                    icon="add"
-                    design="Emphasized"
-                    onClick={() => {
-                      setEditingRouting(null);
-                      routingForm.reset({
-                        step_code: "",
-                        sequence: routing.length + 1,
-                        mandatory: true,
-                        description: "",
-                        component_type: "",
-                      });
-                      setRoutingDialogOpen(true);
-                    }}
-                  >
-                    Add Step
-                  </Button>
-                ) : undefined
-              }
-            />
+            <div style={{ padding: "1.5rem 0" }}>
+              <DataTable
+                data={routing as RoutingStep[]}
+                columns={routingColumns}
+                filterPlaceholder="Search steps…"
+                actions={
+                  !isReadOnly ? (
+                    <Button
+                      icon="add"
+                      design="Emphasized"
+                      onClick={() => {
+                        setEditingRouting(null);
+                        routingForm.reset({
+                          step_code: "",
+                          sequence: routing.length + 1,
+                          mandatory: true,
+                          description: "",
+                          component_type: "",
+                        });
+                        setRoutingDialogOpen(true);
+                      }}
+                    >
+                      Add Step
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           </Tab>
 
           {/* ── Bindings ─────────────────────────────────────────────────────── */}
           <Tab text="Bindings" icon="chain-link" selected={tab === "bindings"} data-key="bindings">
-            <DataTable
-              data={bindings as LabelBinding[]}
-              columns={bindingColumns}
-              filterPlaceholder="Search bindings…"
-              actions={
-                !isReadOnly ? (
-                  <Button
-                    icon="add"
-                    design="Emphasized"
-                    onClick={() => {
-                      setEditingBinding(null);
-                      bindingForm.reset({
-                        unit_type: "FOF_TRAY_20",
-                        process_point: "POST_FVMI_LABEL",
-                        label_template_id: templates[0]?.id || "",
-                      });
-                      setBindingDialogOpen(true);
-                    }}
-                  >
-                    Add Binding
-                  </Button>
-                ) : undefined
-              }
-            />
+            <div style={{ padding: "1.5rem 0" }}>
+              <DataTable
+                data={bindings as LabelBinding[]}
+                columns={bindingColumns}
+                filterPlaceholder="Search bindings…"
+                actions={
+                  !isReadOnly ? (
+                    <Button
+                      icon="add"
+                      design="Emphasized"
+                      onClick={() => {
+                        setEditingBinding(null);
+                        bindingForm.reset({
+                          unit_type: "FOF_TRAY_20",
+                          process_point: "POST_FVMI_LABEL",
+                          label_template_id: templates[0]?.id || "",
+                        });
+                        setBindingDialogOpen(true);
+                      }}
+                    >
+                      Add Binding
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           </Tab>
 
         </TabContainer>
@@ -746,14 +758,22 @@ export default function RevisionDetailsPage() {
         row={editingBomRow}
         submitting={createBom.isPending || editBom.isPending}
         componentTypeOptions={componentTypes.map((ct) => ({ code: ct.code, name: ct.name }))}
-        partNumberOptions={partNumbers.map((pn) => pn.part_number)}
+        partNumberOptions={partNumbers}
+        modelCode={model?.code}
         onClose={() => {
           setBomDialogOpen(false);
           setEditingBomRow(null);
         }}
         onSubmit={(values) => {
-          if (editingBomRow) editBom.mutate(values);
-          else createBom.mutate(values);
+          const payload = {
+            component_name: values.component_name,
+            component_unit_type: values.component_unit_type,
+            component_part_number: values.component_part_number || undefined,
+            qty_per_assy: values.qty_per_assy,
+            required: values.required,
+          };
+          if (editingBomRow) editBom.mutate(payload as any);
+          else createBom.mutate(payload as any);
         }}
       />
 

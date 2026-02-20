@@ -14,6 +14,7 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
+import { getSections } from "../../lib/section-api";
 import {
   Button,
   Input,
@@ -21,6 +22,8 @@ import {
   Label,
   Form,
   FormItem,
+  Select,
+  Option,
   FlexBox,
   FlexBoxAlignItems
 } from "@ui5/webcomponents-react";
@@ -33,6 +36,7 @@ const schema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
   sort_order: z.number().int().min(1).default(100),
+  section_id: z.string().optional(),
   is_active: z.boolean().default(true),
 });
 type DepartmentForm = z.infer<typeof schema>;
@@ -47,6 +51,11 @@ export function DepartmentsPage() {
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["departments"],
     queryFn: () => sdk.admin.getDepartments(),
+  });
+
+  const { data: sections = [] } = useQuery({
+    queryKey: ["admin-sections"],
+    queryFn: getSections,
   });
 
   const form = useForm<DepartmentForm>({
@@ -87,6 +96,7 @@ export function DepartmentsPage() {
       { header: "Code", accessorKey: "code" },
       { header: "Name", accessorKey: "name" },
       { header: "Sort", accessorKey: "sort_order" },
+      { header: "Section", cell: ({ row }) => sections.find((s: any) => s.id === (row.original as any).section_id)?.section_name ?? "-" },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
       {
         header: "Actions",
@@ -101,6 +111,7 @@ export function DepartmentsPage() {
                   code: row.original.code,
                   name: row.original.name,
                   sort_order: row.original.sort_order,
+                  section_id: (row.original as any).section_id || undefined,
                   is_active: row.original.is_active,
                 });
                 setOpen(true);
@@ -121,7 +132,7 @@ export function DepartmentsPage() {
         ),
       },
     ],
-    [deleteMutation, form]
+    [deleteMutation, form, sections]
   );
 
   return (
@@ -160,7 +171,7 @@ export function DepartmentsPage() {
                   className="button-hover-scale"
                   onClick={() => {
                     setEditing(null);
-                    form.reset({ code: "", name: "", sort_order: 100, is_active: true });
+                    form.reset({ code: "", name: "", sort_order: 100, section_id: undefined, is_active: true });
                     setOpen(true);
                   }}
                 >
@@ -189,6 +200,24 @@ export function DepartmentsPage() {
               type="Number"
               value={form.watch("sort_order")?.toString()}
               onInput={(event: any) => form.setValue("sort_order", Number(event.target.value || 100))}
+            />
+          </FormItem>
+          <FormItem labelContent={<Label>Section</Label>}>
+            <Controller
+              name="section_id"
+              control={form.control}
+              render={({ field }) => (
+                <Select
+                  onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
+                >
+                  <Option data-value="" selected={!field.value}>None</Option>
+                  {sections.map((s: any) => (
+                    <Option key={s.id} data-value={s.id} selected={field.value === s.id}>
+                      {s.section_name}
+                    </Option>
+                  ))}
+                </Select>
+              )}
             />
           </FormItem>
           <FormItem labelContent={<Label>Status</Label>}>

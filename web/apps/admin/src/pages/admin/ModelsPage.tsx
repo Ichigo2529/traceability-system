@@ -83,7 +83,7 @@ export function ModelsPage() {
       { header: "Model Code", accessorKey: "code" },
       { header: "Model Name", accessorKey: "name" },
       { header: "Part Number", accessorKey: "part_number", cell: ({ row }) => row.original.part_number || "-" },
-      { header: "Pack Size", accessorKey: "pack_size" },
+      { header: "FOF Tray Pack Size", accessorKey: "pack_size" },
       { header: "Active Revision", accessorKey: "active_revision_code", cell: ({ row }) => row.original.active_revision_code || "-" },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} /> },
       {
@@ -192,8 +192,8 @@ export function ModelsPage() {
             <FormItem labelContent={<Label>Part Number</Label>}>
               <Input {...form.register("part_number")} />
             </FormItem>
-            <FormItem labelContent={<Label>Pack Size</Label>}>
-              <Input type="Number" {...form.register("pack_size")} />
+            <FormItem labelContent={<Label>FOF Tray Pack Size</Label>}>
+              <Input type="Number" {...form.register("pack_size")} placeholder="e.g. 20 (pcs/tray)" />
             </FormItem>
             <FormItem labelContent={<Label>Status</Label>} style={{ gridColumn: "span 2" }}>
                 <Controller

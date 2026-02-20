@@ -201,6 +201,7 @@ export class AdminService {
     component_type_id?: string;
     description?: string;
     default_pack_size?: number;
+    rm_location?: string;
     is_active?: boolean;
   }): Promise<PartNumberMaster> {
     return this.client.post<PartNumberMaster>("/admin/part-numbers", data);
@@ -213,6 +214,7 @@ export class AdminService {
       component_type_id: string;
       description: string;
       default_pack_size: number;
+      rm_location: string;
       is_active: boolean;
     }>
   ): Promise<PartNumberMaster> {

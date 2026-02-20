@@ -167,7 +167,7 @@ export function ReassignMaterialDialog({
           <Bar
             design="Footer"
             endContent={
-              <>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <Button
                   design="Transparent"
                   onClick={handleClose}
@@ -182,7 +182,7 @@ export function ReassignMaterialDialog({
                 >
                   {loading ? "Reassigning…" : "Reassign"}
                 </Button>
-              </>
+              </div>
             }
           />
         }
@@ -190,7 +190,7 @@ export function ReassignMaterialDialog({
         <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem", minWidth: 420 }}>
           {/* Loading */}
           {loading && (
-            <BusyIndicator active size="Medium" style={{ display: "flex", justifyContent: "center" }} />
+            <BusyIndicator active size="M" style={{ display: "flex", justifyContent: "center" }} />
           )}
 
           {/* Success banner */}
@@ -312,14 +312,14 @@ export function ReassignMaterialDialog({
           <Bar
             design="Footer"
             endContent={
-              <>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <Button design="Transparent" onClick={handleConfirmCancel}>
                   Cancel
                 </Button>
                 <Button design="Emphasized" onClick={handleConfirmedSubmit}>
                   Yes, Reassign
                 </Button>
-              </>
+              </div>
             }
           />
         }

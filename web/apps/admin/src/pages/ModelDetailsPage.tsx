@@ -156,16 +156,7 @@ export default function ModelDetailsPage() {
       icon="chain-link"
       iconColor="blue"
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem", paddingRight: "2rem", paddingBottom: "2rem" }}>
-        {/* Toolbar row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Button icon="nav-back" design="Default" onClick={() => navigate("/admin/models")}>
-            Back to Models
-          </Button>
-          <Button icon="add" design="Emphasized" onClick={() => setIsModalOpen(true)}>
-            New Draft
-          </Button>
-        </div>
+      <div className="page-container" style={{ display: "flex", flexDirection: "column", gap: "1rem", paddingRight: "2rem", paddingBottom: "2rem" }}>
         <MessageStrip design="Information" hideCloseButton style={{ borderRadius: "8px" }}>
           Only the <strong>ACTIVE</strong> revision is used in production. Active revisions are read-only — clone to a new draft to make changes.
         </MessageStrip>
@@ -180,6 +171,16 @@ export default function ModelDetailsPage() {
           loading={isLoading}
           filterPlaceholder="Search revisions…"
           onRowClick={(rev: any) => navigate(`/admin/models/${modelId}/revisions/${rev.id}`)}
+          actions={
+            <>
+              <Button icon="nav-back" design="Transparent" onClick={() => navigate("/admin/models")}>
+                Back to Models
+              </Button>
+              <Button icon="add" design="Emphasized" onClick={() => setIsModalOpen(true)}>
+                New Draft
+              </Button>
+            </>
+          }
         />
       </div>
 

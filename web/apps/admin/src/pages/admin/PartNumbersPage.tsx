@@ -36,6 +36,7 @@ const schema = z.object({
   part_number: z.string().min(1),
   component_type_id: z.string().optional(),
   description: z.string().optional(),
+  rm_location: z.string().optional(),
   default_pack_size: z.coerce.number().int().positive().optional(),
   is_active: z.boolean().default(true),
 });
@@ -95,7 +96,8 @@ export function PartNumbersPage() {
     () => [
       { header: "Part Number", accessorKey: "part_number" },
       { header: "Component Type", accessorKey: "component_type_code" },
-      { header: "Default Pack Size", accessorKey: "default_pack_size" },
+      { header: "Base UOM (Usage/VCM)", accessorKey: "default_pack_size" },
+      { header: "RM Location", accessorKey: "rm_location" },
       { header: "Description", accessorKey: "description" },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
       {
@@ -110,6 +112,7 @@ export function PartNumbersPage() {
                 form.reset({
                   part_number: row.original.part_number,
                   component_type_id: row.original.component_type_id ?? undefined,
+                  rm_location: row.original.rm_location ?? "",
                   description: row.original.description ?? "",
                   default_pack_size: row.original.default_pack_size ?? undefined,
                   is_active: row.original.is_active,
@@ -141,7 +144,7 @@ export function PartNumbersPage() {
       subtitle={
         <FlexBox alignItems={FlexBoxAlignItems.Center}>
           <span className="indicator-live" />
-          <span>Component master with pack size definitions</span>
+          <span>Component master with base usage definitions</span>
         </FlexBox>
       }
       icon="number-sign"
@@ -171,7 +174,7 @@ export function PartNumbersPage() {
                   className="button-hover-scale"
                   onClick={() => {
                     setEditing(null);
-                    form.reset({ part_number: "", component_type_id: undefined, description: "", default_pack_size: undefined, is_active: true });
+                    form.reset({ part_number: "", component_type_id: undefined, description: "", rm_location: "", default_pack_size: undefined, is_active: true });
                     setOpen(true);
                   }}
                 >
@@ -193,8 +196,8 @@ export function PartNumbersPage() {
               <Input {...form.register("part_number")} />
           </FormItem>
           
-           <FormItem labelContent={<Label>Default Pack Size</Label>}>
-              <Input type="Number" {...form.register("default_pack_size")} />
+           <FormItem labelContent={<Label>Base UOM (Usage/VCM)</Label>}>
+              <Input type="Number" {...form.register("default_pack_size")} placeholder="e.g. 1" />
           </FormItem>
 
            <FormItem labelContent={<Label>Component Type</Label>}>
@@ -218,6 +221,10 @@ export function PartNumbersPage() {
                       </Select>
                   )}
                />
+          </FormItem>
+          
+          <FormItem labelContent={<Label>Requirement RM (Location)</Label>} style={{ gridColumn: "span 2" }}>
+               <Input {...form.register("rm_location")} placeholder="e.g. WH-01" />
           </FormItem>
           
           <FormItem labelContent={<Label>Description</Label>} style={{ gridColumn: "span 2" }}>

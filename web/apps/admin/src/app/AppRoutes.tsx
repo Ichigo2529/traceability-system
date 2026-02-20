@@ -18,7 +18,6 @@ const SuppliersPage = lazy(() => import("../pages/admin/SuppliersPage").then((m)
 const DepartmentsPage = lazy(() => import("../pages/admin/DepartmentsPage").then((m) => ({ default: m.DepartmentsPage })));
 const CostCentersPage = lazy(() => import("../pages/admin/CostCentersPage").then((m) => ({ default: m.CostCentersPage })));
 const SectionsPage = lazy(() => import("../pages/admin/SectionsPage").then((m) => ({ default: m.SectionsPage })));
-const UserSectionsPage = lazy(() => import("../pages/admin/UserSectionsPage").then((m) => ({ default: m.UserSectionsPage })));
 const SupplierPartProfilesPage = lazy(() =>
   import("../pages/admin/SupplierPartProfilesPage").then((m) => ({ default: m.SupplierPartProfilesPage }))
 );
@@ -90,7 +89,6 @@ export function AppRoutes() {
           <Route path="departments" element={<DepartmentsPage />} />
           <Route path="cost-centers" element={<CostCentersPage />} />
           <Route path="sections" element={<SectionsPage />} />
-          <Route path="user-sections" element={<UserSectionsPage />} />
           <Route path="supplier-part-profiles" element={<SupplierPartProfilesPage />} />
           <Route path="barcode-templates" element={<BarcodeTemplatesPage />} />
           <Route path="inventory-do" element={<InventoryDoPage />} />

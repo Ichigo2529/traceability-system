@@ -47,6 +47,7 @@ import {
   sections,
   sectionCostCenters,
   userSections,
+  userDepartments,
 } from "../db/schema";
 import { randomBytes } from "crypto";
 import {
@@ -449,7 +450,26 @@ adminRoutes.get("/users", async () => {
         .from(userRoles)
         .innerJoin(roles, eq(roles.id, userRoles.roleId))
         .where(eq(userRoles.userId, u.id));
-      return { ...u, roles: rows.map((r) => r.role_name) };
+      const [sectionRow] = await db
+        .select({ section_id: sections.id })
+        .from(userSections)
+        .innerJoin(sections, eq(sections.id, userSections.sectionId))
+        .where(eq(userSections.userId, u.id))
+        .limit(1);
+
+      const [departmentRow] = await db
+        .select({ department_id: departments.id })
+        .from(userDepartments)
+        .innerJoin(departments, eq(departments.id, userDepartments.departmentId))
+        .where(eq(userDepartments.userId, u.id))
+        .limit(1);
+
+      return { 
+        ...u, 
+        roles: rows.map((r) => r.role_name),
+        section_id: sectionRow?.section_id ?? null,
+        department_id: departmentRow?.department_id ?? null
+      };
     })
   );
 
@@ -464,6 +484,7 @@ adminRoutes.get("/departments", async () => {
       name: departments.name,
       sort_order: departments.sortOrder,
       is_active: departments.isActive,
+      section_id: departments.sectionId,
       created_at: departments.createdAt,
       updated_at: departments.updatedAt,
     })
@@ -484,6 +505,7 @@ adminRoutes.post(
           name: String(body.name ?? "").trim().toLowerCase(),
           sortOrder: body.sort_order ?? 100,
           isActive: body.is_active ?? true,
+          sectionId: body.section_id ?? null,
         })
         .returning({
           id: departments.id,
@@ -491,6 +513,7 @@ adminRoutes.post(
           name: departments.name,
           sort_order: departments.sortOrder,
           is_active: departments.isActive,
+          section_id: departments.sectionId,
           created_at: departments.createdAt,
           updated_at: departments.updatedAt,
         });
@@ -507,6 +530,7 @@ adminRoutes.post(
       code: t.String(),
       name: t.String(),
       sort_order: t.Optional(t.Number()),
+      section_id: t.Optional(t.String()),
       is_active: t.Optional(t.Boolean()),
     }),
   }
@@ -529,6 +553,7 @@ adminRoutes.put(
           name: body.name !== undefined ? String(body.name).trim().toLowerCase() : existing.name,
           sortOrder: body.sort_order ?? existing.sortOrder,
           isActive: body.is_active ?? existing.isActive,
+          sectionId: body.section_id !== undefined ? (body.section_id || null) : existing.sectionId,
           updatedAt: new Date(),
         })
         .where(eq(departments.id, params.id))
@@ -538,6 +563,7 @@ adminRoutes.put(
           name: departments.name,
           sort_order: departments.sortOrder,
           is_active: departments.isActive,
+          section_id: departments.sectionId,
           created_at: departments.createdAt,
           updated_at: departments.updatedAt,
         });
@@ -554,6 +580,7 @@ adminRoutes.put(
       code: t.Optional(t.String()),
       name: t.Optional(t.String()),
       sort_order: t.Optional(t.Number()),
+      section_id: t.Optional(t.String()),
       is_active: t.Optional(t.Boolean()),
     }),
   }
@@ -614,6 +641,14 @@ adminRoutes.post(
         if (dbRoles.length) await db.insert(userRoles).values(dbRoles.map((r) => ({ userId: created.id, roleId: r.id })));
       }
 
+      if (body.section_id) {
+        await db.insert(userSections).values({ userId: created.id, sectionId: body.section_id });
+      }
+
+      if (body.department_id) {
+        await db.insert(userDepartments).values({ userId: created.id, departmentId: body.department_id });
+      }
+
       await auditConfigChange(user.userId, "USER", created.id, "CREATE", null, created as unknown as Record<string, unknown>);
       return { success: true, data: { ...created, roles: body.roles ?? [] } };
     } catch (error) {
@@ -629,6 +664,8 @@ adminRoutes.post(
         employee_code: t.Optional(t.String()),
         email: t.Optional(t.String()),
         department: t.Optional(t.String()),
+        section_id: t.Optional(t.String()),
+        department_id: t.Optional(t.String()),
         roles: t.Optional(t.Array(t.String())),
       }),
   }
@@ -667,6 +704,20 @@ adminRoutes.put(
       }
     }
 
+    if (body.section_id !== undefined) {
+      await db.delete(userSections).where(eq(userSections.userId, params.id));
+      if (body.section_id) {
+        await db.insert(userSections).values({ userId: params.id, sectionId: body.section_id });
+      }
+    }
+
+    if (body.department_id !== undefined) {
+      await db.delete(userDepartments).where(eq(userDepartments.userId, params.id));
+      if (body.department_id) {
+        await db.insert(userDepartments).values({ userId: params.id, departmentId: body.department_id });
+      }
+    }
+
     const [updated] = await db
       .select({
         id: users.id,
@@ -698,6 +749,8 @@ adminRoutes.put(
       employee_code: t.Optional(t.String()),
       email: t.Optional(t.String()),
       department: t.Optional(t.String()),
+      section_id: t.Optional(t.String()),
+      department_id: t.Optional(t.String()),
       password: t.Optional(t.String()),
       is_active: t.Optional(t.Boolean()),
       roles: t.Optional(t.Array(t.String())),
@@ -1401,6 +1454,7 @@ adminRoutes.get("/part-numbers", async () => {
       component_type_name: componentTypes.name,
       description: partNumbers.description,
       default_pack_size: partNumbers.defaultPackSize,
+      rm_location: partNumbers.rmLocation,
       is_active: partNumbers.isActive,
       created_at: partNumbers.createdAt,
       updated_at: partNumbers.updatedAt,
@@ -1440,6 +1494,7 @@ adminRoutes.post(
           componentTypeId: body.component_type_id || null,
           description: body.description ?? null,
           defaultPackSize: body.default_pack_size ?? null,
+          rmLocation: body.rm_location ?? null,
           isActive: body.is_active ?? true,
         })
         .returning({
@@ -1448,6 +1503,7 @@ adminRoutes.post(
           component_type_id: partNumbers.componentTypeId,
           description: partNumbers.description,
           default_pack_size: partNumbers.defaultPackSize,
+          rm_location: partNumbers.rmLocation,
           is_active: partNumbers.isActive,
           created_at: partNumbers.createdAt,
           updated_at: partNumbers.updatedAt,
@@ -1466,6 +1522,7 @@ adminRoutes.post(
       component_type_id: t.Optional(t.String()),
       description: t.Optional(t.String()),
       default_pack_size: t.Optional(t.Number()),
+      rm_location: t.Optional(t.String()),
       is_active: t.Optional(t.Boolean()),
     }),
   }
@@ -1499,6 +1556,7 @@ adminRoutes.put(
         componentTypeId: body.component_type_id === undefined ? existing.componentTypeId : body.component_type_id || null,
         description: body.description ?? existing.description,
         defaultPackSize: body.default_pack_size ?? existing.defaultPackSize,
+        rmLocation: body.rm_location ?? existing.rmLocation,
         isActive: body.is_active ?? existing.isActive,
         updatedAt: new Date(),
       })
@@ -1509,6 +1567,7 @@ adminRoutes.put(
         component_type_id: partNumbers.componentTypeId,
         description: partNumbers.description,
         default_pack_size: partNumbers.defaultPackSize,
+        rm_location: partNumbers.rmLocation,
         is_active: partNumbers.isActive,
         created_at: partNumbers.createdAt,
         updated_at: partNumbers.updatedAt,
@@ -1523,6 +1582,7 @@ adminRoutes.put(
       component_type_id: t.Optional(t.String()),
       description: t.Optional(t.String()),
       default_pack_size: t.Optional(t.Number()),
+      rm_location: t.Optional(t.String()),
       is_active: t.Optional(t.Boolean()),
     }),
   }
@@ -2139,7 +2199,7 @@ adminRoutes.post(
                 componentName: b.componentName,
                 componentType: b.componentType,
                 componentPartNumber: b.componentPartNumber,
-                rmLocation: b.rmLocation,
+                rm_location: null,
                 supplierName: b.supplierName,
                 supplierPartNumber: b.supplierPartNumber,
                 supplierPackSize: b.supplierPackSize,
@@ -2433,7 +2493,7 @@ adminRoutes.get("/models/:id/revisions/:revisionId/bom", async ({ params }) => {
       component_name: bom.componentName,
       component_unit_type: bom.componentType,
       component_part_number: bom.componentPartNumber,
-      rm_location: bom.rmLocation,
+      rm_location: partNumbers.rmLocation,
       supplier_name: bom.supplierName,
       supplier_part_number: bom.supplierPartNumber,
       supplier_pack_size: bom.supplierPackSize,
@@ -2445,6 +2505,7 @@ adminRoutes.get("/models/:id/revisions/:revisionId/bom", async ({ params }) => {
       created_at: bom.createdAt,
     })
     .from(bom)
+    .leftJoin(partNumbers, eq(bom.componentPartNumber, partNumbers.partNumber))
     .where(eq(bom.revisionId, params.revisionId))
     .orderBy(asc(bom.componentType));
 
@@ -2479,7 +2540,6 @@ adminRoutes.post(
           componentName: body.component_name ?? body.component_unit_type,
           componentType: body.component_unit_type,
           componentPartNumber: body.component_part_number ? String(body.component_part_number).trim().toUpperCase() : null,
-          rmLocation: body.rm_location ?? null,
           supplierName: body.supplier_name ?? null,
           supplierPartNumber: body.supplier_part_number ?? null,
           supplierPackSize: body.supplier_pack_size ?? null,
@@ -2495,7 +2555,6 @@ adminRoutes.post(
           component_name: bom.componentName,
           component_unit_type: bom.componentType,
           component_part_number: bom.componentPartNumber,
-          rm_location: bom.rmLocation,
           supplier_name: bom.supplierName,
           supplier_part_number: bom.supplierPartNumber,
           supplier_pack_size: bom.supplierPackSize,
@@ -2515,7 +2574,6 @@ adminRoutes.post(
         component_name: t.Optional(t.String()),
         component_unit_type: t.String(),
         component_part_number: t.Optional(t.String()),
-        rm_location: t.Optional(t.String()),
         supplier_name: t.Optional(t.String()),
         supplier_part_number: t.Optional(t.String()),
         supplier_pack_size: t.Optional(t.Number()),
@@ -2569,7 +2627,6 @@ adminRoutes.put(
               : body.component_part_number
                 ? String(body.component_part_number).trim().toUpperCase()
                 : null,
-          rmLocation: body.rm_location ?? existing.rmLocation,
           supplierName: body.supplier_name ?? existing.supplierName,
           supplierPartNumber: body.supplier_part_number ?? existing.supplierPartNumber,
           supplierPackSize: body.supplier_pack_size ?? existing.supplierPackSize,
@@ -2586,7 +2643,6 @@ adminRoutes.put(
           component_name: bom.componentName,
           component_unit_type: bom.componentType,
           component_part_number: bom.componentPartNumber,
-          rm_location: bom.rmLocation,
           supplier_name: bom.supplierName,
           supplier_part_number: bom.supplierPartNumber,
           supplier_pack_size: bom.supplierPackSize,
@@ -2606,7 +2662,6 @@ adminRoutes.put(
         component_name: t.Optional(t.String()),
         component_unit_type: t.Optional(t.String()),
         component_part_number: t.Optional(t.String()),
-        rm_location: t.Optional(t.String()),
         supplier_name: t.Optional(t.String()),
         supplier_part_number: t.Optional(t.String()),
         supplier_pack_size: t.Optional(t.Number()),
@@ -4538,6 +4593,8 @@ adminRoutes.get("/cost-centers", async ({ query }: { query: { is_active?: string
       cost_code: costCenters.costCode,
       short_text: costCenters.shortText,
       is_active: costCenters.isActive,
+      section_id: costCenters.sectionId,
+      is_default: costCenters.isDefault,
       created_at: costCenters.createdAt,
       updated_at: costCenters.updatedAt,
     })
@@ -4560,16 +4617,24 @@ adminRoutes.post(
     }
 
     try {
-      const [created] = await db
-        .insert(costCenters)
-        .values({
-          groupCode,
-          costCode: String(body.cost_code ?? "").trim().toUpperCase(),
-          shortText: String(body.short_text ?? "").trim(),
-          isActive: body.is_active ?? true,
-          createdBy: user.userId,
-        })
-        .returning();
+      const created = await db.transaction(async (tx) => {
+        if (body.section_id && body.is_default) {
+          await tx.update(costCenters).set({ isDefault: false }).where(eq(costCenters.sectionId, body.section_id));
+        }
+        const [inserted] = await tx
+          .insert(costCenters)
+          .values({
+            groupCode,
+            costCode: String(body.cost_code ?? "").trim().toUpperCase(),
+            shortText: String(body.short_text ?? "").trim(),
+            sectionId: body.section_id || null,
+            isDefault: body.is_default ?? false,
+            isActive: body.is_active ?? true,
+            createdBy: user.userId,
+          })
+          .returning();
+        return inserted;
+      });
 
       await auditConfigChange(user.userId, "COST_CENTER", created.id, "CREATE", null, created as Record<string, unknown>);
       return { success: true, data: created };
@@ -4583,6 +4648,8 @@ adminRoutes.post(
       group_code: t.String(),
       cost_code: t.String(),
       short_text: t.String(),
+      section_id: t.Optional(t.String()),
+      is_default: t.Optional(t.Boolean()),
       is_active: t.Optional(t.Boolean()),
     }),
   }
@@ -4606,17 +4673,28 @@ adminRoutes.put(
     }
 
     try {
-      const [updated] = await db
-        .update(costCenters)
-        .set({
-          groupCode: body.group_code !== undefined ? String(body.group_code).trim().toUpperCase() : existing.groupCode,
-          costCode: body.cost_code !== undefined ? String(body.cost_code).trim().toUpperCase() : existing.costCode,
-          shortText: body.short_text !== undefined ? String(body.short_text).trim() : existing.shortText,
-          isActive: body.is_active ?? existing.isActive,
-          updatedAt: new Date(),
-        })
-        .where(eq(costCenters.id, params.id))
-        .returning();
+      const updated = await db.transaction(async (tx) => {
+        const nextSectionId = body.section_id !== undefined ? (body.section_id || null) : existing.sectionId;
+        const nextIsDefault = body.is_default !== undefined ? body.is_default : existing.isDefault;
+        if (nextSectionId && nextIsDefault && (nextSectionId !== existing.sectionId || !existing.isDefault)) {
+          await tx.update(costCenters).set({ isDefault: false }).where(eq(costCenters.sectionId, nextSectionId));
+        }
+
+        const [modified] = await tx
+          .update(costCenters)
+          .set({
+            groupCode: body.group_code !== undefined ? String(body.group_code).trim().toUpperCase() : existing.groupCode,
+            costCode: body.cost_code !== undefined ? String(body.cost_code).trim().toUpperCase() : existing.costCode,
+            shortText: body.short_text !== undefined ? String(body.short_text).trim() : existing.shortText,
+            sectionId: nextSectionId,
+            isDefault: nextIsDefault,
+            isActive: body.is_active ?? existing.isActive,
+            updatedAt: new Date(),
+          })
+          .where(eq(costCenters.id, params.id))
+          .returning();
+        return modified;
+      });
 
       await auditConfigChange(user.userId, "COST_CENTER", params.id, "UPDATE", existing as any, updated as any);
       return { success: true, data: updated };
@@ -4630,6 +4708,8 @@ adminRoutes.put(
       group_code: t.Optional(t.String()),
       cost_code: t.Optional(t.String()),
       short_text: t.Optional(t.String()),
+      section_id: t.Optional(t.String()),
+      is_default: t.Optional(t.Boolean()),
       is_active: t.Optional(t.Boolean()),
     }),
   }

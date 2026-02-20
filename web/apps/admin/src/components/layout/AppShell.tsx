@@ -91,7 +91,6 @@ const adminNav: NavItem[] = [
   { to: "/admin/departments", label: "Departments", icon: "org-chart", group: "master-data" },
   { to: "/admin/cost-centers", label: "Cost Centers", icon: "money-bills", group: "master-data" },
   { to: "/admin/sections", label: "Sections", icon: "customer-and-supplier", group: "master-data" },
-  { to: "/admin/user-sections", label: "User Sections", icon: "employee", group: "master-data" },
   { to: "/admin/suppliers", label: "Vendors", icon: "supplier", group: "master-data" },
   { to: "/admin/supplier-part-profiles", label: "Vendor Part Profiles", icon: "attachment-html", group: "master-data" },
   { to: "/admin/barcode-templates", label: "Barcode Templates", icon: "bar-code", group: "master-data" },

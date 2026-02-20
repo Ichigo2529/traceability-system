@@ -25,16 +25,18 @@ export interface AdminCostCenter {
   cost_code: string;
   short_text: string;
   is_active: boolean;
+  section_id: string | null;
+  is_default: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export const getCostCenters = () => api<AdminCostCenter[]>("/admin/cost-centers");
 
-export const createCostCenter = (body: { group_code: string; cost_code: string; short_text: string; is_active?: boolean }) =>
+export const createCostCenter = (body: { group_code: string; cost_code: string; short_text: string; is_active?: boolean; section_id?: string; is_default?: boolean }) =>
   api<AdminCostCenter>("/admin/cost-centers", { method: "POST", body: JSON.stringify(body) });
 
-export const updateCostCenter = (id: string, body: { group_code?: string; cost_code?: string; short_text?: string; is_active?: boolean }) =>
+export const updateCostCenter = (id: string, body: { group_code?: string; cost_code?: string; short_text?: string; is_active?: boolean; section_id?: string; is_default?: boolean }) =>
   api<AdminCostCenter>(`/admin/cost-centers/${id}`, { method: "PUT", body: JSON.stringify(body) });
 
 export const deleteCostCenter = (id: string) =>

@@ -234,6 +234,7 @@ export interface PartNumberMaster {
   component_type_name?: string | null;
   description?: string | null;
   default_pack_size?: number | null;
+  rm_location?: string | null;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;

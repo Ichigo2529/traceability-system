@@ -187,9 +187,7 @@ export function ProductionMaterialRequestPage() {
     return map;
   }, [catalogQuery.data]);
 
-  const sectionDisplay = meta?.section
-    ? `${meta.section.section_name} (${meta.section.section_code})`
-    : `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`;
+  const departmentDisplay = (meta as any)?.department?.name || user?.department || "-";
   const hasInvalidRequestedQty = lines
     .filter((line) => line.part_number.trim().length > 0)
     .some((line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
@@ -577,8 +575,8 @@ export function ProductionMaterialRequestPage() {
                             </FormItem>
                         </FormGroup>
                         <FormGroup headerText="Requestor Details">
-                            <FormItem labelContent={<Label>SECTION</Label>}>
-                                <Text>{sectionDisplay || "-"}</Text>
+                            <FormItem labelContent={<Label>DEPARTMENT</Label>}>
+                                <Text>{departmentDisplay}</Text>
                             </FormItem>
                             <FormItem labelContent={<Label showColon required for="cost-center-select">COST CENTER</Label>}>
                                 <Select

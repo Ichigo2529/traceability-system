@@ -19,6 +19,8 @@ import {
   roles,
   sections,
   sectionCostCenters,
+  departments,
+  userDepartments,
   supplierPartProfiles,
   supplierPacks,
   suppliers,
@@ -115,7 +117,9 @@ async function getMaterialWorkflowPolicy(): Promise<MaterialWorkflowPolicy> {
     })
     .from(workflowApprovalConfigs)
     .leftJoin(roles, eq(roles.id, workflowApprovalConfigs.approverRoleId))
-    .where(and(eq(workflowApprovalConfigs.flowCode, MATERIAL_REQUEST_FLOW_CODE), eq(workflowApprovalConfigs.isActive, true)))
+    .where(
+      and(eq(workflowApprovalConfigs.flowCode, MATERIAL_REQUEST_FLOW_CODE), eq(workflowApprovalConfigs.isActive, true))
+    )
     .orderBy(asc(workflowApprovalConfigs.level));
 
   if (!rows.length) {
@@ -136,7 +140,11 @@ async function getMaterialWorkflowPolicy(): Promise<MaterialWorkflowPolicy> {
       : null;
   const requestor_roles = Array.isArray(level1RequestorRolesRaw)
     ? level1RequestorRolesRaw
-        .map((role) => String(role ?? "").trim().toUpperCase())
+        .map((role) =>
+          String(role ?? "")
+            .trim()
+            .toUpperCase()
+        )
         .filter((role) => role.length > 0)
     : ["PRODUCTION"];
 
@@ -260,7 +268,9 @@ async function getActiveBomCatalogRows() {
     .from(bom)
     .innerJoin(modelRevisions, eq(bom.revisionId, modelRevisions.id))
     .innerJoin(models, eq(modelRevisions.modelId, models.id))
-    .where(and(eq(modelRevisions.status, "ACTIVE"), eq(models.isActive, true), sql`${bom.componentPartNumber} is not null`))
+    .where(
+      and(eq(modelRevisions.status, "ACTIVE"), eq(models.isActive, true), sql`${bom.componentPartNumber} is not null`)
+    )
     .orderBy(asc(models.code), asc(bom.componentType), asc(bom.componentPartNumber));
 }
 
@@ -575,13 +585,27 @@ export async function resolveUserSectionMeta(currentUser: AccessTokenPayload) {
 
   if (!section) return null;
 
-  // Fetch the requesting user's department name (text field on users table)
-  const [requestUser] = await db
-    .select({ department: users.department })
-    .from(users)
-    .where(eq(users.id, currentUser.userId))
-    .limit(1);
-  const departmentName = requestUser?.department ?? null;
+  // Fetch the requesting user's department name
+  let departmentName: string | null = currentUser.department ?? null;
+
+  if (!departmentName) {
+    const [userDep] = await db
+      .select({ name: departments.name })
+      .from(userDepartments)
+      .innerJoin(departments, eq(departments.id, userDepartments.departmentId))
+      .where(and(eq(userDepartments.userId, currentUser.userId), eq(departments.isActive, true)))
+      .limit(1);
+    departmentName = userDep?.name ?? null;
+
+    if (!departmentName) {
+      const [requestUser] = await db
+        .select({ department: users.department })
+        .from(users)
+        .where(eq(users.id, currentUser.userId))
+        .limit(1);
+      departmentName = requestUser?.department ?? null;
+    }
+  }
 
   // Fetch allowed cost centers for this section (now via cost_centers.section_id direct FK)
   const allowedCostCenters = await db
@@ -593,12 +617,7 @@ export async function resolveUserSectionMeta(currentUser: AccessTokenPayload) {
       group_code: costCenters.groupCode,
     })
     .from(costCenters)
-    .where(
-      and(
-        eq(costCenters.sectionId, section.id),
-        eq(costCenters.isActive, true)
-      )
-    )
+    .where(and(eq(costCenters.sectionId, section.id), eq(costCenters.isActive, true)))
     .orderBy(asc(costCenters.groupCode), asc(costCenters.costCode));
 
   const defaultCC = allowedCostCenters.find((cc) => cc.is_default);
@@ -612,26 +631,23 @@ export async function resolveUserSectionMeta(currentUser: AccessTokenPayload) {
 }
 
 // GET /material-requests/meta
-materialRequestRoutes.get(
-  "/meta",
-  async ({ set, user }: { set: any; user: AccessTokenPayload | null }) => {
-    const unauthorized = checkAuth({ user, set });
-    if (unauthorized) return unauthorized;
-    const currentUser = user as AccessTokenPayload;
+materialRequestRoutes.get("/meta", async ({ set, user }: { set: any; user: AccessTokenPayload | null }) => {
+  const unauthorized = checkAuth({ user, set });
+  if (unauthorized) return unauthorized;
+  const currentUser = user as AccessTokenPayload;
 
-    const meta = await resolveUserSectionMeta(currentUser);
-    if (!meta) {
-      set.status = 400;
-      return {
-        success: false,
-        error_code: "SECTION_NOT_SET",
-        message: "User section is not configured. Contact admin.",
-      };
-    }
-
-    return { success: true, data: meta };
+  const meta = await resolveUserSectionMeta(currentUser);
+  if (!meta) {
+    set.status = 400;
+    return {
+      success: false,
+      error_code: "SECTION_NOT_SET",
+      message: "User section is not configured. Contact admin.",
+    };
   }
-);
+
+  return { success: true, data: meta };
+});
 
 materialRequestRoutes.post(
   "/",
@@ -661,7 +677,11 @@ materialRequestRoutes.post(
       set.status = 400;
       return { success: false, error_code: "INVALID_INPUT", message: "model_id is required" };
     }
-    const partNos = items.map((item: any) => String(item.part_number ?? "").trim().toUpperCase());
+    const partNos = items.map((item: any) =>
+      String(item.part_number ?? "")
+        .trim()
+        .toUpperCase()
+    );
     const catalogRows = await getActiveBomCatalogRows();
     const scopedCatalog = catalogRows.filter((row) => row.model_id === selectedModelId);
 
@@ -696,7 +716,9 @@ materialRequestRoutes.post(
       return {
         success: false,
         error_code: "INVALID_INPUT",
-        message: `requested_qty must be greater than 0 for part ${String(invalidQtyLine.part_number ?? "").trim().toUpperCase()}`,
+        message: `requested_qty must be greater than 0 for part ${String(invalidQtyLine.part_number ?? "")
+          .trim()
+          .toUpperCase()}`,
       };
     }
 
@@ -714,9 +736,7 @@ materialRequestRoutes.post(
 
       if (body.cost_center_id) {
         // Validate against allowed list
-        const allowed = meta.allowed_cost_centers.find(
-          (cc) => cc.cost_center_id === body.cost_center_id
-        );
+        const allowed = meta.allowed_cost_centers.find((cc) => cc.cost_center_id === body.cost_center_id);
         if (!allowed) {
           set.status = 400;
           return {
@@ -729,13 +749,9 @@ materialRequestRoutes.post(
         costCenterText = `${allowed.cost_code} ${allowed.short_text}`;
       } else if (meta.default_cost_center_id) {
         // Use default
-        const defaultCC = meta.allowed_cost_centers.find(
-          (cc) => cc.cost_center_id === meta.default_cost_center_id
-        );
+        const defaultCC = meta.allowed_cost_centers.find((cc) => cc.cost_center_id === meta.default_cost_center_id);
         requestCostCenterId = meta.default_cost_center_id;
-        costCenterText = defaultCC
-          ? `${defaultCC.cost_code} ${defaultCC.short_text}`
-          : null;
+        costCenterText = defaultCC ? `${defaultCC.cost_code} ${defaultCC.short_text}` : null;
       } else if (STRICT_SECTION_CC) {
         // Strict mode: cost center must be set
         set.status = 400;
@@ -991,7 +1007,11 @@ materialRequestRoutes.get(
                 eq(suppliers.isActive, true)
               )
             )
-            .orderBy(asc(supplierPartProfiles.partNumber), asc(suppliers.name), asc(supplierPartProfiles.supplierPartNumber));
+            .orderBy(
+              asc(supplierPartProfiles.partNumber),
+              asc(suppliers.name),
+              asc(supplierPartProfiles.supplierPartNumber)
+            );
 
     const suppliersByPart = profileRows.reduce<Record<string, any[]>>((acc, row) => {
       const partNo = String(row.part_number ?? "").toUpperCase();
@@ -1058,7 +1078,14 @@ materialRequestRoutes.post(
       })
       .where(eq(materialRequests.id, params.id));
 
-    await auditConfigChange(currentUser.userId, "MATERIAL_REQUEST", params.id, "APPROVE", { status: existing.status }, { status: "APPROVED" });
+    await auditConfigChange(
+      currentUser.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "APPROVE",
+      { status: existing.status },
+      { status: "APPROVED" }
+    );
     publishMaterialRequestUpdate({
       event_type: "APPROVED",
       id: params.id,
@@ -1151,12 +1178,7 @@ materialRequestRoutes.post(
       .from(inventoryDo)
       .leftJoin(supplierPacks, eq(supplierPacks.doId, inventoryDo.id))
       .where(inArray(inventoryDo.doNumber, doNumbers))
-      .groupBy(
-        inventoryDo.id,
-        inventoryDo.doNumber,
-        inventoryDo.partNumber,
-        inventoryDo.supplierId
-      );
+      .groupBy(inventoryDo.id, inventoryDo.doNumber, inventoryDo.partNumber, inventoryDo.supplierId);
     const doByNumber = new Map(doRows.map((row) => [String(row.do_number).toUpperCase(), row]));
 
     const itemTotals = new Map<string, number>();
@@ -1167,7 +1189,9 @@ materialRequestRoutes.post(
         (err as Error & { error_code?: string }).error_code = "INVALID_INPUT";
         throw err;
       }
-      const allocPartNumber = String(line.part_number ?? "").trim().toUpperCase();
+      const allocPartNumber = String(line.part_number ?? "")
+        .trim()
+        .toUpperCase();
       if (!allocPartNumber || allocPartNumber !== String(item.part_number ?? "").toUpperCase()) {
         const err = new Error(`Allocation part number mismatch for item ${item.item_no}`);
         (err as Error & { error_code?: string }).error_code = "INVALID_INPUT";
@@ -1232,9 +1256,7 @@ materialRequestRoutes.post(
           const linesByItem = groupedByItem[item.id] ?? [];
           const totalQty = linesByItem.reduce((sum, line) => sum + line.issuedQty, 0);
           const doSummary =
-            linesByItem.length === 0
-              ? null
-              : Array.from(new Set(linesByItem.map((line) => line.doNumber))).join(", ");
+            linesByItem.length === 0 ? null : Array.from(new Set(linesByItem.map((line) => line.doNumber))).join(", ");
           await tx
             .update(materialRequestItems)
             .set({
@@ -1294,7 +1316,11 @@ materialRequestRoutes.post(
       return { success: true, data: { id: params.id, status: "ISSUED" } };
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: (error as Error).message || "Failed to issue material request" };
+      return {
+        success: false,
+        error_code: parseErrorCode(error),
+        message: (error as Error).message || "Failed to issue material request",
+      };
     }
   },
   {
@@ -1342,8 +1368,12 @@ materialRequestRoutes.post(
 
     const scans = (body.scans ?? [])
       .map((row) => ({
-        part_number: String(row.part_number ?? "").trim().toUpperCase(),
-        do_number: String(row.do_number ?? "").trim().toUpperCase(),
+        part_number: String(row.part_number ?? "")
+          .trim()
+          .toUpperCase(),
+        do_number: String(row.do_number ?? "")
+          .trim()
+          .toUpperCase(),
         scan_data: String(row.scan_data ?? "").trim(),
       }))
       .filter((row) => row.part_number && row.do_number && row.scan_data);
@@ -1371,7 +1401,11 @@ materialRequestRoutes.post(
 
     if (header.status !== "ISSUED") {
       set.status = 400;
-      return { success: false, error_code: "INVALID_STATUS", message: "Only ISSUED can be confirmed by production receipt" };
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Only ISSUED can be confirmed by production receipt",
+      };
     }
 
     const issuedRows = await db
@@ -1382,10 +1416,16 @@ materialRequestRoutes.post(
       .from(materialRequestItemIssues)
       .where(eq(materialRequestItemIssues.materialRequestId, params.id));
 
-    const issuedKey = new Set(issuedRows.map((row) => `${String(row.part_number).toUpperCase()}|${String(row.do_number).toUpperCase()}`));
+    const issuedKey = new Set(
+      issuedRows.map((row) => `${String(row.part_number).toUpperCase()}|${String(row.do_number).toUpperCase()}`)
+    );
     if (!issuedKey.size) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_STATUS", message: "This request has no issued allocation to receive" };
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "This request has no issued allocation to receive",
+      };
     }
 
     for (const scan of scans) {
@@ -1506,7 +1546,17 @@ materialRequestRoutes.post(
 
 materialRequestRoutes.post(
   "/:id/reject",
-  async ({ params, body, set, user }: { params: { id: string }; body: { reason?: string }; set: any; user: AccessTokenPayload | null }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string };
+    body: { reason?: string };
+    set: any;
+    user: AccessTokenPayload | null;
+  }) => {
     const unauthorized = checkAuth({ user, set });
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;
@@ -1531,7 +1581,9 @@ materialRequestRoutes.post(
       .update(materialRequests)
       .set({
         status: "REJECTED",
-        remarks: body.reason ? `${existing.remarks ? `${existing.remarks}\n` : ""}[REJECT] ${body.reason}` : existing.remarks,
+        remarks: body.reason
+          ? `${existing.remarks ? `${existing.remarks}\n` : ""}[REJECT] ${body.reason}`
+          : existing.remarks,
         updatedAt: new Date(),
       })
       .where(eq(materialRequests.id, params.id));
@@ -1563,7 +1615,17 @@ materialRequestRoutes.post(
 
 materialRequestRoutes.post(
   "/:id/issue",
-  async ({ params, body, set, user }: { params: { id: string }; body: { dmi_no?: string; remarks?: string }; set: any; user: AccessTokenPayload | null }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string };
+    body: { dmi_no?: string; remarks?: string };
+    set: any;
+    user: AccessTokenPayload | null;
+  }) => {
     const unauthorized = checkAuth({ user, set });
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;

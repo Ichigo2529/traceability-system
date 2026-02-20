@@ -30,6 +30,7 @@ import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/group.js";
 import { useToast } from "../../hooks/useToast";
+import { getSections } from "../../lib/section-api";
 
 const ROLES = ["ADMIN", "SUPERVISOR", "OPERATOR", "STORE", "PRODUCTION", "QA"];
 
@@ -38,7 +39,8 @@ const userSchema = z.object({
   name: z.string().min(2),
   username: z.string().min(2),
   email: z.string().email().optional().or(z.literal("")),
-  department: z.string().optional(),
+  section_id: z.string().optional(),
+  department_id: z.string().optional(),
   password: z.string().min(3).optional().or(z.literal("")),
   roles: z.array(z.string()).min(1),
 });
@@ -52,45 +54,42 @@ export function UsersPage() {
   const { showToast, ToastComponent } = useToast();
   const form = useForm<UserForm>({
     resolver: zodResolver(userSchema),
-    defaultValues: { roles: ["OPERATOR"], name: "", username: "", department: "" },
+    defaultValues: { roles: ["OPERATOR"], name: "", username: "" },
   });
 
   const { data: users = [], isLoading: usersLoading } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
   const { data: departments = [], isLoading: departmentsLoading } = useQuery({ queryKey: ["departments"], queryFn: () => sdk.admin.getDepartments() });
+  const { data: sections = [], isLoading: sectionsLoading } = useQuery({ queryKey: ["admin-sections"], queryFn: getSections });
 
-  const departmentOptions = useMemo(() => {
-    const active = departments.filter((department) => department.is_active);
-    const existingUserValues = users.map((user) => user.department).filter(Boolean) as string[];
-    const unique = new Set<string>([...active.map((department) => department.name), ...existingUserValues]);
-    return Array.from(unique).sort((a, b) => a.localeCompare(b));
-  }, [departments, users]);
 
   const createMutation = useMutation({
     mutationFn: (payload: UserForm) =>
-      sdk.admin.createUser({
+      (sdk.admin.createUser as any)({
         username: payload.username,
         display_name: payload.name,
         password: payload.password || "changeme123",
         employee_code: payload.employee_code,
         email: payload.email,
-        department: payload.department,
+        section_id: payload.section_id,
+        department_id: payload.department_id,
         roles: payload.roles,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setOpen(false);
-      form.reset({ roles: ["OPERATOR"], name: "", username: "", department: "" });
+      form.reset({ roles: ["OPERATOR"], name: "", username: "" });
       showToast("User created successfully");
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (payload: UserForm) =>
-      sdk.admin.updateUser(editing!.id, {
+      (sdk.admin.updateUser as any)(editing!.id, {
         display_name: payload.name,
         employee_code: payload.employee_code,
         email: payload.email,
-        department: payload.department,
+        section_id: payload.section_id,
+        department_id: payload.department_id,
         password: payload.password,
         roles: payload.roles,
       }),
@@ -114,7 +113,8 @@ export function UsersPage() {
       { header: "Employee ID", accessorKey: "employee_code", cell: ({ row }) => row.original.employee_code || "-", size: 140 },
       { header: "Name", accessorKey: "display_name", size: 200 },
       { header: "Email", accessorKey: "email", cell: ({ row }) => row.original.email || "-", size: 220 },
-      { header: "Department", accessorKey: "department", cell: ({ row }) => row.original.department || "-", size: 150 },
+      { header: "Section", cell: ({ row }) => sections.find(s => s.id === (row.original as any).section_id)?.section_name || "-", size: 150 },
+      { header: "Department", cell: ({ row }) => departments.find(d => d.id === (row.original as any).department_id)?.name || row.original.department || "-", size: 150 },
       { header: "Roles", cell: ({ row }) => <div className="admin-users-role-list-text">{(row.original.roles || []).join(", ")}</div>, size: 300 },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active === false ? "disabled" : "active"} />, size: 100 },
       {
@@ -134,7 +134,8 @@ export function UsersPage() {
                   name: row.original.display_name,
                   username: row.original.username,
                   email: row.original.email || "",
-                  department: row.original.department || "",
+                  section_id: (row.original as any).section_id || undefined,
+                  department_id: (row.original as any).department_id || undefined,
                   roles: row.original.roles || ["OPERATOR"],
                 });
                 setOpen(true);
@@ -153,7 +154,7 @@ export function UsersPage() {
         ),
       },
     ],
-    [deleteMutation, form]
+    [deleteMutation, form, sections, departments]
   );
 
   return (
@@ -185,7 +186,7 @@ export function UsersPage() {
         <DataTable 
             data={users} 
             columns={columns} 
-            loading={usersLoading || departmentsLoading}
+            loading={usersLoading || departmentsLoading || sectionsLoading}
             filterPlaceholder="Search users..." 
             actions={
                 <Button
@@ -194,7 +195,7 @@ export function UsersPage() {
                   className="button-hover-scale"
                   onClick={() => {
                     setEditing(null);
-                    form.reset({ roles: ["OPERATOR"], name: "", username: "", department: "" });
+                    form.reset({ roles: ["OPERATOR"], name: "", username: "" });
                     setOpen(true);
                   }}
                 >
@@ -225,20 +226,36 @@ export function UsersPage() {
           <FormItem labelContent={<Label showColon>Email</Label>}>
             <Input {...form.register("email")} />
           </FormItem>
-          <FormItem labelContent={<Label showColon>Department</Label>} style={{ gridColumn: "span 2" }}>
+          <FormItem labelContent={<Label showColon>Section</Label>}>
              <Controller
                 control={form.control}
-                name="department"
+                name="section_id"
                 render={({ field }) => (
                      <Select
-                        onChange={(e) => field.onChange(e.target.value)}
-                        value={field.value}
-                        style={{ width: "100%" }}
+                        onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
                     >
-                         <Option value="">Select department</Option>
-                         {departmentOptions.map((department) => (
-                            <Option key={department} value={department}>
-                              {department}
+                         <Option data-value="" selected={!field.value}>None</Option>
+                         {sections.filter(s => s.is_active).map((sec) => (
+                            <Option key={sec.id} data-value={sec.id} selected={field.value === sec.id}>
+                              {sec.section_name}
+                            </Option>
+                          ))}
+                    </Select>
+                )}
+             />
+          </FormItem>
+          <FormItem labelContent={<Label showColon>Department</Label>}>
+             <Controller
+                control={form.control}
+                name="department_id"
+                render={({ field }) => (
+                     <Select
+                        onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
+                    >
+                         <Option data-value="" selected={!field.value}>None</Option>
+                         {departments.filter(d => d.is_active).map((dep: any) => (
+                            <Option key={dep.id} data-value={dep.id} selected={field.value === dep.id}>
+                              {dep.name}
                             </Option>
                           ))}
                     </Select>

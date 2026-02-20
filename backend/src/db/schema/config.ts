@@ -109,6 +109,7 @@ export const partNumbers = pgTable(
     }),
     description: text("description"),
     defaultPackSize: integer("default_pack_size"),
+    rmLocation: varchar("rm_location", { length: 50 }),
     isActive: boolean("is_active").default(true).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -134,7 +135,6 @@ export const bom = pgTable(
     componentName: varchar("component_name", { length: 200 }),
     componentType: varchar("component_type", { length: 100 }).notNull(),
     componentPartNumber: varchar("component_part_number", { length: 120 }),
-    rmLocation: varchar("rm_location", { length: 50 }),
     supplierName: varchar("supplier_name", { length: 200 }),
     supplierPartNumber: varchar("supplier_part_number", { length: 120 }),
     supplierPackSize: integer("supplier_pack_size"),

@@ -35,6 +35,7 @@ import {
   createCostCenter,
   updateCostCenter,
   deleteCostCenter,
+  getSections,
 } from "../../lib/section-api";
 
 const GROUP_CODES = ["DL", "IDL", "DIS", "ADM"] as const;
@@ -43,6 +44,8 @@ const schema = z.object({
   group_code: z.enum(GROUP_CODES),
   cost_code: z.string().min(1, "Required"),
   short_text: z.string().min(1, "Required"),
+  section_id: z.string().optional(),
+  is_default: z.boolean().default(false),
   is_active: z.boolean().default(true),
 });
 type CostCenterForm = z.infer<typeof schema>;
@@ -59,9 +62,14 @@ export function CostCentersPage() {
     queryFn: getCostCenters,
   });
 
+  const { data: sections = [] } = useQuery({
+    queryKey: ["admin-sections"],
+    queryFn: getSections,
+  });
+
   const form = useForm<CostCenterForm>({
     resolver: zodResolver(schema),
-    defaultValues: { group_code: "DL", cost_code: "", short_text: "", is_active: true },
+    defaultValues: { group_code: "DL", cost_code: "", short_text: "", is_default: false, is_active: true },
   });
 
   const createMut = useMutation({
@@ -69,7 +77,7 @@ export function CostCentersPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-cost-centers"] });
       setOpen(false);
-      form.reset({ group_code: "DL", cost_code: "", short_text: "", is_active: true });
+      form.reset({ group_code: "DL", cost_code: "", short_text: "", is_default: false, is_active: true });
       showToast("Cost center created");
     },
   });
@@ -97,6 +105,14 @@ export function CostCentersPage() {
       { header: "Group", accessorKey: "group_code", size: 90 },
       { header: "Cost Code", accessorKey: "cost_code", size: 160 },
       { header: "Short Text", accessorKey: "short_text" },
+      { 
+        header: "Section", 
+        accessorFn: (row) => sections.find(s => s.id === row.section_id)?.section_name ?? "-" 
+      },
+      { 
+        header: "Default", 
+        cell: ({ row }) => row.original.is_default ? "Yes" : "No" 
+      },
       {
         header: "Status",
         size: 100,
@@ -116,6 +132,8 @@ export function CostCentersPage() {
                   group_code: row.original.group_code as any,
                   cost_code: row.original.cost_code,
                   short_text: row.original.short_text,
+                  section_id: row.original.section_id || undefined,
+                  is_default: row.original.is_default,
                   is_active: row.original.is_active,
                 });
                 setOpen(true);
@@ -134,7 +152,7 @@ export function CostCentersPage() {
         ),
       },
     ],
-    [form]
+    [form, sections]
   );
 
   return (
@@ -173,7 +191,7 @@ export function CostCentersPage() {
               className="button-hover-scale"
               onClick={() => {
                 setEditing(null);
-                form.reset({ group_code: "DL", cost_code: "", short_text: "", is_active: true });
+                form.reset({ group_code: "DL", cost_code: "", short_text: "", is_default: false, is_active: true });
                 setOpen(true);
               }}
             >
@@ -225,6 +243,37 @@ export function CostCentersPage() {
             <Input
               value={form.watch("short_text")}
               onInput={(e: any) => form.setValue("short_text", e.target.value)}
+            />
+          </FormItem>
+          <FormItem labelContent={<Label>Section</Label>}>
+            <Controller
+              name="section_id"
+              control={form.control}
+              render={({ field }) => (
+                <Select
+                  onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
+                >
+                  <Option data-value="" selected={!field.value}>None</Option>
+                  {sections.map((s) => (
+                    <Option key={s.id} data-value={s.id} selected={field.value === s.id}>
+                      {s.section_name}
+                    </Option>
+                  ))}
+                </Select>
+              )}
+            />
+          </FormItem>
+          <FormItem labelContent={<Label>Default for Section</Label>}>
+            <Controller
+              name="is_default"
+              control={form.control}
+              render={({ field }) => (
+                <CheckBox
+                  text="Default"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              )}
             />
           </FormItem>
           <FormItem labelContent={<Label>Status</Label>}>

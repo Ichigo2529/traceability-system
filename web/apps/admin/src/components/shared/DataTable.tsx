@@ -24,6 +24,13 @@ import "@ui5/webcomponents-icons/dist/navigation-left-arrow.js";
 import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
 import { Skeleton, EmptyState } from "@traceability/ui";
 
+const injectedStyles = `
+  ui5-table-row.hoverable-row::part(root):hover,
+  ui5-table-row.hoverable-row:hover {
+    background-color: var(--sapList_Hover_Background, rgba(0,0,0,0.04)) !important;
+  }
+`;
+
 const headerLabelStyle: React.CSSProperties = {
   fontWeight: 600,
   fontSize: "0.75rem",
@@ -108,6 +115,7 @@ export function DataTable<TData>({
         overflow: "hidden",
       }}
     >
+      <style>{injectedStyles}</style>
       {/* ── Toolbar ──────────────────────────────────────────────────────── */}
       {!hideToolbar && (
         <div
@@ -208,6 +216,7 @@ export function DataTable<TData>({
               <TableRow
                 key={row.id}
                 onClick={() => onRowClick?.(row.original)}
+                className={onRowClick ? "hoverable-row" : ""}
                 style={{ cursor: onRowClick ? "pointer" : "default" }}
               >
                 {row.getVisibleCells().map((cell) => (
@@ -222,19 +231,17 @@ export function DataTable<TData>({
                 ))}
               </TableRow>
             ))
-          ) : (
-            <TableRow>
-              <TableCell>
-                <EmptyState
-                  title="No records found"
-                  description="Try adjusting your search or filters to find what you're looking for."
-                  icon="search"
-                  style={{ margin: "auto" }}
-                />
-              </TableCell>
-            </TableRow>
-          )}
+          ) : null}
         </Table>
+        {!loading && table.getRowModel().rows.length === 0 && (
+          <div style={{ padding: "4rem 1rem", display: "flex", justifyContent: "center" }}>
+            <EmptyState
+              title="No records found"
+              description="Try adjusting your search or filters to find what you're looking for."
+              icon="search"
+            />
+          </div>
+        )}
       </div>
 
       {/* ── Pagination ───────────────────────────────────────────────────── */}
