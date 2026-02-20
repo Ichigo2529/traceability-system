@@ -10,6 +10,7 @@ import { eventRoutes, labelRoutes } from "./routes/events";
 import { traceRoutes } from "./routes/trace";
 import { materialRequestRoutes } from "./routes/material-requests";
 import { realtimeRoutes } from "./routes/realtime";
+import { inventoryRoutes } from "./routes/inventory";
 
 export const app = new Elysia()
   .use(cors())
@@ -52,6 +53,7 @@ export const app = new Elysia()
   .use(labelRoutes)
   .use(traceRoutes)
   .use(materialRequestRoutes)
+  .use(inventoryRoutes)
   .use(realtimeRoutes);
 
 export type App = typeof app;

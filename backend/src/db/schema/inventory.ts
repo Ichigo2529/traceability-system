@@ -36,10 +36,13 @@ export const inventoryDo = pgTable(
     supplier: varchar("supplier", { length: 200 }),
     partNumber: varchar("part_number", { length: 120 }),
     lotNumber: varchar("lot_number", { length: 100 }),
+    description: text("description"),
+    grNumber: varchar("gr_number", { length: 120 }),
     materialCode: varchar("material_code", { length: 100 }).notNull(),
     totalQty: integer("total_qty"),
     qtyReceived: integer("qty_received").notNull(),
     qtyIssued: integer("qty_issued").notNull().default(0),
+    rejectQty: integer("reject_qty").notNull().default(0),
     receivedDate: date("received_date"),
     receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -50,6 +53,7 @@ export const inventoryDo = pgTable(
     index("idx_inventory_do_do_number").on(table.doNumber),
     index("idx_inventory_do_material_code").on(table.materialCode),
     index("idx_inventory_do_part_number").on(table.partNumber),
+    index("idx_inventory_do_gr_number").on(table.grNumber),
   ]
 );
 
@@ -115,8 +119,11 @@ export const supplierPartProfiles = pgTable(
       .references(() => suppliers.id, { onDelete: "cascade" }),
     partNumber: varchar("part_number", { length: 120 }).notNull(),
     supplierPartNumber: varchar("supplier_part_number", { length: 120 }).notNull().default(""),
+    componentName: text("component_name"),
     parserKey: varchar("parser_key", { length: 80 }).notNull().default("GENERIC"),
     defaultPackQty: integer("default_pack_qty"),
+    vendorDetail: jsonb("vendor_detail").$type<Record<string, unknown>>(),
+    qrSample: text("qr_sample"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),

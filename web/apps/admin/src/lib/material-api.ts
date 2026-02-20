@@ -4,6 +4,7 @@ import {
   MaterialRequestDetail,
   MaterialRequestIssueOptionsResponse,
   MaterialRequestItem,
+  MaterialRequestMeta,
 } from "@traceability/sdk";
 import { eden, sdk } from "./api-client";
 import { callEdenWithFallback } from "./eden-fallback";
@@ -87,6 +88,21 @@ export async function getMaterialRequestNextNumbers(): Promise<NextNumbersRespon
   };
 }
 
+export async function getMaterialRequestMeta(): Promise<MaterialRequestMeta> {
+  const baseUrl = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+  const res = await fetch(`${baseUrl}/material-requests/meta`, {
+    headers: { ...authHeaders(), "Content-Type": "application/json" } as any,
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    const err: any = new Error(json.message ?? "Failed to load meta");
+    err.error_code = json.error_code;
+    err.status = res.status;
+    throw err;
+  }
+  return json.data as MaterialRequestMeta;
+}
+
 export async function getMaterialRequestCatalog(): Promise<MaterialRequestCatalogItem[]> {
   return preferEden<MaterialRequestCatalogItem[]>(
     () =>
@@ -155,6 +171,7 @@ export async function createMaterialRequest(payload: {
   model_id: string;
   section?: string;
   cost_center?: string;
+  cost_center_id?: string;
   process_name?: string;
   remarks?: string;
   items: MaterialRequestItem[];

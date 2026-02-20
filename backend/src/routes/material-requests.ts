@@ -9,6 +9,7 @@ import {
   bom,
   component2dScans,
   configAuditLogs,
+  costCenters,
   inventoryDo,
   materialRequestItemIssues,
   materialRequestItems,
@@ -16,10 +17,13 @@ import {
   modelRevisions,
   models,
   roles,
+  sections,
+  sectionCostCenters,
   supplierPartProfiles,
   supplierPacks,
   suppliers,
   userRoles,
+  userSections,
   users,
   workflowApprovalConfigs,
 } from "../db/schema";
@@ -531,6 +535,97 @@ materialRequestRoutes.get(
   }
 );
 
+// ═══════════════════════════════════════════════════════
+//  Section & Cost Center resolution helper
+// ═══════════════════════════════════════════════════════
+
+const STRICT_SECTION_CC = process.env.STRICT_MR_SECTION_COSTCENTER === "true";
+
+export async function resolveUserSectionMeta(currentUser: AccessTokenPayload) {
+  // STORE role → fixed STORE section
+  const isStore = currentUser.roles.includes("STORE");
+
+  let section: { id: string; section_code: string; section_name: string } | null = null;
+
+  if (isStore) {
+    const [storeSection] = await db
+      .select({
+        id: sections.id,
+        section_code: sections.sectionCode,
+        section_name: sections.sectionName,
+      })
+      .from(sections)
+      .where(and(eq(sections.sectionCode, "STORE"), eq(sections.isActive, true)))
+      .limit(1);
+    section = storeSection ?? null;
+  } else {
+    // Look up user_sections
+    const [userSec] = await db
+      .select({
+        id: sections.id,
+        section_code: sections.sectionCode,
+        section_name: sections.sectionName,
+      })
+      .from(userSections)
+      .innerJoin(sections, eq(sections.id, userSections.sectionId))
+      .where(and(eq(userSections.userId, currentUser.userId), eq(sections.isActive, true)))
+      .limit(1);
+    section = userSec ?? null;
+  }
+
+  if (!section) return null;
+
+  // Fetch allowed cost centers for this section
+  const allowedCostCenters = await db
+    .select({
+      mapping_id: sectionCostCenters.id,
+      cost_center_id: sectionCostCenters.costCenterId,
+      is_default: sectionCostCenters.isDefault,
+      cost_code: costCenters.costCode,
+      short_text: costCenters.shortText,
+      group_code: costCenters.groupCode,
+    })
+    .from(sectionCostCenters)
+    .innerJoin(costCenters, eq(costCenters.id, sectionCostCenters.costCenterId))
+    .where(
+      and(
+        eq(sectionCostCenters.sectionId, section.id),
+        eq(costCenters.isActive, true)
+      )
+    )
+    .orderBy(asc(costCenters.groupCode), asc(costCenters.costCode));
+
+  const defaultCC = allowedCostCenters.find((cc) => cc.is_default);
+
+  return {
+    section,
+    allowed_cost_centers: allowedCostCenters,
+    default_cost_center_id: defaultCC?.cost_center_id ?? null,
+  };
+}
+
+// GET /material-requests/meta
+materialRequestRoutes.get(
+  "/meta",
+  async ({ set, user }: { set: any; user: AccessTokenPayload | null }) => {
+    const unauthorized = checkAuth({ user, set });
+    if (unauthorized) return unauthorized;
+    const currentUser = user as AccessTokenPayload;
+
+    const meta = await resolveUserSectionMeta(currentUser);
+    if (!meta) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "SECTION_NOT_SET",
+        message: "User section is not configured. Contact admin.",
+      };
+    }
+
+    return { success: true, data: meta };
+  }
+);
+
 materialRequestRoutes.post(
   "/",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload | null }) => {
@@ -598,6 +693,63 @@ materialRequestRoutes.post(
       };
     }
 
+    // ─── Section & Cost Center resolution ────────────
+
+    const meta = await resolveUserSectionMeta(currentUser);
+    let requestSectionId: string | null = null;
+    let requestCostCenterId: string | null = null;
+    let sectionText: string | null = null;
+    let costCenterText: string | null = null;
+
+    if (meta) {
+      requestSectionId = meta.section.id;
+      sectionText = meta.section.section_name;
+
+      if (body.cost_center_id) {
+        // Validate against allowed list
+        const allowed = meta.allowed_cost_centers.find(
+          (cc) => cc.cost_center_id === body.cost_center_id
+        );
+        if (!allowed) {
+          set.status = 400;
+          return {
+            success: false,
+            error_code: "INVALID_COST_CENTER",
+            message: "Selected cost center is not allowed for your section",
+          };
+        }
+        requestCostCenterId = allowed.cost_center_id;
+        costCenterText = `${allowed.cost_code} ${allowed.short_text}`;
+      } else if (meta.default_cost_center_id) {
+        // Use default
+        const defaultCC = meta.allowed_cost_centers.find(
+          (cc) => cc.cost_center_id === meta.default_cost_center_id
+        );
+        requestCostCenterId = meta.default_cost_center_id;
+        costCenterText = defaultCC
+          ? `${defaultCC.cost_code} ${defaultCC.short_text}`
+          : null;
+      } else if (STRICT_SECTION_CC) {
+        // Strict mode: cost center must be set
+        set.status = 400;
+        return {
+          success: false,
+          error_code: "COST_CENTER_DEFAULT_NOT_SET",
+          message: "No cost center provided and no default is configured for your section",
+        };
+      }
+      // Non-strict: proceed with null cost center for backward compat
+    } else if (STRICT_SECTION_CC) {
+      // Strict mode: section is mandatory
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "SECTION_NOT_SET",
+        message: "User section is not configured. Contact admin.",
+      };
+    }
+    // Non-strict: meta is null, proceed with null FK columns for backward compat
+
     const nextNumbers = await buildNextVoucherNumbers();
     const requestNo = body.request_no?.trim() || nextNumbers.request_no;
     const dmiNo = body.dmi_no?.trim() || nextNumbers.dmi_no;
@@ -618,8 +770,10 @@ materialRequestRoutes.post(
             dmiNo,
             requestDate,
             modelId: selectedModelId,
-            section: body.section?.trim() || sectionAuto || null,
-            costCenter: body.cost_center?.trim() || null,
+            section: sectionText || body.section?.trim() || sectionAuto || null,
+            costCenter: costCenterText || body.cost_center?.trim() || null,
+            requestSectionId,
+            requestCostCenterId,
             processName: body.process_name?.trim() || null,
             requestedByUserId: currentUser.userId,
             receivedByUserId: body.received_by_user_id ?? null,
@@ -634,6 +788,8 @@ materialRequestRoutes.post(
             model_id: materialRequests.modelId,
             section: materialRequests.section,
             cost_center: materialRequests.costCenter,
+            request_section_id: materialRequests.requestSectionId,
+            request_cost_center_id: materialRequests.requestCostCenterId,
             process_name: materialRequests.processName,
             status: materialRequests.status,
             remarks: materialRequests.remarks,
@@ -694,6 +850,7 @@ materialRequestRoutes.post(
       model_id: t.String(),
       section: t.Optional(t.String()),
       cost_center: t.Optional(t.String()),
+      cost_center_id: t.Optional(t.String()),
       process_name: t.Optional(t.String()),
       received_by_user_id: t.Optional(t.String()),
       remarks: t.Optional(t.String()),

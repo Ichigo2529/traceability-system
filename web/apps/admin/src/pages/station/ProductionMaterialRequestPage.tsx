@@ -19,6 +19,7 @@ import {
   getMaterialRequestNextNumbers,
   getMaterialRequests,
 } from "../../lib/material-api";
+import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
 import {
     Page,
     Bar,
@@ -81,7 +82,7 @@ export function ProductionMaterialRequestPage() {
   const { hasRole, user } = useAuth();
   const canUsePage = hasRole("PRODUCTION") || hasRole("OPERATOR");
   const queryClient = useQueryClient();
-  const [costCenter, setCostCenter] = useState("");
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState("");
   const [headerRemarks, setHeaderRemarks] = useState("");
   const [lines, setLines] = useState<LineForm[]>([blankLine(1)]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -97,6 +98,17 @@ export function ProductionMaterialRequestPage() {
   const [scanInputError, setScanInputError] = useState<string | null>(null);
   const submittedScanCacheRef = useRef<Set<string>>(new Set());
   const scanInputRef = useRef<any>(null);
+
+  const { meta, sectionNotSet, isLoading: metaLoading } = useMaterialRequestMeta(canUsePage);
+
+  // Pre-select default cost center once meta loads
+  const defaultSetRef = useRef(false);
+  useEffect(() => {
+    if (meta?.default_cost_center_id && !defaultSetRef.current) {
+      setSelectedCostCenterId(meta.default_cost_center_id);
+      defaultSetRef.current = true;
+    }
+  }, [meta?.default_cost_center_id]);
 
   const requestsQuery = useQuery({
     queryKey: ["station-production-material-requests"],
@@ -175,7 +187,9 @@ export function ProductionMaterialRequestPage() {
     return map;
   }, [catalogQuery.data]);
 
-  const sectionAuto = `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`;
+  const sectionDisplay = meta?.section
+    ? `${meta.section.section_name} (${meta.section.section_code})`
+    : `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`;
   const hasInvalidRequestedQty = lines
     .filter((line) => line.part_number.trim().length > 0)
     .some((line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
@@ -201,8 +215,8 @@ export function ProductionMaterialRequestPage() {
         dmi_no: nextNumbersQuery.data?.dmi_no,
         request_date: nextNumbersQuery.data?.request_date,
         model_id: modelIds[0],
-        section: sectionAuto,
-        cost_center: costCenter || undefined,
+        section: sectionDisplay,
+        cost_center_id: selectedCostCenterId || undefined,
         remarks: headerRemarks || undefined,
         items: requestedLines
           .map((line, idx) => ({
@@ -217,7 +231,7 @@ export function ProductionMaterialRequestPage() {
     },
     onSuccess: async (created) => {
       setLines([blankLine(1)]);
-      setCostCenter("");
+      setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
       setHeaderRemarks("");
       const recipientText =
         (created.alert_recipients ?? []).length > 0
@@ -384,7 +398,7 @@ export function ProductionMaterialRequestPage() {
     250
   );
   const showFormLoading = useDelayedBusy(
-    catalogQuery.isLoading || nextNumbersQuery.isLoading || (catalogQuery.isFetching && !catalogQuery.data),
+    catalogQuery.isLoading || nextNumbersQuery.isLoading || metaLoading || (catalogQuery.isFetching && !catalogQuery.data),
     250
   );
   const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
@@ -506,6 +520,11 @@ export function ProductionMaterialRequestPage() {
       style={{ height: "100%" }}
     >
       {anyError ? <MessageStrip design="Negative" hideCloseButton>{formatApiError(anyError)}</MessageStrip> : null}
+      {sectionNotSet ? (
+        <MessageStrip design="Critical" hideCloseButton style={{ marginBottom: "0.5rem" }}>
+          Your user account has no section assigned. Please contact an administrator to set your section before creating requests.
+        </MessageStrip>
+      ) : null}
       <TabContainer tabLayout="Standard" collapsed onTabSelect={(e) => setTab(e.detail.tab.getAttribute("data-key") as TabKey)}>
         <Tab text="Request Form" icon="form" selected={tab === "FORM"} data-key="FORM" />
         <TabSeparator />
@@ -547,13 +566,24 @@ export function ProductionMaterialRequestPage() {
                         </FormGroup>
                         <FormGroup headerText="Requestor Details">
                             <FormItem labelContent={<Label>SECTION</Label>}>
-                                <Text>{sectionAuto || "-"}</Text>
+                                <Text>{sectionDisplay || "-"}</Text>
                             </FormItem>
-                            <FormItem labelContent={<Label>COST CENTER</Label>}>
-                                <Input
-                                    value={costCenter}
-                                    onInput={(e) => setCostCenter(e.target.value)}
-                                />
+                            <FormItem labelContent={<Label showColon required for="cost-center-select">COST CENTER</Label>}>
+                                <Select
+                                    id="cost-center-select"
+                                    onChange={(e) => setSelectedCostCenterId(e.detail.selectedOption.getAttribute("data-value") ?? "")}
+                                >
+                                    <Option data-value="" selected={!selectedCostCenterId}>Select Cost Center</Option>
+                                    {(meta?.allowed_cost_centers ?? []).map((cc) => (
+                                        <Option
+                                            key={cc.cost_center_id}
+                                            data-value={cc.cost_center_id}
+                                            selected={selectedCostCenterId === cc.cost_center_id}
+                                        >
+                                            {cc.cost_code}{cc.short_text ? ` - ${cc.short_text}` : ""}
+                                        </Option>
+                                    ))}
+                                </Select>
                             </FormItem>
                         </FormGroup>
                     </Form> 
@@ -682,7 +712,7 @@ export function ProductionMaterialRequestPage() {
                         onClick={() => {
                             setConfirmSubmitOpen(true);
                         }}
-                        disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty}
+                        disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty || sectionNotSet}
                     >
                         {createMutation.isPending ? "Submitting..." : "Submit Request"}
                     </Button>

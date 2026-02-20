@@ -9,6 +9,7 @@ export function FormDialog({
   submitting,
   contentClassName,
   bodyClassName,
+  width,
   footer,
   onClose,
   onSubmit,
@@ -21,6 +22,7 @@ export function FormDialog({
   submitting?: boolean;
   contentClassName?: string;
   bodyClassName?: string;
+  width?: string;
   footer?: ReactNode;
   onClose: () => void;
   onSubmit: () => void;
@@ -34,6 +36,7 @@ export function FormDialog({
       draggable
       onClose={onClose}
       className={contentClassName}
+      style={{ width: width || "800px", ...{ "--_ui5_dialog_content_height": "auto" } as any }}
       state={description ? "Information" : "None"}
       footer={
         <Bar

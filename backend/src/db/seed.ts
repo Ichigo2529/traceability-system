@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { eq } from "drizzle-orm";
 import { hash } from "bcryptjs";
 import { users, roles, userRoles, permissions, rolePermissions } from "./schema/auth";
+import { costCenters, sections } from "./schema/organization";
 
 const ROLE_NAMES = ["ADMIN", "SUPERVISOR", "OPERATOR", "STORE", "PRODUCTION", "QA"] as const;
 const DEFAULT_PERMISSIONS = [
@@ -16,6 +17,34 @@ const DEFAULT_PERMISSIONS = [
   { code: "models.write", name: "Manage Models", module: "models" },
   { code: "workflow.read", name: "Read Workflow", module: "workflow" },
   { code: "workflow.write", name: "Manage Workflow", module: "workflow" },
+];
+
+const COST_CENTER_SEEDS: { groupCode: string; costCode: string; shortText: string }[] = [
+  { groupCode: "DL",  costCode: "663010A101", shortText: "STX DI WASH" },
+  { groupCode: "DL",  costCode: "663010A102", shortText: "STX DI ASSY" },
+  { groupCode: "DL",  costCode: "663010A103", shortText: "STX DI FG PACK" },
+  { groupCode: "DL",  costCode: "663010A104", shortText: "STX DI SAW" },
+  { groupCode: "DL",  costCode: "663010A105", shortText: "STX DI WB" },
+  { groupCode: "DL",  costCode: "663010A106", shortText: "STX DI MOLD" },
+  { groupCode: "DL",  costCode: "663010A107", shortText: "STX DI PLATING" },
+  { groupCode: "DL",  costCode: "663010A108", shortText: "STX DI MARK" },
+  { groupCode: "DL",  costCode: "663010A109", shortText: "STX DI TEST" },
+  { groupCode: "DL",  costCode: "663010A110", shortText: "STX DI SOLDER" },
+  { groupCode: "DL",  costCode: "663010A111", shortText: "STX DI DEJUNK" },
+  { groupCode: "DL",  costCode: "663010A112", shortText: "STX DI SORT" },
+  { groupCode: "IDL", costCode: "663010A201", shortText: "STX IDI PRODUCTION" },
+  { groupCode: "IDL", costCode: "663010A202", shortText: "STX IDI PE" },
+  { groupCode: "IDL", costCode: "663010A203", shortText: "STX IDI QA" },
+  { groupCode: "IDL", costCode: "663010A204", shortText: "STX IDI PLANNING" },
+  { groupCode: "IDL", costCode: "663010A205", shortText: "STX IDI WAREHOUSE" },
+  { groupCode: "DIS", costCode: "663010A301", shortText: "STX DIS MAINTENANCE" },
+  { groupCode: "ADM", costCode: "663010A401", shortText: "STX ADM HR" },
+  { groupCode: "ADM", costCode: "663010A402", shortText: "STX ADM ACCOUNT" },
+  { groupCode: "ADM", costCode: "663010A403", shortText: "STX IT" },
+];
+
+const SECTION_SEEDS = [
+  { sectionCode: "STORE", sectionName: "Store / Warehouse" },
 ];
 
 async function seed() {
@@ -92,6 +121,26 @@ async function seed() {
           .onConflictDoNothing();
       }
     }
+
+    // ─── Seed cost centers ──────────────────────────────
+    console.log("Seeding cost centers...");
+    for (const cc of COST_CENTER_SEEDS) {
+      await db
+        .insert(costCenters)
+        .values(cc)
+        .onConflictDoNothing({ target: costCenters.costCode });
+    }
+    console.log(`Seeded ${COST_CENTER_SEEDS.length} cost centers.`);
+
+    // ─── Seed sections ─────────────────────────────────
+    console.log("Seeding sections...");
+    for (const sec of SECTION_SEEDS) {
+      await db
+        .insert(sections)
+        .values(sec)
+        .onConflictDoNothing({ target: sections.sectionCode });
+    }
+    console.log(`Seeded ${SECTION_SEEDS.length} sections.`);
 
     console.log("Seed completed successfully.");
   } catch (error) {

@@ -13,6 +13,7 @@ import {
 import { users } from "./auth";
 import { models } from "./config";
 import { inventoryDo, suppliers } from "./inventory";
+import { sections, costCenters } from "./organization";
 
 export const materialRequestStatusEnum = pgEnum("material_request_status", [
   "REQUESTED",
@@ -32,6 +33,8 @@ export const materialRequests = pgTable(
     modelId: uuid("model_id").references(() => models.id, { onDelete: "set null" }),
     section: varchar("section", { length: 120 }),
     costCenter: varchar("cost_center", { length: 120 }),
+    requestSectionId: uuid("request_section_id").references(() => sections.id, { onDelete: "set null" }),
+    requestCostCenterId: uuid("request_cost_center_id").references(() => costCenters.id, { onDelete: "set null" }),
     processName: varchar("process_name", { length: 120 }),
     requestedByUserId: uuid("requested_by_user_id").references(() => users.id, { onDelete: "set null" }),
     approvedByUserId: uuid("approved_by_user_id").references(() => users.id, { onDelete: "set null" }),

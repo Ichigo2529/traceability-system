@@ -407,6 +407,24 @@ export interface MaterialRequest {
   }>;
 }
 
+export interface MetaCostCenter {
+  cost_center_id: string;
+  cost_code: string;
+  short_text?: string | null;
+  group_code?: string | null;
+  is_default: boolean;
+}
+
+export interface MaterialRequestMeta {
+  section: {
+    id: string;
+    section_code: string;
+    section_name: string;
+  } | null;
+  allowed_cost_centers: MetaCostCenter[];
+  default_cost_center_id: string | null;
+}
+
 export interface MaterialRequestDetail extends MaterialRequest {
   items: MaterialRequestItem[];
 }

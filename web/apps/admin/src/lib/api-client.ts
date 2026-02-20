@@ -16,7 +16,7 @@ function readAccessToken() {
   }
 }
 
-function authHeaders() {
+export function authHeaders() {
   const token = readAccessToken();
   return token ? { authorization: `Bearer ${token}` } : undefined;
 }

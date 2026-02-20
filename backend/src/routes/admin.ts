@@ -43,6 +43,10 @@ import {
   setRuns,
   containers,
   consumption,
+  costCenters,
+  sections,
+  sectionCostCenters,
+  userSections,
 } from "../db/schema";
 import { randomBytes } from "crypto";
 import {
@@ -4517,3 +4521,542 @@ adminRoutes.post(
 );
 
 
+// ═══════════════════════════════════════════════════════
+//  Cost Center CRUD
+// ═══════════════════════════════════════════════════════
+
+adminRoutes.get("/cost-centers", async ({ query }: { query: { is_active?: string } }) => {
+  const conditions = [];
+  if (query.is_active !== undefined) {
+    conditions.push(eq(costCenters.isActive, query.is_active === "true"));
+  }
+
+  const rows = await db
+    .select({
+      id: costCenters.id,
+      group_code: costCenters.groupCode,
+      cost_code: costCenters.costCode,
+      short_text: costCenters.shortText,
+      is_active: costCenters.isActive,
+      created_at: costCenters.createdAt,
+      updated_at: costCenters.updatedAt,
+    })
+    .from(costCenters)
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(asc(costCenters.groupCode), asc(costCenters.costCode));
+
+  return { success: true, data: rows };
+});
+
+const VALID_GROUP_CODES = ["DL", "IDL", "DIS", "ADM"] as const;
+
+adminRoutes.post(
+  "/cost-centers",
+  async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
+    const groupCode = String(body.group_code ?? "").trim().toUpperCase();
+    if (!VALID_GROUP_CODES.includes(groupCode as any)) {
+      set.status = 400;
+      return { success: false, error_code: "INVALID_GROUP_CODE", message: `group_code must be one of: ${VALID_GROUP_CODES.join(", ")}` };
+    }
+
+    try {
+      const [created] = await db
+        .insert(costCenters)
+        .values({
+          groupCode,
+          costCode: String(body.cost_code ?? "").trim().toUpperCase(),
+          shortText: String(body.short_text ?? "").trim(),
+          isActive: body.is_active ?? true,
+          createdBy: user.userId,
+        })
+        .returning();
+
+      await auditConfigChange(user.userId, "COST_CENTER", created.id, "CREATE", null, created as Record<string, unknown>);
+      return { success: true, data: created };
+    } catch (error) {
+      set.status = 400;
+      return { success: false, error_code: parseErrorCode(error), message: "Failed to create cost center" };
+    }
+  },
+  {
+    body: t.Object({
+      group_code: t.String(),
+      cost_code: t.String(),
+      short_text: t.String(),
+      is_active: t.Optional(t.Boolean()),
+    }),
+  }
+);
+
+adminRoutes.put(
+  "/cost-centers/:id",
+  async ({ params, body, set, user }: { params: { id: string }; body: any; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(costCenters).where(eq(costCenters.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Cost center not found" };
+    }
+
+    if (body.group_code !== undefined) {
+      const gc = String(body.group_code).trim().toUpperCase();
+      if (!VALID_GROUP_CODES.includes(gc as any)) {
+        set.status = 400;
+        return { success: false, error_code: "INVALID_GROUP_CODE", message: `group_code must be one of: ${VALID_GROUP_CODES.join(", ")}` };
+      }
+    }
+
+    try {
+      const [updated] = await db
+        .update(costCenters)
+        .set({
+          groupCode: body.group_code !== undefined ? String(body.group_code).trim().toUpperCase() : existing.groupCode,
+          costCode: body.cost_code !== undefined ? String(body.cost_code).trim().toUpperCase() : existing.costCode,
+          shortText: body.short_text !== undefined ? String(body.short_text).trim() : existing.shortText,
+          isActive: body.is_active ?? existing.isActive,
+          updatedAt: new Date(),
+        })
+        .where(eq(costCenters.id, params.id))
+        .returning();
+
+      await auditConfigChange(user.userId, "COST_CENTER", params.id, "UPDATE", existing as any, updated as any);
+      return { success: true, data: updated };
+    } catch (error) {
+      set.status = 400;
+      return { success: false, error_code: parseErrorCode(error), message: "Failed to update cost center" };
+    }
+  },
+  {
+    body: t.Object({
+      group_code: t.Optional(t.String()),
+      cost_code: t.Optional(t.String()),
+      short_text: t.Optional(t.String()),
+      is_active: t.Optional(t.Boolean()),
+    }),
+  }
+);
+
+adminRoutes.delete("/cost-centers/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+  const [existing] = await db.select().from(costCenters).where(eq(costCenters.id, params.id)).limit(1);
+  if (!existing) {
+    set.status = 404;
+    return { success: false, error_code: "NOT_FOUND", message: "Cost center not found" };
+  }
+
+  await db.update(costCenters).set({ isActive: false, updatedAt: new Date() }).where(eq(costCenters.id, params.id));
+  await auditConfigChange(user.userId, "COST_CENTER", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
+  return { success: true, data: null };
+});
+
+// ═══════════════════════════════════════════════════════
+//  Section CRUD
+// ═══════════════════════════════════════════════════════
+
+adminRoutes.get("/sections", async () => {
+  const sectionRows = await db
+    .select({
+      id: sections.id,
+      section_code: sections.sectionCode,
+      section_name: sections.sectionName,
+      is_active: sections.isActive,
+      created_at: sections.createdAt,
+      updated_at: sections.updatedAt,
+    })
+    .from(sections)
+    .orderBy(asc(sections.sectionCode));
+
+  const enriched = await Promise.all(
+    sectionRows.map(async (sec) => {
+      const mappings = await db
+        .select({
+          id: sectionCostCenters.id,
+          cost_center_id: sectionCostCenters.costCenterId,
+          is_default: sectionCostCenters.isDefault,
+          cost_code: costCenters.costCode,
+          short_text: costCenters.shortText,
+          group_code: costCenters.groupCode,
+          cc_is_active: costCenters.isActive,
+        })
+        .from(sectionCostCenters)
+        .innerJoin(costCenters, eq(costCenters.id, sectionCostCenters.costCenterId))
+        .where(eq(sectionCostCenters.sectionId, sec.id))
+        .orderBy(asc(costCenters.groupCode), asc(costCenters.costCode));
+
+      return { ...sec, cost_centers: mappings };
+    })
+  );
+
+  return { success: true, data: enriched };
+});
+
+adminRoutes.post(
+  "/sections",
+  async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
+    try {
+      const [created] = await db
+        .insert(sections)
+        .values({
+          sectionCode: String(body.section_code ?? "").trim().toUpperCase(),
+          sectionName: String(body.section_name ?? "").trim(),
+          isActive: body.is_active ?? true,
+        })
+        .returning();
+
+      await auditConfigChange(user.userId, "SECTION", created.id, "CREATE", null, created as Record<string, unknown>);
+      return { success: true, data: created };
+    } catch (error) {
+      set.status = 400;
+      return { success: false, error_code: parseErrorCode(error), message: "Failed to create section" };
+    }
+  },
+  {
+    body: t.Object({
+      section_code: t.String(),
+      section_name: t.String(),
+      is_active: t.Optional(t.Boolean()),
+    }),
+  }
+);
+
+adminRoutes.put(
+  "/sections/:id",
+  async ({ params, body, set, user }: { params: { id: string }; body: any; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(sections).where(eq(sections.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Section not found" };
+    }
+
+    try {
+      const [updated] = await db
+        .update(sections)
+        .set({
+          sectionCode: body.section_code !== undefined ? String(body.section_code).trim().toUpperCase() : existing.sectionCode,
+          sectionName: body.section_name !== undefined ? String(body.section_name).trim() : existing.sectionName,
+          isActive: body.is_active ?? existing.isActive,
+          updatedAt: new Date(),
+        })
+        .where(eq(sections.id, params.id))
+        .returning();
+
+      await auditConfigChange(user.userId, "SECTION", params.id, "UPDATE", existing as any, updated as any);
+      return { success: true, data: updated };
+    } catch (error) {
+      set.status = 400;
+      return { success: false, error_code: parseErrorCode(error), message: "Failed to update section" };
+    }
+  },
+  {
+    body: t.Object({
+      section_code: t.Optional(t.String()),
+      section_name: t.Optional(t.String()),
+      is_active: t.Optional(t.Boolean()),
+    }),
+  }
+);
+
+adminRoutes.delete("/sections/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+  const [existing] = await db.select().from(sections).where(eq(sections.id, params.id)).limit(1);
+  if (!existing) {
+    set.status = 404;
+    return { success: false, error_code: "NOT_FOUND", message: "Section not found" };
+  }
+
+  await db.update(sections).set({ isActive: false, updatedAt: new Date() }).where(eq(sections.id, params.id));
+  await auditConfigChange(user.userId, "SECTION", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
+  return { success: true, data: null };
+});
+
+// ═══════════════════════════════════════════════════════
+//  Section ↔ Cost Center mapping
+// ═══════════════════════════════════════════════════════
+
+// POST /admin/sections/:id/cost-centers – add mapping
+adminRoutes.post(
+  "/sections/:id/cost-centers",
+  async ({ params, body, set, user }: { params: { id: string }; body: any; set: any; user: AccessTokenPayload }) => {
+    // Verify section exists
+    const [sec] = await db.select({ id: sections.id }).from(sections).where(eq(sections.id, params.id)).limit(1);
+    if (!sec) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Section not found" };
+    }
+
+    // Verify cost center exists
+    const [cc] = await db.select({ id: costCenters.id }).from(costCenters).where(eq(costCenters.id, body.cost_center_id)).limit(1);
+    if (!cc) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Cost center not found" };
+    }
+
+    try {
+      const [created] = await db.transaction(async (tx) => {
+        // If this is being set as default, clear previous default first
+        if (body.is_default) {
+          await tx
+            .update(sectionCostCenters)
+            .set({ isDefault: false })
+            .where(and(eq(sectionCostCenters.sectionId, params.id), eq(sectionCostCenters.isDefault, true)));
+        }
+
+        return await tx
+          .insert(sectionCostCenters)
+          .values({
+            sectionId: params.id,
+            costCenterId: body.cost_center_id,
+            isDefault: body.is_default ?? false,
+          })
+          .returning();
+      });
+
+      await auditConfigChange(user.userId, "SECTION_COST_CENTER", created.id, "CREATE", null, created as Record<string, unknown>);
+      return { success: true, data: created };
+    } catch (error) {
+      set.status = 400;
+      return { success: false, error_code: parseErrorCode(error), message: "Failed to add cost center mapping" };
+    }
+  },
+  {
+    body: t.Object({
+      cost_center_id: t.String(),
+      is_default: t.Optional(t.Boolean()),
+    }),
+  }
+);
+
+// DELETE /admin/sections/:id/cost-centers/:costCenterId – remove mapping
+adminRoutes.delete(
+  "/sections/:id/cost-centers/:costCenterId",
+  async ({
+    params,
+    set,
+    user,
+  }: {
+    params: { id: string; costCenterId: string };
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
+    const [deleted] = await db
+      .delete(sectionCostCenters)
+      .where(
+        and(
+          eq(sectionCostCenters.sectionId, params.id),
+          eq(sectionCostCenters.costCenterId, params.costCenterId)
+        )
+      )
+      .returning({ id: sectionCostCenters.id });
+
+    if (!deleted) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Mapping not found" };
+    }
+
+    await auditConfigChange(user.userId, "SECTION_COST_CENTER", deleted.id, "DELETE", { section_id: params.id, cost_center_id: params.costCenterId }, null);
+    return { success: true, data: null };
+  }
+);
+
+// PATCH /admin/sections/:id/default-cost-center – set default
+adminRoutes.patch(
+  "/sections/:id/default-cost-center",
+  async ({ params, body, set, user }: { params: { id: string }; body: any; set: any; user: AccessTokenPayload }) => {
+    // Transaction: lookup + clear old default + set new (eliminates TOCTOU)
+    const mapping = await db.transaction(async (tx) => {
+      const [found] = await tx
+        .select({ id: sectionCostCenters.id })
+        .from(sectionCostCenters)
+        .where(
+          and(
+            eq(sectionCostCenters.sectionId, params.id),
+            eq(sectionCostCenters.costCenterId, body.cost_center_id)
+          )
+        )
+        .limit(1);
+
+      if (!found) return null;
+
+      await tx
+        .update(sectionCostCenters)
+        .set({ isDefault: false })
+        .where(and(eq(sectionCostCenters.sectionId, params.id), eq(sectionCostCenters.isDefault, true)));
+
+      await tx
+        .update(sectionCostCenters)
+        .set({ isDefault: true })
+        .where(eq(sectionCostCenters.id, found.id));
+
+      return found;
+    });
+
+    if (!mapping) {
+      set.status = 404;
+      return {
+        success: false,
+        error_code: "NOT_FOUND",
+        message: "Cost center is not mapped to this section. Add it first.",
+      };
+    }
+
+    await auditConfigChange(user.userId, "SECTION_COST_CENTER", mapping.id, "SET_DEFAULT", null, {
+      section_id: params.id,
+      cost_center_id: body.cost_center_id,
+    });
+
+    return { success: true, data: { id: mapping.id, is_default: true } };
+  },
+  {
+    body: t.Object({
+      cost_center_id: t.String(),
+    }),
+  }
+);
+
+// ═══════════════════════════════════════════════════════
+//  User ↔ Section assignment (ADMIN-only)
+// ═══════════════════════════════════════════════════════
+
+// GET /admin/user-sections?q=search
+adminRoutes.get("/user-sections", async ({ query }: { query: { q?: string } }) => {
+  const search = (query.q ?? "").trim();
+
+  // Base query: LEFT JOIN so users without section show up
+  let base = db
+    .select({
+      user_id: users.id,
+      username: users.username,
+      display_name: users.displayName,
+      employee_code: users.employeeCode,
+      email: users.email,
+      department: users.department,
+      is_active: users.isActive,
+      section_id: userSections.sectionId,
+      section_code: sections.sectionCode,
+      section_name: sections.sectionName,
+    })
+    .from(users)
+    .leftJoin(userSections, eq(userSections.userId, users.id))
+    .leftJoin(sections, eq(sections.id, userSections.sectionId));
+
+  const conditions = [eq(users.isActive, true)];
+
+  if (search) {
+    const pattern = `%${search}%`;
+    conditions.push(
+      sql`(
+        ${users.username} ILIKE ${pattern}
+        OR ${users.displayName} ILIKE ${pattern}
+        OR ${users.email} ILIKE ${pattern}
+        OR ${users.employeeCode} ILIKE ${pattern}
+      )`
+    );
+  }
+
+  const rows = await base
+    .where(and(...conditions))
+    .orderBy(asc(users.displayName))
+    .limit(100);
+
+  return { success: true, data: rows };
+});
+
+// PUT /admin/user-sections/:userId – upsert assign
+adminRoutes.put(
+  "/user-sections/:userId",
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { userId: string };
+    body: { section_id: string };
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
+    // Validate user exists
+    const [targetUser] = await db
+      .select({ id: users.id, display_name: users.displayName })
+      .from(users)
+      .where(eq(users.id, params.userId))
+      .limit(1);
+    if (!targetUser) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "User not found" };
+    }
+
+    // Validate section exists and is active
+    const [sec] = await db
+      .select({ id: sections.id, section_code: sections.sectionCode })
+      .from(sections)
+      .where(and(eq(sections.id, body.section_id), eq(sections.isActive, true)))
+      .limit(1);
+    if (!sec) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_SECTION",
+        message: "Section not found or inactive",
+      };
+    }
+
+    // Upsert: on conflict on user_id PK, update section_id
+    const [result] = await db
+      .insert(userSections)
+      .values({ userId: params.userId, sectionId: body.section_id })
+      .onConflictDoUpdate({
+        target: userSections.userId,
+        set: { sectionId: body.section_id },
+      })
+      .returning();
+
+    await auditConfigChange(
+      user.userId,
+      "USER_SECTION",
+      params.userId,
+      "UPSERT",
+      null,
+      { user_id: params.userId, section_id: body.section_id, section_code: sec.section_code }
+    );
+
+    return { success: true, data: result };
+  },
+  {
+    body: t.Object({
+      section_id: t.String(),
+    }),
+  }
+);
+
+// DELETE /admin/user-sections/:userId – unassign
+adminRoutes.delete(
+  "/user-sections/:userId",
+  async ({
+    params,
+    set,
+    user,
+  }: {
+    params: { userId: string };
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
+    const [deleted] = await db
+      .delete(userSections)
+      .where(eq(userSections.userId, params.userId))
+      .returning({ userId: userSections.userId, sectionId: userSections.sectionId });
+
+    if (!deleted) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "User has no section assignment" };
+    }
+
+    await auditConfigChange(
+      user.userId,
+      "USER_SECTION",
+      params.userId,
+      "DELETE",
+      { user_id: deleted.userId, section_id: deleted.sectionId },
+      null
+    );
+
+    return { success: true, data: null };
+  }
+);

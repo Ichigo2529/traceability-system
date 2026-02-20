@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail, MaterialRequestIssueOptionsResponse } from "@traceability/sdk";
@@ -26,6 +26,7 @@ import {
   FlexBox,
   FlexBoxAlignItems,
   FlexBoxJustifyContent,
+  MessageStrip,
   Table,
   TableRow,
   TableCell,
@@ -61,6 +62,7 @@ import {
   issueMaterialRequestWithAllocation,
   rejectMaterialRequest,
 } from "../../lib/material-api";
+import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
 
 // ... existing types ...
 
@@ -89,7 +91,7 @@ function blankLine(itemNo: number): LineForm {
 export default function MaterialRequestsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [costCenter, setCostCenter] = useState("");
+  const [selectedCostCenterId, setSelectedCostCenterId] = useState("");
   const [headerRemarks, setHeaderRemarks] = useState("");
   const [lines, setLines] = useState<LineForm[]>([blankLine(1)]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -100,6 +102,16 @@ export default function MaterialRequestsPage() {
   const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const { showToast, ToastComponent } = useToast();
+  const { meta, sectionNotSet } = useMaterialRequestMeta();
+  const defaultSetRef = useRef(false);
+
+  // Pre-select default cost center once meta loads
+  useEffect(() => {
+    if (meta?.default_cost_center_id && !defaultSetRef.current) {
+      setSelectedCostCenterId(meta.default_cost_center_id);
+      defaultSetRef.current = true;
+    }
+  }, [meta?.default_cost_center_id]);
 
   const requestsQuery = useQuery({
     queryKey: ["admin-material-requests"],
@@ -191,7 +203,9 @@ export default function MaterialRequestsPage() {
     return map;
   }, [catalogQuery.data]);
 
-  const sectionAuto = `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`;
+  const sectionDisplay = meta?.section
+    ? `${meta.section.section_name} (${meta.section.section_code})`
+    : `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`;
   const hasInvalidRequestedQty = lines
     .filter((line) => line.part_number.trim().length > 0)
     .some((line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
@@ -217,8 +231,8 @@ export default function MaterialRequestsPage() {
         dmi_no: nextNumbersQuery.data?.dmi_no,
         request_date: nextNumbersQuery.data?.request_date,
         model_id: modelIds[0],
-        section: sectionAuto,
-        cost_center: costCenter || undefined,
+        section: sectionDisplay,
+        cost_center_id: selectedCostCenterId || undefined,
         remarks: headerRemarks || undefined,
         items: requestedLines
           .map((line, idx) => ({
@@ -233,13 +247,23 @@ export default function MaterialRequestsPage() {
     },
     onSuccess: async (created) => {
       setLines([blankLine(1)]);
-      setCostCenter("");
+      setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
       setHeaderRemarks("");
       showToast(`Request submitted: ${created.request_no}${created.dmi_no ? ` (${created.dmi_no})` : ""}`);
       await queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
       await queryClient.invalidateQueries({ queryKey: ["material-request-next-numbers-admin"] });
       setCreateDialogOpen(false);
     },
+    onError: (err: any) => {
+      const code = err?.error_code;
+      if (code === "INVALID_COST_CENTER") {
+        showToast("Error: Selected cost center is invalid.", { type: "Error" });
+      } else if (code === "SECTION_NOT_SET") {
+        showToast("Error: Your user has no section assigned.", { type: "Error" });
+      } else {
+        showToast(err.message || "Failed to create request", { type: "Error" });
+      }
+    }
   });
 
   const approveMutation = useMutation({
@@ -331,7 +355,7 @@ export default function MaterialRequestsPage() {
         cell: ({ row }) => formatDateTime((row.original.created_at ?? row.original.request_date) as any),
         size: 160,
       },
-      { header: "", accessorKey: "section", cell: ({ row }) => row.original.section || "-", size: 140 },
+      { header: "Section", accessorKey: "section", cell: ({ row }) => row.original.section || "-", size: 140 },
       { header: "Cost Center", accessorKey: "cost_center", cell: ({ row }) => row.original.cost_center || "-", size: 100 },
       { header: "Process", accessorKey: "process_name", cell: ({ row }) => row.original.process_name || "-", size: 100 },
       { header: "Items", accessorKey: "item_count", cell: ({ row }) => row.original.item_count ?? "-", size: 80 },
@@ -475,12 +499,12 @@ export default function MaterialRequestsPage() {
                        icon="add"
                        design="Emphasized"
                        className="button-hover-scale"
-                       onClick={() => {
-                           setLines([blankLine(1)]);
-                           setCostCenter("");
-                           setHeaderRemarks("");
-                           setCreateDialogOpen(true);
-                       }}
+                        onClick={() => {
+                            setLines([blankLine(1)]);
+                            setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
+                            setHeaderRemarks("");
+                            setCreateDialogOpen(true);
+                        }}
                    >
                        New Request
                    </Button>
@@ -512,6 +536,11 @@ export default function MaterialRequestsPage() {
         }
       >
         <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem", height: "100%" }}>
+             {sectionNotSet ? (
+               <MessageStrip design="Critical" hideCloseButton style={{ marginBottom: "0.5rem" }}>
+                 Your user account has no section assigned. You cannot create requests.
+               </MessageStrip>
+             ) : null}
              {/* Header Info - Simplified for Dialog */}
              <div style={{ padding: "0.75rem 1rem", background: "var(--sapObjectHeader_Background)", border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
                  <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} wrap="Wrap" style={{ gap: "1rem" }}>
@@ -536,16 +565,28 @@ export default function MaterialRequestsPage() {
                      <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
                          <Label style={{ fontWeight: "bold" }}>SECTION:</Label>
                          <Label>
-                            {sectionAuto || "-"}
+                            {sectionDisplay || "-"}
                          </Label>
                      </FlexBox>
                      <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem", flexGrow: 1, minWidth: "200px" }}>
-                         <Label style={{ fontWeight: "bold" }}>COST CENTER:</Label>
-                         <Input 
-                            value={costCenter}
-                            onInput={(e) => setCostCenter(e.target.value)}
-                            style={{ flex: 1 }}
-                         />
+                         <Label showColon required for="admin-cc-select" style={{ fontWeight: "bold" }}>COST CENTER:</Label>
+                         <Select
+                             id="admin-cc-select"
+                             disabled={sectionNotSet}
+                             onChange={(e) => setSelectedCostCenterId(e.detail.selectedOption.getAttribute("data-value") ?? "")}
+                             style={{ flex: 1 }}
+                         >
+                             <Option data-value="" selected={!selectedCostCenterId}>Select Cost Center</Option>
+                             {(meta?.allowed_cost_centers ?? []).map((cc) => (
+                                 <Option
+                                     key={cc.cost_center_id}
+                                     data-value={cc.cost_center_id}
+                                     selected={selectedCostCenterId === cc.cost_center_id}
+                                 >
+                                     {cc.cost_code}{cc.short_text ? ` - ${cc.short_text}` : ""}
+                                 </Option>
+                             ))}
+                         </Select>
                      </FlexBox>
                  </FlexBox>
              </div>

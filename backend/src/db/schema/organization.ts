@@ -10,7 +10,7 @@ import {
   jsonb,
   text,
 } from "drizzle-orm/pg-core";
-import { roles } from "./auth";
+import { roles, users } from "./auth";
 
 export const departments = pgTable(
   "departments",
@@ -93,3 +93,81 @@ export const appSettings = pgTable("app_settings", {
   description: text("description"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
+
+// ─── Cost Centers ───────────────────────────────────────
+
+export const costCenters = pgTable(
+  "cost_centers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    groupCode: varchar("group_code", { length: 10 }).notNull(), // DL, IDL, DIS, ADM
+    costCode: varchar("cost_code", { length: 32 }).notNull(),
+    shortText: varchar("short_text", { length: 255 }).notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdBy: uuid("created_by"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("uq_cost_centers_cost_code").on(table.costCode),
+    index("idx_cost_centers_group_code").on(table.groupCode),
+    index("idx_cost_centers_active").on(table.isActive),
+  ]
+);
+
+// ─── Sections ───────────────────────────────────────────
+
+export const sections = pgTable(
+  "sections",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sectionCode: varchar("section_code", { length: 50 }).notNull(),
+    sectionName: varchar("section_name", { length: 255 }).notNull(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("uq_sections_section_code").on(table.sectionCode),
+    index("idx_sections_active").on(table.isActive),
+  ]
+);
+
+// ─── Section ↔ Cost Center mapping ──────────────────────
+
+export const sectionCostCenters = pgTable(
+  "section_cost_centers",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => sections.id, { onDelete: "cascade" }),
+    costCenterId: uuid("cost_center_id")
+      .notNull()
+      .references(() => costCenters.id, { onDelete: "cascade" }),
+    isDefault: boolean("is_default").notNull().default(false),
+  },
+  (table) => [
+    uniqueIndex("uq_section_cost_centers_pair").on(table.sectionId, table.costCenterId),
+    index("idx_section_cost_centers_section_id").on(table.sectionId),
+    index("idx_section_cost_centers_cost_center_id").on(table.costCenterId),
+    // NOTE: partial unique index (one default per section) is created in migration SQL
+  ]
+);
+
+// ─── User ↔ Section mapping ────────────────────────────
+
+export const userSections = pgTable(
+  "user_sections",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sectionId: uuid("section_id")
+      .notNull()
+      .references(() => sections.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("idx_user_sections_section_id").on(table.sectionId),
+  ]
+);
