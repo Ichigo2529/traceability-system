@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Dialog, Button } from "@ui5/webcomponents-react";
+import { Dialog, Button, Bar } from "@ui5/webcomponents-react";
 
 export function FormDialog({
   open,
@@ -30,31 +30,44 @@ export function FormDialog({
     <Dialog
       open={open}
       headerText={title}
-      {...({ onAfterClose: (e: any) => {
-        e.stopPropagation();
-        onClose();
-      }} as any)}
+      resizable
+      draggable
+      onClose={onClose}
       className={contentClassName}
       state={description ? "Information" : "None"}
       footer={
-          <div style={{ width: '100%', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem' }}>
-            {footer ? footer : (
-                <>
-                    <Button design="Transparent" onClick={onClose}>
-                        Cancel
-                    </Button>
-                    <Button design="Emphasized" onClick={onSubmit} disabled={submitting}>
-                        {submitting ? "Saving..." : submitText}
-                    </Button>
-                </>
-            )}
-          </div>
+        <Bar
+          design="Footer"
+          slot="footer"
+          endContent={
+            footer ? (
+              footer
+            ) : (
+              <>
+                <Button design="Transparent" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button design="Emphasized" onClick={onSubmit} disabled={submitting}>
+                  {submitting ? "Saving..." : submitText}
+                </Button>
+              </>
+            )
+          }
+        />
       }
     >
       {open && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem 0" }} className={bodyClassName}>
+        <div 
+          style={{ 
+            display: "flex", 
+            flexDirection: "column", 
+            gap: "1rem",
+            transition: "transform 0.3s ease-out"
+          }} 
+          className={bodyClassName}
+        >
           {description && (
-              <div style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
+              <div style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem", marginBottom: "0.5rem", padding: "0 1rem" }}>
                   {description}
               </div>
           )}

@@ -25,12 +25,12 @@ import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
 import { Skeleton, EmptyState } from "@traceability/ui";
 
 const headerLabelStyle: React.CSSProperties = {
-  fontWeight: 700,
-  fontSize: "0.7rem",
+  fontWeight: 600,
+  fontSize: "0.75rem",
   textTransform: "uppercase",
-  letterSpacing: "0.07em",
+  letterSpacing: "0.05em",
   color: "var(--sapContent_LabelColor)",
-  opacity: 0.65,
+  opacity: 0.8,
 };
 
 export function DataTable<TData>({
@@ -145,7 +145,9 @@ export function DataTable<TData>({
                     key={header.id}
                     style={{
                       width: header.column.columnDef.size !== 150 ? `${header.column.columnDef.size}px` : "auto",
+                      minWidth: header.column.columnDef.minSize !== 20 ? `${header.column.columnDef.minSize}px` : "100px",
                       position: "relative",
+                      padding: "0.75rem 0.5rem",
                     }}
                   >
                     <div
@@ -171,16 +173,16 @@ export function DataTable<TData>({
                           cursor: "col-resize",
                           userSelect: "none",
                           touchAction: "none",
-                          height: "100%",
-                          width: "5px",
+                          height: "60%",
+                          width: "2px",
                           backgroundColor: header.column.getIsResizing()
                             ? "var(--sapBrandColor)"
-                            : "transparent",
+                            : "rgba(0,0,0,0.05)",
                           position: "absolute",
-                          right: 0,
-                          top: 0,
-                          bottom: 0,
+                          right: "4px",
+                          top: "20%",
                           zIndex: 1,
+                          borderRadius: "4px",
                         }}
                       />
                     </div>

@@ -141,14 +141,12 @@ export function PageLayout({
     >
       <div 
         style={{ 
-            padding: "0", 
+            padding: "2rem", 
             boxSizing: "border-box", 
-            minHeight: "100%", 
-            paddingLeft: "2rem", // Exact match with header offset for absolute vertical alignment
-            paddingTop: "1.5rem" 
+            minHeight: "100%" 
         }}
       >
-        <div style={{ maxWidth: maxWidth ?? "1400px", width: "100%" }}>
+        <div style={{ maxWidth: maxWidth ?? "1800px", width: "100%" }}>
           {children}
         </div>
       </div>

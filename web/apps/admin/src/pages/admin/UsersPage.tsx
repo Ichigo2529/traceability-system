@@ -34,12 +34,12 @@ import { useToast } from "../../hooks/useToast";
 const ROLES = ["ADMIN", "SUPERVISOR", "OPERATOR", "STORE", "PRODUCTION", "QA"];
 
 const userSchema = z.object({
-  employee_code: z.string().optional(),
+  employee_code: z.string().optional().or(z.literal("")),
   name: z.string().min(2),
   username: z.string().min(2),
   email: z.string().email().optional().or(z.literal("")),
   department: z.string().optional(),
-  password: z.string().min(3).optional(),
+  password: z.string().min(3).optional().or(z.literal("")),
   roles: z.array(z.string()).min(1),
 });
 type UserForm = z.infer<typeof userSchema>;
@@ -111,11 +111,11 @@ export function UsersPage() {
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
-      { header: "Employee ID", accessorKey: "employee_code", cell: ({ row }) => row.original.employee_code || "-", size: 120 },
-      { header: "Name", accessorKey: "display_name", size: 180 },
-      { header: "Email", accessorKey: "email", cell: ({ row }) => row.original.email || "-", size: 200 },
+      { header: "Employee ID", accessorKey: "employee_code", cell: ({ row }) => row.original.employee_code || "-", size: 140 },
+      { header: "Name", accessorKey: "display_name", size: 200 },
+      { header: "Email", accessorKey: "email", cell: ({ row }) => row.original.email || "-", size: 220 },
       { header: "Department", accessorKey: "department", cell: ({ row }) => row.original.department || "-", size: 150 },
-      { header: "Roles", cell: ({ row }) => <div className="admin-users-role-list-text">{(row.original.roles || []).join(", ")}</div>, size: 200 },
+      { header: "Roles", cell: ({ row }) => <div className="admin-users-role-list-text">{(row.original.roles || []).join(", ")}</div>, size: 300 },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active === false ? "disabled" : "active"} />, size: 100 },
       {
         header: "Actions",
@@ -167,6 +167,7 @@ export function UsersPage() {
       }
       icon="employee"
       iconColor="indigo"
+      maxWidth="100%"
     >
       <div className="page-container">
         <ApiErrorBanner
@@ -211,20 +212,20 @@ export function UsersPage() {
         onSubmit={form.handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>Employee ID</Label>}>
+        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12" style={{ padding: "1rem" }}>
+          <FormItem labelContent={<Label showColon>Employee ID</Label>}>
             <Input {...form.register("employee_code")} />
           </FormItem>
-          <FormItem labelContent={<Label>Name</Label>}>
+          <FormItem labelContent={<Label required showColon>Name</Label>}>
             <Input {...form.register("name")} />
           </FormItem>
-          <FormItem labelContent={<Label>Username</Label>}>
+          <FormItem labelContent={<Label required showColon>Username</Label>}>
             <Input {...form.register("username")} disabled={Boolean(editing)} />
           </FormItem>
-          <FormItem labelContent={<Label>Email</Label>}>
+          <FormItem labelContent={<Label showColon>Email</Label>}>
             <Input {...form.register("email")} />
           </FormItem>
-          <FormItem labelContent={<Label>Department</Label>} style={{ gridColumn: "span 2" }}>
+          <FormItem labelContent={<Label showColon>Department</Label>} style={{ gridColumn: "span 2" }}>
              <Controller
                 control={form.control}
                 name="department"
@@ -232,6 +233,7 @@ export function UsersPage() {
                      <Select
                         onChange={(e) => field.onChange(e.target.value)}
                         value={field.value}
+                        style={{ width: "100%" }}
                     >
                          <Option value="">Select department</Option>
                          {departmentOptions.map((department) => (
@@ -243,11 +245,11 @@ export function UsersPage() {
                 )}
              />
           </FormItem>
-          <FormItem labelContent={<Label>Password {editing ? "(optional)" : ""}</Label>} style={{ gridColumn: "span 2" }}>
-            <Input type="Password" {...form.register("password")} />
+          <FormItem labelContent={<Label showColon>Password {editing ? "(optional)" : ""}</Label>} style={{ gridColumn: "span 2" }}>
+            <Input type="Password" {...form.register("password")} placeholder={editing ? "Leave blank to keep current" : ""} />
           </FormItem>
-          <FormItem labelContent={<Label>Roles</Label>} style={{ gridColumn: "span 2" }}>
-            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
+          <FormItem labelContent={<Label required showColon>Roles</Label>} style={{ gridColumn: "span 2" }}>
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", padding: "0.5rem 0" }}>
               {ROLES.map((role) => (
                   <Controller
                     key={role}
@@ -267,7 +269,7 @@ export function UsersPage() {
                                         ? [...current, role]
                                         : current.filter((r) => r !== role)
                                     );
-                                }}
+                                 }}
                             />
                          );
                     }}

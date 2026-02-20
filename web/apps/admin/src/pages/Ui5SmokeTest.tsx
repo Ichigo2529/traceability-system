@@ -4,7 +4,6 @@ import {
     Card, 
     CardHeader, 
     Input, 
-    Label, 
     Title,
     Panel,
     Icon,
@@ -13,19 +12,17 @@ import {
     FlexBoxAlignItems,
     Dialog,
     MessageStrip,
-    Toast,
     DialogDomRef,
-    ToastDomRef,
     Text,
-    ValueState
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/employee.js";
 import "@ui5/webcomponents-icons/dist/settings.js";
 import "@ui5/webcomponents-icons/dist/message-information.js";
+import { useToast } from "../hooks/useToast";
 
 export default function Ui5SmokeTest() {
     const dialogRef = useRef<DialogDomRef>(null);
-    const toastRef = useRef<ToastDomRef>(null);
+    const { showToast, ToastComponent } = useToast();
 
     return (
         <div style={{ padding: "2rem", minHeight: "100vh", background: "var(--sapBackgroundColor)", boxSizing: "border-box" }}>
@@ -44,7 +41,7 @@ export default function Ui5SmokeTest() {
                         style={{ width: "100%" }}
                     />
                     <div style={{ display: "flex", gap: "0.5rem" }}>
-                        <Button design="Emphasized" icon="employee" onClick={() => (toastRef.current as any)?.show()}>
+                        <Button design="Emphasized" icon="employee" onClick={() => showToast("Success!")}>
                             Show Success Toast
                         </Button>
                         <Button design="Attention" icon="settings" onClick={() => (dialogRef.current as any)?.show()}>
@@ -86,7 +83,7 @@ export default function Ui5SmokeTest() {
                 </div>
             </Dialog>
 
-            <Toast ref={toastRef}>System is functional!</Toast>
+            <ToastComponent />
         </div>
     );
 }

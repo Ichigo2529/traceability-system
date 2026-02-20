@@ -1,11 +1,11 @@
-import { useRef, useCallback } from "react";
-import { Toast, ToastDomRef } from "@ui5/webcomponents-react";
+import { useState, useCallback } from "react";
+import { Toast } from "@ui5/webcomponents-react";
 
 /**
- * Imperative toast hook for consistent CRUD success/error feedback.
+ * Declarative toast hook for consistent CRUD success/error feedback.
  *
  * Usage:
- *   const { toastRef, ToastComponent, showToast } = useToast();
+ *   const { ToastComponent, showToast } = useToast();
  *
  *   // In onSuccess:
  *   showToast("User created successfully");
@@ -14,23 +14,26 @@ import { Toast, ToastDomRef } from "@ui5/webcomponents-react";
  *   <ToastComponent />
  */
 export function useToast() {
-  const toastRef = useRef<ToastDomRef>(null);
-  const messageRef = useRef("");
+  const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const showToast = useCallback((message: string) => {
-    messageRef.current = message;
-    // Force re-render of toast text won't work with ref alone,
-    // so we set textContent directly
-    if (toastRef.current) {
-      (toastRef.current as any).textContent = message;
-      (toastRef.current as any).show();
-    }
+  const showToast = useCallback((msg: string) => {
+    setMessage(msg);
+    setOpen(true);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setOpen(false);
   }, []);
 
   const ToastComponent = useCallback(
-    () => <Toast ref={toastRef}>{messageRef.current || "Done"}</Toast>,
-    []
+    () => (
+      <Toast open={open} onClose={handleClose}>
+        {message}
+      </Toast>
+    ),
+    [open, message, handleClose]
   );
 
-  return { toastRef, showToast, ToastComponent } as const;
+  return { showToast, ToastComponent } as const;
 }
