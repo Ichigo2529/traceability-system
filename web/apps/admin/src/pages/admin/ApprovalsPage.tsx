@@ -251,7 +251,8 @@ export function ApprovalsPage() {
                 setApproverRows(rows.length ? rows : [{ ...EMPTY_APPROVER_ROW }]);
                 setOpen(true);
               }}
-              tooltip="Edit"
+              tooltip="Edit Rule"
+              aria-label="Edit Rule"
             />
             <Button 
                 icon="delete" 
@@ -261,7 +262,8 @@ export function ApprovalsPage() {
                 onClick={() => {
                    setDeleteTarget(row.original.id);
                 }}
-                tooltip="Delete"
+                tooltip="Delete Rule"
+                aria-label="Delete Rule"
             />
           </FlexBox>
         ),
@@ -592,15 +594,17 @@ export function ApprovalsPage() {
         <ConfirmDialog
             open={Boolean(deleteTarget)}
             title="Delete Approval Rule"
-            description="Are you sure you want to delete this approval rule?"
+            description="Are you sure you want to delete this approval rule? This action cannot be undone."
             confirmText="Delete"
             destructive
+            submitting={deleteMutation.isPending}
             onCancel={() => setDeleteTarget(null)}
             onConfirm={() => {
                 if (deleteTarget) {
-                    deleteMutation.mutate(deleteTarget);
+                    deleteMutation.mutate(deleteTarget, {
+                        onSuccess: () => setDeleteTarget(null),
+                    });
                 }
-                setDeleteTarget(null);
             }}
         />
       <ToastComponent />

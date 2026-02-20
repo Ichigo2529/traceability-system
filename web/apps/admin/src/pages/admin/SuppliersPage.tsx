@@ -127,6 +127,7 @@ export function SuppliersPage() {
                 setOpen(true);
               }}
               tooltip="Edit Vendor"
+              aria-label="Edit Vendor"
             />
             <Button
               icon="marketing-campaign"
@@ -135,6 +136,7 @@ export function SuppliersPage() {
                 navigate(`/admin/supplier-part-profiles?vendorId=${encodeURIComponent(row.original.id)}`);
               }}
               tooltip="View Profiles"
+              aria-label="View Profiles"
             />
             <Button
               icon="delete"
@@ -143,6 +145,7 @@ export function SuppliersPage() {
                 setDeleteTarget(row.original);
               }}
               tooltip="Delete Vendor"
+              aria-label="Delete Vendor"
             />
           </div>
         ),
@@ -230,11 +233,13 @@ export function SuppliersPage() {
         description={deleteTarget ? `Delete vendor ${deleteTarget.code}?` : ""}
         confirmText="Delete"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
         }}
       />
       <ToastComponent />

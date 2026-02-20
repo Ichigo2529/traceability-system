@@ -226,12 +226,14 @@ export function BarcodeTemplatesPage() {
                 setOpen(true);
               }}
               tooltip="Edit Template"
+              aria-label="Edit Template"
             />
             <Button 
                 icon="delete" 
                 design="Transparent" 
                 onClick={() => setDeleteTarget(row.original)} 
                 tooltip="Delete Template"
+                aria-label="Delete Template"
             />
           </div>
         ),
@@ -380,11 +382,13 @@ export function BarcodeTemplatesPage() {
         description={deleteTarget ? `Delete template ${deleteTarget.key}?` : ""}
         confirmText="Delete"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
         }}
       />
       <ToastComponent />

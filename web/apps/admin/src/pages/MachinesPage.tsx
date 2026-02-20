@@ -19,6 +19,7 @@ import {
     FormItem
 } from "@ui5/webcomponents-react";
 import { FormDialog } from "../components/shared/FormDialog";
+import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -34,6 +35,7 @@ export default function MachinesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | undefined>();
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const { showToast, ToastComponent } = useToast();
 
   const { data: machines = [], isLoading } = useQuery({
@@ -141,9 +143,7 @@ export default function MachinesPage() {
             icon="delete" 
             design="Transparent" 
             style={{ color: "var(--sapNegativeColor)" }}
-            onClick={() => {
-              if (confirm("Deactivate this machine?")) deleteMachine.mutate(row.original.id);
-            }} 
+            onClick={() => setDeleteTarget(row.original.id)} 
           />
         </FlexBox>
       ),
@@ -218,6 +218,24 @@ export default function MachinesPage() {
               </Form>
           </div>
       </FormDialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Deactivate Machine"
+        description="Are you sure you want to deactivate this machine? This action will prevent it from being used at stations."
+        confirmText="Deactivate"
+        destructive
+        submitting={deleteMachine.isPending}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteMachine.mutate(deleteTarget, {
+              onSuccess: () => setDeleteTarget(null),
+            });
+          }
+        }}
+      />
+
       <ToastComponent />
     </PageLayout>
   );

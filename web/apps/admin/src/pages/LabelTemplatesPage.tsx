@@ -17,6 +17,7 @@ import {
     FormItem,
     ObjectStatus
 } from "@ui5/webcomponents-react";
+import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { ColumnDef } from "@tanstack/react-table";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -29,6 +30,7 @@ export default function LabelTemplatesPage() {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<LabelTemplate | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<LabelTemplate | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | undefined>();
   const { showToast, ToastComponent } = useToast();
@@ -68,6 +70,7 @@ export default function LabelTemplatesPage() {
     mutationFn: (id: string) => sdk.admin.deleteLabelTemplate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["templates"] });
+      setDeleteTarget(null);
       showToast("Template deleted");
     },
   });
@@ -117,15 +120,21 @@ export default function LabelTemplatesPage() {
           header: "Actions",
           cell: ({ row }) => (
             <div style={{ display: "flex", gap: "0.5rem" }}>
-              <Button icon="edit" design="Transparent" className="button-hover-scale" onClick={() => openEdit(row.original)} tooltip="Edit" />
+              <Button 
+                icon="edit" 
+                design="Transparent" 
+                className="button-hover-scale" 
+                onClick={() => openEdit(row.original)} 
+                tooltip="Edit Template" 
+                aria-label="Edit Template"
+              />
               <Button 
                 icon="delete" 
                 design="Transparent" 
                 className="button-hover-scale"
-                onClick={() => {
-                   deleteTemplate.mutate(row.original.id);
-                }} 
-                tooltip="Delete"
+                onClick={() => setDeleteTarget(row.original)} 
+                tooltip="Delete Template"
+                aria-label="Delete Template"
               />
             </div>
           ),
@@ -199,6 +208,21 @@ export default function LabelTemplatesPage() {
               </FormItem>
           </Form>
       </FormDialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete label template"
+        description={deleteTarget ? `Are you sure you want to delete template "${deleteTarget.name}"? This action cannot be undone.` : ""}
+        confirmText="Delete"
+        destructive
+        submitting={deleteTemplate.isPending}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteTemplate.mutate(deleteTarget.id);
+          }
+        }}
+      />
       <ToastComponent />
     </PageLayout>
   );

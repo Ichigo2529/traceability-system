@@ -104,12 +104,14 @@ export function ModelsPage() {
                 setOpen(true);
               }}
               tooltip="Edit Model"
+              aria-label="Edit Model"
             />
             <Button 
                 icon="navigation-right-arrow" 
                 design="Transparent" 
                 onClick={() => navigate(`/admin/models/${row.original.id}`)}
                 tooltip="View Revisions"
+                aria-label="View Revisions"
             />
             <Button
               icon="delete"
@@ -118,6 +120,7 @@ export function ModelsPage() {
                 setDeleteTarget(row.original);
               }}
               tooltip="Delete Model"
+              aria-label="Delete Model"
             />
           </div>
         ),
@@ -209,11 +212,13 @@ export function ModelsPage() {
           description={deleteTarget ? `Delete model ${deleteTarget.code}?` : ""}
           confirmText="Delete"
           destructive
+          submitting={deleteMutation.isPending}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => {
             if (!deleteTarget) return;
-            deleteMutation.mutate(deleteTarget.id);
-            setDeleteTarget(null);
+            deleteMutation.mutate(deleteTarget.id, {
+              onSuccess: () => setDeleteTarget(null),
+            });
           }}
         />
       <ToastComponent />

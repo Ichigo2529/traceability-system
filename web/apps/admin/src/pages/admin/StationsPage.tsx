@@ -118,6 +118,7 @@ export function StationsPage() {
                 setOpen(true);
               }}
               tooltip="Edit Station"
+              aria-label="Edit Station"
             />
             <Button
               icon="delete"
@@ -126,6 +127,7 @@ export function StationsPage() {
                 setDeleteTarget(row.original);
               }}
               tooltip="Delete Station"
+              aria-label="Delete Station"
             />
           </div>
         ),
@@ -243,11 +245,13 @@ export function StationsPage() {
         description={deleteTarget ? `Delete station ${deleteTarget.station_code}?` : ""}
         confirmText="Delete"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
         }}
       />
       <ToastComponent />

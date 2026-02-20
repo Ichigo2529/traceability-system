@@ -19,6 +19,7 @@ import {
     FlexBoxJustifyContent,
     ObjectStatus
 } from "@ui5/webcomponents-react";
+import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { ColumnDef } from "@tanstack/react-table";
 import "@ui5/webcomponents-icons/dist/list.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -31,6 +32,7 @@ export default function BomPage() {
   const [revisionId, setRevisionId] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<BomRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BomRow | null>(null);
   const { showToast, ToastComponent } = useToast();
 
   const { data: models = [], isLoading: modelsLoading } = useQuery({
@@ -130,6 +132,7 @@ export default function BomPage() {
     mutationFn: async (id: string) => sdk.admin.deleteBomRow(modelId, revisionId, id),
     onSuccess: () => {
       refresh();
+      setDeleteTarget(null);
       showToast("BOM row deleted");
     },
   });
@@ -183,13 +186,15 @@ export default function BomPage() {
                 setDialogOpen(true);
               }}
               tooltip="Edit BOM Row"
+              aria-label="Edit BOM Row"
             />
             <Button
               icon="delete"
               design="Transparent"
               className="button-hover-scale"
-               onClick={() => deleteBom.mutate(row.original.id)}
+              onClick={() => setDeleteTarget(row.original)}
               tooltip="Delete BOM Row"
+              aria-label="Delete BOM Row"
             />
           </div>
            ) : null
@@ -289,6 +294,20 @@ export default function BomPage() {
         onSubmit={(values) => {
           if (editingRow) editBom.mutate(values);
           else createBom.mutate(values);
+        }}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete BOM row"
+        description={deleteTarget ? `Are you sure you want to delete BOM row "${deleteTarget.component_name || deleteTarget.component_unit_type}"? This action cannot be undone.` : ""}
+        confirmText="Delete"
+        destructive
+        submitting={deleteBom.isPending}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            deleteBom.mutate(deleteTarget.id);
+          }
         }}
       />
       </div>

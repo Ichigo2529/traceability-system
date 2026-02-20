@@ -123,6 +123,8 @@ export function UsersPage() {
             <Button
               icon="edit"
               design="Transparent"
+              tooltip="Edit User"
+              aria-label="Edit User"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -139,6 +141,8 @@ export function UsersPage() {
             <Button
               icon="delete"
               design="Transparent"
+              tooltip="Delete User"
+              aria-label="Delete User"
               onClick={() => {
                 setDeleteTarget(row.original);
               }}
@@ -272,11 +276,13 @@ export function UsersPage() {
         description={deleteTarget ? `Delete user ${deleteTarget.username}?` : ""}
         confirmText="Delete"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
         }}
       />
       <ToastComponent />

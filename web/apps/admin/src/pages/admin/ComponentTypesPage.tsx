@@ -104,6 +104,7 @@ export function ComponentTypesPage() {
                 setOpen(true);
               }}
               tooltip="Edit Component Type"
+              aria-label="Edit Component Type"
             />
             <Button
               icon="delete"
@@ -112,6 +113,7 @@ export function ComponentTypesPage() {
                 setDeleteTarget(row.original);
               }}
               tooltip="Delete Component Type"
+              aria-label="Delete Component Type"
             />
           </div>
         ),
@@ -199,11 +201,13 @@ export function ComponentTypesPage() {
         description={deleteTarget ? `Delete component type ${deleteTarget.code}?` : ""}
         confirmText="Delete"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
         }}
       />
       <ToastComponent />

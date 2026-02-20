@@ -83,6 +83,7 @@ export function RolesPage() {
               setOpen(true);
             }}
             tooltip="Edit Role"
+            aria-label="Edit Role"
           />
         ),
       },

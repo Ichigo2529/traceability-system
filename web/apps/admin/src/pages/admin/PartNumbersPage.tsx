@@ -115,6 +115,7 @@ export function PartNumbersPage() {
                 setOpen(true);
               }}
               tooltip="Edit Part Number"
+              aria-label="Edit Part Number"
             />
             <Button
               icon="delete"
@@ -123,6 +124,7 @@ export function PartNumbersPage() {
                 setDeleteTarget(row.original);
               }}
               tooltip="Delete Part Number"
+              aria-label="Delete Part Number"
             />
           </div>
         ),
@@ -236,11 +238,13 @@ export function PartNumbersPage() {
         description={deleteTarget ? `Delete part number ${deleteTarget.part_number}?` : ""}
         confirmText="Delete"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
         }}
       />
       <ToastComponent />

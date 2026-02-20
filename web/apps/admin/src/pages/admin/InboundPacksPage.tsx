@@ -214,6 +214,8 @@ export function InboundPacksPage() {
                       setOpen(true);
                     }}
                     disabled={receiveMutation.isPending}
+                    tooltip="Receive New Pack"
+                    aria-label="Receive New Pack"
                   >
                     Receive Pack
                   </Button>

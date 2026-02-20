@@ -89,6 +89,7 @@ export function ProcessesPage() {
                 setOpen(true);
               }}
               tooltip="Edit Process"
+              aria-label="Edit Process"
             />
             <Button
               icon="delete"
@@ -97,6 +98,7 @@ export function ProcessesPage() {
                 setDeleteTarget(row.original);
               }}
               tooltip="Delete Process"
+              aria-label="Delete Process"
             />
           </div>
         ),
@@ -184,11 +186,13 @@ export function ProcessesPage() {
         description={deleteTarget ? `Delete process ${deleteTarget.process_code}?` : ""}
         confirmText="Delete"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
         }}
       />
       <ToastComponent />

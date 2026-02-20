@@ -140,6 +140,7 @@ export function SupplierPartProfilesPage() {
                 setOpen(true);
               }}
               tooltip="Edit Profile"
+              aria-label="Edit Profile"
             />
             <Button
               icon="delete"
@@ -148,6 +149,7 @@ export function SupplierPartProfilesPage() {
                 setDeleteTarget(row.original);
               }}
               tooltip="Delete Profile"
+              aria-label="Delete Profile"
             />
           </div>
         ),
@@ -337,11 +339,13 @@ export function SupplierPartProfilesPage() {
         }
         confirmText="Delete"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMutation.mutate(deleteTarget.id);
-          setDeleteTarget(null);
+          deleteMutation.mutate(deleteTarget.id, {
+            onSuccess: () => setDeleteTarget(null),
+          });
         }}
       />
       <ToastComponent />

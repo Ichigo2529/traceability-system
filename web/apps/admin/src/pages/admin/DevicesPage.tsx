@@ -23,7 +23,6 @@ import {
   FlexBoxAlignItems,
   Form,
   FormItem,
-  MessageBox,
   FlexBoxDirection
 } from "@ui5/webcomponents-react";
 import { FormDialog } from "../../components/shared/FormDialog";
@@ -213,28 +212,32 @@ export function DevicesPage() {
                 });
                 setOpen(true);
               }}
-              tooltip="Edit"
+              tooltip="Edit Device"
+              aria-label="Edit Device"
             />
             <Button 
                 icon="wrench" 
                 design="Transparent"
                 className="button-hover-scale"
                 onClick={() => setStatusTarget({ device: row.original, status: "maintenance" })}
-                tooltip="Maintenance"
+                tooltip="Set to Maintenance"
+                aria-label="Set to Maintenance"
             />
             <Button 
                 icon={row.original.status === "disabled" ? "accept" : "cancel"}
                 design="Transparent"
                 className="button-hover-scale"
                 onClick={() => setStatusTarget({ device: row.original, status: row.original.status === "disabled" ? "active" : "disabled" })}
-                tooltip={row.original.status === "disabled" ? "Enable" : "Disable"}
+                tooltip={row.original.status === "disabled" ? "Enable Device" : "Disable Device"}
+                aria-label={row.original.status === "disabled" ? "Enable Device" : "Disable Device"}
             />
             <Button 
                 icon="refresh"
                 design="Transparent"
                 className="button-hover-scale"
                 onClick={() => setSecretTarget(row.original)}
-                tooltip="Regenerate Secret"
+                tooltip="Regenerate Secret Key"
+                aria-label="Regenerate Secret Key"
             />
             <Button
               icon="delete"
@@ -245,7 +248,8 @@ export function DevicesPage() {
                 if (!row.original.id) return;
                 setDeleteTarget(row.original);
               }}
-              tooltip="Delete"
+              tooltip="Delete Device"
+              aria-label="Delete Device"
             />
           </FlexBox>
         ),
@@ -450,48 +454,51 @@ export function DevicesPage() {
       </FormDialog>
 
       {/* Status Confirmation */}
-      <MessageBox
+      <ConfirmDialog
           open={Boolean(statusTarget)}
-          type="Confirm"
-          titleText="Confirm status change"
-          onClose={(action: string | undefined) => {
-              if (action === "OK" && statusTarget?.device.id) {
+          title="Change Device Status"
+          description={statusTarget ? `Are you sure you want to set ${statusTarget.device.device_code} to ${statusTarget.status.toUpperCase()}?` : ""}
+          confirmText="Change Status"
+          submitting={statusMutation.isPending}
+          onCancel={() => setStatusTarget(null)}
+          onConfirm={() => {
+              if (statusTarget?.device.id) {
                   statusMutation.mutate({ id: statusTarget.device.id, status: statusTarget.status });
               }
-              setStatusTarget(null);
           }}
-      >
-          {statusTarget ? `Set ${statusTarget.device.device_code} to ${statusTarget.status.toUpperCase()} status?` : ""}
-      </MessageBox>
+      />
       
       {/* Secret Confirmation */}
-      <MessageBox
+      <ConfirmDialog
           open={Boolean(secretTarget)}
-          type="Confirm"
-          titleText="Regenerate device secret"
-          onClose={(action: string | undefined) => {
-              if (action === "OK" && secretTarget?.id) {
+          title="Regenerate Device Secret"
+          description="Existing signatures will be invalid until station is re-activated with new secret. This action cannot be undone."
+          confirmText="Regenerate"
+          destructive
+          submitting={secretMutation.isPending}
+          onCancel={() => setSecretTarget(null)}
+          onConfirm={() => {
+              if (secretTarget?.id) {
                   secretMutation.mutate(secretTarget.id);
               }
-              setSecretTarget(null);
           }}
-      >
-          Existing signatures will be invalid until station is re-activated with new secret.
-      </MessageBox>
+      />
 
       {/* Delete Confirmation */}
       <ConfirmDialog
           open={Boolean(deleteTarget)}
           title="Delete device"
-          description={deleteTarget ? `Delete device ${deleteTarget.device_code}?` : ""}
+          description={deleteTarget ? `Delete device ${deleteTarget.device_code}? This action cannot be undone.` : ""}
           confirmText="Delete"
           destructive
+          submitting={deleteMutation.isPending}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => {
               if (deleteTarget?.id) {
-                  deleteMutation.mutate(deleteTarget.id);
+                  deleteMutation.mutate(deleteTarget.id, {
+                    onSuccess: () => setDeleteTarget(null)
+                  });
               }
-              setDeleteTarget(null);
           }}
       />
        </div>

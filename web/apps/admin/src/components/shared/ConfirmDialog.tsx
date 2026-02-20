@@ -12,6 +12,7 @@ export function ConfirmDialog({
   destructive,
   children,
   confirmDisabled,
+  submitting,
 }: {
   open: boolean;
   title: string;
@@ -23,6 +24,7 @@ export function ConfirmDialog({
   destructive?: boolean;
   children?: ReactNode;
   confirmDisabled?: boolean;
+  submitting?: boolean;
 }) {
   return (
     <Dialog
@@ -38,15 +40,15 @@ export function ConfirmDialog({
           design="Footer"
           endContent={
             <>
-              <Button design="Transparent" onClick={onCancel}>
+              <Button design="Transparent" onClick={onCancel} disabled={submitting}>
                 {cancelText}
               </Button>
               <Button
                 design={destructive ? "Negative" : "Emphasized"}
                 onClick={onConfirm}
-                disabled={confirmDisabled}
+                disabled={confirmDisabled || submitting}
               >
-                {confirmText}
+                {submitting ? "Processing..." : confirmText}
               </Button>
             </>
           }

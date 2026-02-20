@@ -31,11 +31,11 @@ import {
   TableCell,
   TableHeaderRow,
   TableHeaderCell,
-  MessageBox,
   BusyIndicator,
   Dialog,
   Bar
 } from "@ui5/webcomponents-react";
+import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 
 import "@ui5/webcomponents-icons/dist/history.js";
 import "@ui5/webcomponents-icons/dist/add.js";
@@ -47,6 +47,7 @@ import "@ui5/webcomponents-icons/dist/decline.js";
 import "@ui5/webcomponents-icons/dist/paper-plane.js";
 import "@ui5/webcomponents-icons/dist/request.js";
 import "@ui5/webcomponents-icons/dist/show-edit.js";
+import "@ui5/webcomponents-icons/dist/comment.js";
 
 
 import {
@@ -346,6 +347,8 @@ export default function MaterialRequestsPage() {
               setSelectedId(row.original.id);
               setOpenDetails(true);
             }}
+            tooltip="View Details"
+            aria-label="View Details"
           >
             View
           </Button>
@@ -391,7 +394,18 @@ export default function MaterialRequestsPage() {
                         </FlexBox>
                         <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
                             <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-                            {detailsQuery.data?.status === "ISSUED" && <Button icon="print" className="button-hover-scale" design="Transparent" onClick={() => window.print()}>Print</Button>}
+                            {detailsQuery.data?.status === "ISSUED" && (
+                              <Button 
+                                icon="print" 
+                                className="button-hover-scale" 
+                                design="Transparent" 
+                                onClick={() => window.print()}
+                                tooltip="Print Voucher"
+                                aria-label="Print Voucher"
+                              >
+                                Print
+                              </Button>
+                            )}
                         </FlexBox>
                     </FlexBox>
 
@@ -616,74 +630,67 @@ export default function MaterialRequestsPage() {
       </Dialog>
       
       {/* Confirm Dialogs */}
-      <MessageBox
+      <ConfirmDialog
         open={confirmSubmitOpen}
-        type="Confirm"
-        titleText="Confirm submit request"
-        onClose={(action: string | undefined) => {
-            if (action === "OK") {
-                createMutation.mutate();
-            }
-            setConfirmSubmitOpen(false);
-        }}
-      >
-          Submit this material request now?
-      </MessageBox>
+        title="Confirm Submit Request"
+        description="Are you sure you want to submit this material request now?"
+        confirmText="Submit"
+        submitting={createMutation.isPending}
+        onCancel={() => setConfirmSubmitOpen(false)}
+        onConfirm={() => createMutation.mutate()}
+      />
 
-      <MessageBox
+      <ConfirmDialog
            open={confirmIssueOpen}
-           type="Confirm"
-           titleText={detailsQuery.data?.status === "REQUESTED" ? "Confirm approve + issue" : "Confirm issue material"}
-           onClose={(action: string | undefined) => {
-               if (action === "OK") {
-                   if (detailsQuery.data) {
-                       issueMutation.mutate({
-                         id: detailsQuery.data.id,
-                         remarks: workbench.issueRemarks || undefined,
-                         allocations: workbench.buildAllocationsPayload(),
-                       });
-                   }
+           title={detailsQuery.data?.status === "REQUESTED" ? "Confirm Approve & Issue" : "Confirm Issue Material"}
+           description={detailsQuery.data?.status === "REQUESTED" ? "Approve and issue this request now?" : "Issue this approved request now?"}
+           confirmText="Issue"
+           submitting={issueMutation.isPending || approveMutation.isPending}
+           onCancel={() => setConfirmIssueOpen(false)}
+           onConfirm={() => {
+               if (detailsQuery.data) {
+                   issueMutation.mutate({
+                     id: detailsQuery.data.id,
+                     remarks: workbench.issueRemarks || undefined,
+                     allocations: workbench.buildAllocationsPayload(),
+                   }, {
+                     onSuccess: () => setConfirmIssueOpen(false)
+                   });
                }
-               setConfirmIssueOpen(false);
            }}
-      >
-           {detailsQuery.data?.status === "REQUESTED" ? "Approve and issue this request now?" : "Issue this approved request now?"}
-      </MessageBox>
+      />
 
-      <Dialog
+      <ConfirmDialog
           open={confirmRejectOpen}
-          headerText="Confirm reject request"
-          footer={
-              <Bar
-                  endContent={
-                      <>
-                          <Button onClick={() => setConfirmRejectOpen(false)} design="Transparent">Cancel</Button>
-                          <Button 
-                              design="Negative" 
-                              onClick={() => {
-                                  if (!detailsQuery.data) return;
-                                  setConfirmRejectOpen(false);
-                                  rejectMutation.mutate({ id: detailsQuery.data.id, reason: rejectReason.trim() || undefined });
-                                  setRejectReason("");
-                              }}
-                          >
-                              Reject
-                          </Button>
-                      </>
-                  }
-              />
-          }
+          title="Reject Request"
+          description="Please specify the reason for rejecting this material request."
+          confirmText="Reject"
+          destructive
+          submitting={rejectMutation.isPending}
+          onCancel={() => {
+            setConfirmRejectOpen(false);
+            setRejectReason("");
+          }}
+          onConfirm={() => {
+              if (!detailsQuery.data) return;
+              rejectMutation.mutate({ id: detailsQuery.data.id, reason: rejectReason.trim() || undefined }, {
+                onSuccess: () => {
+                  setConfirmRejectOpen(false);
+                  setRejectReason("");
+                }
+              });
+          }}
       >
-           <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: "300px", padding: "1rem" }}>
-                <Label>Reject reason (optional)</Label>
+           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.5rem 0" }}>
                 <TextArea
                     value={rejectReason}
                     onInput={(e) => setRejectReason(e.target.value)}
                     rows={3}
-                    placeholder="Enter reason for rejection"
+                    placeholder="Enter reason for rejection..."
+                    style={{ width: "100%" }}
                 />
            </div>
-      </Dialog>
+      </ConfirmDialog>
       <ToastComponent />
     </PageLayout>
   );

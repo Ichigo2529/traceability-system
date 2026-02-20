@@ -104,6 +104,7 @@ export function DepartmentsPage() {
                 setOpen(true);
               }}
               tooltip="Edit Department"
+              aria-label="Edit Department"
             />
             <Button
               icon="delete"
@@ -112,6 +113,7 @@ export function DepartmentsPage() {
                 setDisableTarget(row.original);
               }}
               tooltip="Disable Department"
+              aria-label="Disable Department"
             />
           </div>
         ),
@@ -203,11 +205,13 @@ export function DepartmentsPage() {
         description={disableTarget ? `Disable department ${disableTarget.name}?` : ""}
         confirmText="Disable"
         destructive
+        submitting={deleteMutation.isPending}
         onCancel={() => setDisableTarget(null)}
         onConfirm={() => {
           if (!disableTarget) return;
-          deleteMutation.mutate(disableTarget.id);
-          setDisableTarget(null);
+          deleteMutation.mutate(disableTarget.id, {
+            onSuccess: () => setDisableTarget(null),
+          });
         }}
       />
       <ToastComponent />

@@ -30,6 +30,7 @@ import {
 } from "@ui5/webcomponents-react";
 import { PageLayout } from "@traceability/ui";
 import { BomRowDialog, BomRowForm } from "../components/shared/BomRowDialog";
+import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import "@ui5/webcomponents-icons/dist/nav-back.js";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
@@ -75,6 +76,7 @@ export default function RevisionDetailsPage() {
   const [editingRouting, setEditingRouting] = useState<RoutingStep | null>(null);
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false);
   const [editingBinding, setEditingBinding] = useState<LabelBinding | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: "variant" | "bom" | "routing" | "binding" } | null>(null);
 
   const { data: revision, isLoading } = useQuery({
     queryKey: ["revision", modelId, revisionId],
@@ -378,7 +380,7 @@ export default function RevisionDetailsPage() {
             <Button
               onClick={(e) => {
                 e.stopPropagation();
-                if (confirm("Delete this variant?")) deleteVariant.mutate(v.id);
+                setDeleteTarget({ id: v.id, type: "variant" });
               }}
               icon="delete"
               design="Transparent"
@@ -435,7 +437,10 @@ export default function RevisionDetailsPage() {
               design="Transparent"
             />
             <Button
-              onClick={(e) => { e.stopPropagation(); if (confirm("Delete this BOM row?")) deleteBom.mutate(b.id); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteTarget({ id: b.id, type: "bom" });
+              }}
               icon="delete"
               design="Transparent"
             />
@@ -502,7 +507,7 @@ export default function RevisionDetailsPage() {
             <Button
               onClick={(e) => {
                 e.stopPropagation();
-                if (confirm("Delete this routing step?")) deleteRouting.mutate(r.id);
+                setDeleteTarget({ id: r.id, type: "routing" });
               }}
               icon="delete"
               design="Transparent"
@@ -555,7 +560,7 @@ export default function RevisionDetailsPage() {
             <Button
               onClick={(e) => {
                 e.stopPropagation();
-                if (confirm("Delete this binding?")) deleteBinding.mutate(b.id);
+                setDeleteTarget({ id: b.id, type: "binding" });
               }}
               icon="delete"
               design="Transparent"
@@ -919,6 +924,31 @@ export default function RevisionDetailsPage() {
           </FlexBox>
         </FlexBox>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={`Delete ${deleteTarget?.type === "bom" ? "BOM Row" : deleteTarget?.type === "routing" ? "Routing Step" : deleteTarget?.type || ""}`}
+        description={`Are you sure you want to delete this ${deleteTarget?.type === "bom" ? "BOM row" : deleteTarget?.type === "routing" ? "routing step" : deleteTarget?.type || ""}? This action cannot be undone.`}
+        confirmText="Delete"
+        destructive
+        submitting={
+          deleteVariant.isPending || 
+          deleteBom.isPending || 
+          deleteRouting.isPending || 
+          deleteBinding.isPending
+        }
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          const { id, type } = deleteTarget;
+          const options = { onSuccess: () => setDeleteTarget(null) };
+          
+          if (type === "variant") deleteVariant.mutate(id, options);
+          else if (type === "bom") deleteBom.mutate(id, options);
+          else if (type === "routing") deleteRouting.mutate(id, options);
+          else if (type === "binding") deleteBinding.mutate(id, options);
+        }}
+      />
     </PageLayout>
   );
 }
