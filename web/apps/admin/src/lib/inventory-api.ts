@@ -187,3 +187,17 @@ export async function importInventoryDoExcel(file: File): Promise<DoImportResult
   }
   return json.data as DoImportResult;
 }
+
+// ── DO Issue History ───────────────────────────────────────
+
+export interface DoIssueHistoryRow {
+  id: string;
+  request_no: string;
+  issued_at: string;
+  part_number: string;
+  issued_qty: number;
+  remarks?: string | null;
+}
+
+export const getDoIssueHistory = (doId: string): Promise<DoIssueHistoryRow[]> =>
+  api<DoIssueHistoryRow[]>(`/inventory/do/${doId}/issue-history`);

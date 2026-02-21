@@ -1,5 +1,5 @@
 import Elysia, { t } from "elysia";
-import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, sql, aliasedTable } from "drizzle-orm";
 import { db } from "../db/connection";
 import { checkAuth, checkRole } from "../middleware/auth";
 import { authDerive } from "../middleware/auth";
@@ -319,6 +319,7 @@ materialRequestRoutes.get(
 
     const conditions = [];
     const canViewAll = hasAnyRole(currentUser, ["STORE", "SUPERVISOR", "ADMIN"]);
+    const reqUser = aliasedTable(users, "request_user");
 
     if (!canViewAll) {
       conditions.push(eq(materialRequests.requestedByUserId, currentUser.userId));
@@ -341,7 +342,9 @@ materialRequestRoutes.get(
         process_name: materialRequests.processName,
         status: materialRequests.status,
         remarks: materialRequests.remarks,
+        request_department_name: materialRequests.requestDepartmentName,
         requested_by_user_id: materialRequests.requestedByUserId,
+        requested_by_name: reqUser.displayName,
         approved_by_user_id: materialRequests.approvedByUserId,
         issued_by_user_id: materialRequests.issuedByUserId,
         issued_at: materialRequests.issuedAt,
@@ -351,6 +354,7 @@ materialRequestRoutes.get(
       })
       .from(materialRequests)
       .leftJoin(models, eq(models.id, materialRequests.modelId))
+      .leftJoin(reqUser, eq(reqUser.id, materialRequests.requestedByUserId))
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(materialRequests.createdAt));
 
@@ -395,6 +399,9 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
   if (!canApproveMaterialRequestByWorkflow(currentUser, policy)) {
     return { success: true, data: [] };
   }
+  
+  const reqUser = aliasedTable(users, "request_user");
+  
   const rows = await db
     .select({
       id: materialRequests.id,
@@ -409,7 +416,9 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
       process_name: materialRequests.processName,
       status: materialRequests.status,
       remarks: materialRequests.remarks,
+      request_department_name: materialRequests.requestDepartmentName,
       requested_by_user_id: materialRequests.requestedByUserId,
+      requested_by_name: reqUser.displayName,
       approved_by_user_id: materialRequests.approvedByUserId,
       issued_by_user_id: materialRequests.issuedByUserId,
       issued_at: materialRequests.issuedAt,
@@ -419,6 +428,7 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
     })
     .from(materialRequests)
     .leftJoin(models, eq(models.id, materialRequests.modelId))
+    .leftJoin(reqUser, eq(reqUser.id, materialRequests.requestedByUserId))
     .where(eq(materialRequests.status, "REQUESTED"))
     .orderBy(asc(materialRequests.requestDate), asc(materialRequests.createdAt));
 
@@ -431,6 +441,7 @@ materialRequestRoutes.get(
     const unauthorized = checkAuth({ user, set });
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;
+    const reqUser = aliasedTable(users, "request_user");
 
     const [header] = await db
       .select({
@@ -446,7 +457,9 @@ materialRequestRoutes.get(
         process_name: materialRequests.processName,
         status: materialRequests.status,
         remarks: materialRequests.remarks,
+        request_department_name: materialRequests.requestDepartmentName,
         requested_by_user_id: materialRequests.requestedByUserId,
+        requested_by_name: reqUser.displayName,
         approved_by_user_id: materialRequests.approvedByUserId,
         issued_by_user_id: materialRequests.issuedByUserId,
         issued_at: materialRequests.issuedAt,
@@ -456,6 +469,7 @@ materialRequestRoutes.get(
       })
       .from(materialRequests)
       .leftJoin(models, eq(models.id, materialRequests.modelId))
+      .leftJoin(reqUser, eq(reqUser.id, materialRequests.requestedByUserId))
       .where(eq(materialRequests.id, params.id))
       .limit(1);
 
@@ -802,6 +816,7 @@ materialRequestRoutes.post(
             costCenter: costCenterText || body.cost_center?.trim() || null,
             requestSectionId,
             requestCostCenterId,
+            requestDepartmentName: departmentSnapshot,
             processName: body.process_name?.trim() || null,
             requestedByUserId: currentUser.userId,
             receivedByUserId: body.received_by_user_id ?? null,
@@ -818,6 +833,7 @@ materialRequestRoutes.post(
             cost_center: materialRequests.costCenter,
             request_section_id: materialRequests.requestSectionId,
             request_cost_center_id: materialRequests.requestCostCenterId,
+            request_department_name: materialRequests.requestDepartmentName,
             process_name: materialRequests.processName,
             status: materialRequests.status,
             remarks: materialRequests.remarks,
@@ -952,6 +968,7 @@ materialRequestRoutes.get(
               qty_received: inventoryDo.qtyReceived,
               qty_issued: inventoryDo.qtyIssued,
               pack_size: sql<number>`COALESCE(MAX(${supplierPacks.packQtyTotal}), 0)::int`,
+              gr_number: inventoryDo.grNumber,
             })
             .from(inventoryDo)
             .leftJoin(suppliers, eq(suppliers.id, inventoryDo.supplierId))
@@ -964,7 +981,8 @@ materialRequestRoutes.get(
               inventoryDo.supplierId,
               suppliers.name,
               inventoryDo.qtyReceived,
-              inventoryDo.qtyIssued
+              inventoryDo.qtyIssued,
+              inventoryDo.grNumber
             )
             .orderBy(asc(inventoryDo.partNumber), asc(inventoryDo.doNumber));
 
@@ -977,6 +995,7 @@ materialRequestRoutes.get(
       acc[partNo].push({
         do_id: row.do_id,
         do_number: row.do_number,
+        gr_number: row.gr_number,
         supplier_id: row.supplier_id,
         vendor_id: row.vendor_id ?? row.supplier_id,
         supplier_name: row.supplier_name,

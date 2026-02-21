@@ -402,7 +402,9 @@ export interface MaterialRequest {
   process_name?: string | null;
   status: MaterialRequestStatus;
   remarks?: string | null;
+  request_department_name?: string | null;
   requested_by_user_id?: string | null;
+  requested_by_name?: string | null;
   approved_by_user_id?: string | null;
   issued_by_user_id?: string | null;
   issued_by_name?: string | null;
@@ -435,6 +437,9 @@ export interface MaterialRequestMeta {
     id: string;
     section_code: string;
     section_name: string;
+  } | null;
+  department?: {
+    name: string;
   } | null;
   allowed_cost_centers: MetaCostCenter[];
   default_cost_center_id: string | null;
@@ -471,6 +476,7 @@ export interface MaterialRequestNextNumbers {
 export interface MaterialRequestIssueOption {
   do_id?: string | null;
   do_number: string;
+  gr_number?: string | null;
   supplier_id?: string | null;
   vendor_id?: string | null;
   supplier_name?: string | null;

@@ -8,8 +8,9 @@ export type ManualAllocationLine = {
   part_number: string;
   vendor_id: string;
   do_number: string;
-  vendor_pack_size: number;
-  issued_packs: number;
+  gr_number: string;
+  available_qty: number;
+  issued_qty: number;
   remarks: string;
 };
 
@@ -30,7 +31,7 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
   const allocationTotalsByItem = useMemo(() => {
     const fromKnown: Record<string, number> = {};
     for (const row of manualAllocations) {
-      const qty = Number(row.issued_packs || 0) * Number(row.vendor_pack_size || 0);
+      const qty = Number(row.issued_qty || 0);
       fromKnown[row.item_id] = (fromKnown[row.item_id] ?? 0) + qty;
     }
     return fromKnown;
@@ -41,8 +42,7 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
     for (const row of manualAllocations) {
       if (!row.do_number.trim()) return "Manual DO number is required";
       if (!row.vendor_id.trim()) return "Please select vendor for manual DO line";
-      if (row.issued_packs <= 0) return "Manual issued packs must be greater than 0";
-      if (row.vendor_pack_size <= 0) return "Manual pack size must be greater than 0";
+      if (row.issued_qty <= 0) return "Issued quantity must be greater than 0";
     }
     for (const item of issueOptions.items) {
       const total = allocationTotalsByItem[item.item_id] ?? 0;
@@ -50,8 +50,8 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
         return `Item ${item.item_no} (${item.part_number}) issued qty is below requested`;
       }
     }
-    const hasPositiveAllocation = manualAllocations.some((row) => row.issued_packs > 0);
-    if (!hasPositiveAllocation) return "Please enter issued packs";
+    const hasPositiveAllocation = manualAllocations.some((row) => row.issued_qty > 0);
+    if (!hasPositiveAllocation) return "Please enter issued quantity";
     return null;
   }, [allocationTotalsByItem, issueOptions, manualAllocations]);
 
@@ -59,7 +59,6 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
     (itemId: string) => {
       const item = issueItemById.get(itemId);
       if (!item) return;
-      const firstVendor = item.vendor_options?.[0] ?? item.supplier_options?.[0];
       setManualAllocations((prev) => [
         ...prev,
         {
@@ -67,10 +66,11 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
           item_id: item.item_id,
           item_no: item.item_no,
           part_number: item.part_number,
-          vendor_id: firstVendor?.vendor_id ?? firstVendor?.supplier_id ?? "",
+          vendor_id: "",
           do_number: "",
-          vendor_pack_size: firstVendor?.default_pack_qty ?? 1,
-          issued_packs: 1,
+          gr_number: "",
+          available_qty: 0,
+          issued_qty: 1,
           remarks: "",
         },
       ]);
@@ -80,15 +80,15 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
 
   const buildAllocationsPayload = useCallback(() => {
     return manualAllocations
-      .filter((row) => row.issued_packs > 0 && row.vendor_pack_size > 0 && row.do_number.trim())
+      .filter((row) => row.issued_qty > 0 && row.do_number.trim())
       .map((row) => ({
         item_id: row.item_id,
         part_number: row.part_number,
         do_number: row.do_number.trim().toUpperCase(),
         vendor_id: row.vendor_id,
-        issued_packs: row.issued_packs,
-        issued_qty: row.issued_packs * row.vendor_pack_size,
-        vendor_pack_size: row.vendor_pack_size,
+        issued_packs: 1,
+        issued_qty: row.issued_qty,
+        vendor_pack_size: row.issued_qty,
         remarks: row.remarks || undefined,
       }));
   }, [manualAllocations]);

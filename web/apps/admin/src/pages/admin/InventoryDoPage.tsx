@@ -32,6 +32,7 @@ import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/excel-attachment.js";
 import "@ui5/webcomponents-icons/dist/document.js";
+import "@ui5/webcomponents-icons/dist/history.js";
 import "@ui5/webcomponents-icons/dist/information.js";
 import { sdk } from "../../context/AuthContext";
 import {
@@ -42,6 +43,8 @@ import {
   deleteInventoryDo,
   importInventoryDoExcel,
   DoImportResult,
+  getDoIssueHistory,
+  DoIssueHistoryRow,
 } from "../../lib/inventory-api";
 
 // ── Form schema ───────────────────────────────────────────
@@ -159,6 +162,68 @@ function ImportResultDialog({
   );
 }
 
+// ── DO Issue History Dialog ───────────────────────────────
+
+function DoIssueHistoryDialog({
+  open,
+  doRow,
+  onClose,
+}: {
+  open: boolean;
+  doRow: InventoryDo | null;
+  onClose: () => void;
+}) {
+  const { data: history = [], isLoading } = useQuery({
+    queryKey: ["do-issue-history", doRow?.id],
+    queryFn: () => getDoIssueHistory(doRow!.id),
+    enabled: !!doRow?.id && open,
+  });
+
+  const columns = useMemo<ColumnDef<DoIssueHistoryRow>[]>(
+    () => [
+      { header: "MR No.", accessorKey: "request_no", size: 140 },
+      { header: "Part Number", accessorKey: "part_number", size: 140 },
+      { 
+        header: "Issue Date", 
+        accessorKey: "issued_at", 
+        size: 160,
+        cell: ({ row }) => row.original.issued_at ? new Date(row.original.issued_at).toLocaleString() : "-"
+      },
+      { 
+        header: "Qty", 
+        accessorKey: "issued_qty", 
+        size: 100,
+        cell: ({ row }) => <Text style={{ textAlign: "right", display: "block", fontWeight: "bold" }}>{row.original.issued_qty}</Text>
+      },
+      { header: "Remarks", accessorKey: "remarks" },
+    ],
+    []
+  );
+
+  return (
+    <Dialog
+      open={open}
+      headerText={`Issue History — ${doRow?.do_number ?? ""}`}
+      onClose={onClose}
+      style={{ width: "min(800px, 90vw)" }}
+      footer={
+        <Bar
+          design="Footer"
+          endContent={<Button design="Emphasized" onClick={onClose}>Close</Button>}
+        />
+      }
+    >
+      <div style={{ padding: "1rem" }}>
+        <DataTable
+          data={history}
+          columns={columns}
+          loading={isLoading}
+        />
+      </div>
+    </Dialog>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────
 
 export function InventoryDoPage() {
@@ -168,6 +233,7 @@ export function InventoryDoPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryDo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InventoryDo | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<InventoryDo | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<DoImportResult | null>(null);
@@ -386,6 +452,13 @@ export function InventoryDoPage() {
         size: 100,
         cell: ({ row }) => (
           <div style={{ display: "flex", gap: "0.5rem" }}>
+            <Button
+              icon="history"
+              design="Transparent"
+              tooltip="Issue History"
+              aria-label="View Issue History"
+              onClick={() => setHistoryTarget(row.original)}
+            />
             <Button
               icon="edit"
               design="Transparent"
@@ -640,6 +713,13 @@ export function InventoryDoPage() {
             onSuccess: () => setDeleteTarget(null),
           });
         }}
+      />
+
+      {/* ── DO Issue History ─────────────────────────── */}
+      <DoIssueHistoryDialog
+        open={Boolean(historyTarget)}
+        doRow={historyTarget}
+        onClose={() => setHistoryTarget(null)}
       />
 
       {/* ── Import Result ────────────────────────────── */}

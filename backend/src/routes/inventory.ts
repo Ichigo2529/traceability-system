@@ -3,7 +3,13 @@ import { and, asc, eq, ilike, sql } from "drizzle-orm";
 import { db } from "../db/connection";
 import { authDerive, checkRole } from "../middleware/auth";
 import { ok, fail } from "../lib/http";
-import { inventoryDo, suppliers, supplierPartProfiles } from "../db/schema";
+import {
+  inventoryDo,
+  suppliers,
+  supplierPartProfiles,
+  materialRequestItemIssues,
+  materialRequests,
+} from "../db/schema";
 import * as XLSX from "xlsx";
 
 // ─── Helpers ────────────────────────────────────────────
@@ -522,6 +528,28 @@ inventoryRoutes.get("/do/summary/:doNo", async ({ params, set }) => {
       total_net: totalNet,
     },
   });
+});
+
+// ═══════════════════════════════════════════════════════
+//  3.5) DO Issue History – GET /inventory/do/:id/issue-history
+// ═══════════════════════════════════════════════════════
+
+inventoryRoutes.get("/do/:id/issue-history", async ({ params, set }) => {
+  const rows = await db
+    .select({
+      id: materialRequestItemIssues.id,
+      request_no: materialRequests.requestNo,
+      issued_at: materialRequests.issuedAt,
+      part_number: materialRequestItemIssues.partNumber,
+      issued_qty: materialRequestItemIssues.issuedQty,
+      remarks: materialRequestItemIssues.remarks,
+    })
+    .from(materialRequestItemIssues)
+    .innerJoin(materialRequests, eq(materialRequests.id, materialRequestItemIssues.materialRequestId))
+    .where(eq(materialRequestItemIssues.doId, params.id))
+    .orderBy(asc(materialRequests.issuedAt));
+
+  return ok(rows);
 });
 
 // ═══════════════════════════════════════════════════════

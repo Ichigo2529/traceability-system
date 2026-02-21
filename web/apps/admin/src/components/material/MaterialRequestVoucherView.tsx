@@ -64,7 +64,15 @@ export function MaterialRequestVoucherView({ detail, onBack }: { detail: Materia
         </FlexBox>
       </Grid>
 
-      <Grid defaultSpan="XL4 L4 M4 S12" style={{ gap: "1rem", marginBottom: "1.5rem" }}>
+      <Grid defaultSpan="XL3 L3 M6 S12" style={{ gap: "1rem", marginBottom: "1.5rem" }}>
+        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+            <Label>REQUESTOR</Label>
+            <Text>{detail.requested_by_name || "-"}</Text>
+        </FlexBox>
+        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+            <Label>DEPARTMENT</Label>
+            <Text>{detail.request_department_name || "-"}</Text>
+        </FlexBox>
         <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
             <Label>SECTION</Label>
             <Text>{detail.section || "-"}</Text>

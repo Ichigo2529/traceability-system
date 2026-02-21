@@ -25,6 +25,8 @@ import {
   FormItem,
   Text,
   FlexBoxDirection,
+  FlexBoxAlignItems,
+  FlexBoxJustifyContent,
   Bar,
   Title
 } from "@ui5/webcomponents-react";
@@ -234,8 +236,6 @@ export function MaterialRequestCreatePage() {
       title="New Material Request"
       icon="create-form"
       iconColor="blue"
-      showBackButton
-      onBackClick={() => navigate("/admin/material-requests")}
     >
       <div className="page-container motion-safe:animate-fade-in">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
@@ -249,8 +249,28 @@ export function MaterialRequestCreatePage() {
              
              {/* Header Info */}
              <div style={{ padding: "1.5rem", background: "var(--sapObjectHeader_Background)", border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
-                 <Title level="H4" style={{ marginBottom: "1rem" }}>Request Header</Title>
-                 <Form layout="S1 M3 L5 XL5" labelSpan="S12 M12 L12 XL12">
+                 <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Start} style={{ width: "100%", paddingBottom: "1.5rem" }}>
+                   <FlexBox style={{ gap: "1.5rem" }} alignItems={FlexBoxAlignItems.Start}>
+                     <img src="/logo.png" alt="MMI Logo" style={{ height: "4.5rem", width: "auto", objectFit: "contain" }} />
+                     <FlexBox direction={FlexBoxDirection.Column}>
+                         <Title level="H3" style={{ fontStyle: "italic", marginBottom: "0.25rem", color: "var(--sapTextColor)" }}>MMI Precision Assembly (Thailand) Co., Ltd.</Title>
+                         <Text style={{ fontSize: "0.875rem" }}>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</Text>
+                         <FlexBox style={{ marginTop: "0.25rem", gap: "1rem" }}>
+                             <Text style={{ fontSize: "0.875rem" }}>TEL : (6644) 000188</Text>
+                             <Text style={{ fontSize: "0.875rem" }}>FAX : (6644) 000199</Text>
+                         </FlexBox>
+                     </FlexBox>
+                   </FlexBox>
+                   <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }} className="no-print">
+                       <Button icon="nav-back" design="Transparent" onClick={() => navigate("/admin/material-requests")}>Back</Button>
+                   </FlexBox>
+                 </FlexBox>
+    
+                 <div style={{ width: "100%", borderBottom: "2px solid var(--sapGroup_ContentBorderColor)", marginBottom: "1.5rem" }}>
+                     <Title level="H3" style={{ marginBottom: "0.5rem" }}>DIRECT MATERIAL ISSUE VOUCHER</Title>
+                 </div>
+
+                 <Form layout="S1 M3 L4 XL4" labelSpan="S12 M12 L12 XL12">
                      <FormItem labelContent={<Label>NO.</Label>}>
                          <Text style={{ color: "var(--sapNegativeColor)", fontWeight: "bold" }}>
                             {nextNumbersQuery.data?.request_no ?? "-"}
@@ -264,6 +284,16 @@ export function MaterialRequestCreatePage() {
                      <FormItem labelContent={<Label>DATE</Label>}>
                          <Text>
                             {formatDate(nextNumbersQuery.data?.generated_at ?? new Date().toISOString())}
+                         </Text>
+                     </FormItem>
+                     <FormItem labelContent={<Label>REQUESTOR</Label>}>
+                         <Text>
+                            {user?.display_name ?? "-"}
+                         </Text>
+                     </FormItem>
+                     <FormItem labelContent={<Label>DEPARTMENT</Label>}>
+                         <Text>
+                            {meta?.department?.name ?? user?.department ?? "-"}
                          </Text>
                      </FormItem>
                      <FormItem labelContent={<Label>SECTION</Label>}>
