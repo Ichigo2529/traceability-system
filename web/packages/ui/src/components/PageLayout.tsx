@@ -23,6 +23,7 @@ export interface PageLayoutProps {
   maxWidth?: string;
   showBackButton?: boolean;
   onBackClick?: (e: any) => void;
+  fullHeight?: boolean;
 }
 
 /**
@@ -41,6 +42,7 @@ export function PageLayout({
   maxWidth,
   showBackButton,
   onBackClick,
+  fullHeight,
 }: PageLayoutProps) {
   // Map color names or variants to premium gradients
   const getIconStyles = (color?: string) => {
@@ -151,12 +153,15 @@ export function PageLayout({
     >
       <div 
         style={{ 
-            padding: "2rem", 
+            padding: fullHeight ? "0" : "2rem", 
             boxSizing: "border-box", 
-            minHeight: "100%" 
+            height: fullHeight ? "100%" : "auto",
+            minHeight: "100%",
+            display: "flex",
+            flexDirection: "column"
         }}
       >
-        <div style={{ maxWidth: maxWidth ?? "1800px", width: "100%" }}>
+        <div style={{ maxWidth: maxWidth ?? "1800px", width: "100%", height: fullHeight ? "100%" : "auto", display: "flex", flexDirection: "column" }}>
           {children}
         </div>
       </div>

@@ -12,13 +12,16 @@ import { PageLayout } from "@traceability/ui";
 import {
   Bar,
   Button,
-  Dialog,
+  FlexibleColumnLayout,
+  Page,
+  Title,
+  Form,
+  FormItem,
   MessageStrip,
   ObjectStatus,
   Icon,
   FlexBox,
   FlexBoxAlignItems,
-  FlexBoxDirection,
   Label,
   Input,
   Select,
@@ -34,7 +37,7 @@ export default function ModelDetailsPage() {
   const { id: modelId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [layout, setLayout] = useState<"OneColumn" | "TwoColumnsStartExpanded">("OneColumn");
   const [newRevisionCode, setNewRevisionCode] = useState("");
   const [cloneFromRevisionId, setCloneFromRevisionId] = useState("");
   const [activateTarget, setActivateTarget] = useState<ModelRevision | null>(null);
@@ -53,7 +56,7 @@ export default function ModelDetailsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["models", modelId, "revisions"] });
-      setIsModalOpen(false);
+      setLayout("OneColumn");
       setNewRevisionCode("");
       setCloneFromRevisionId("");
     },
@@ -147,6 +150,7 @@ export default function ModelDetailsPage() {
   return (
     <PageLayout
       title="Model Revisions"
+      fullHeight={true}
       subtitle={
         <FlexBox alignItems={FlexBoxAlignItems.Center}>
           <span className="indicator-live" />
@@ -156,33 +160,82 @@ export default function ModelDetailsPage() {
       icon="chain-link"
       iconColor="blue"
     >
-      <div className="page-container" style={{ display: "flex", flexDirection: "column", gap: "1rem", paddingRight: "2rem", paddingBottom: "2rem" }}>
-        <MessageStrip design="Information" hideCloseButton style={{ borderRadius: "8px" }}>
-          Only the <strong>ACTIVE</strong> revision is used in production. Active revisions are read-only — clone to a new draft to make changes.
-        </MessageStrip>
+      <FlexibleColumnLayout
+        style={{ height: "100%" }}
+        layout={layout}
+        startColumn={
+          <div className="page-container" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <div style={{ padding: "0 2rem 1rem 0" }}>
+              <MessageStrip design="Information" hideCloseButton style={{ borderRadius: "8px" }}>
+                Only the <strong>ACTIVE</strong> revision is used in production. Active revisions are read-only — clone to a new draft to make changes.
+              </MessageStrip>
+            </div>
 
-        <ApiErrorBanner
-          message={activateRevision.isError ? formatApiError(activateRevision.error) : undefined}
-        />
+            <ApiErrorBanner
+              message={activateRevision.isError ? formatApiError(activateRevision.error) : undefined}
+            />
 
-        <DataTable
-          data={revisions as any}
-          columns={columns}
-          loading={isLoading}
-          filterPlaceholder="Search revisions…"
-          onRowClick={(rev: any) => navigate(`/admin/models/${modelId}/revisions/${rev.id}`)}
-          actions={
-            <>
-              <Button icon="nav-back" design="Transparent" onClick={() => navigate("/admin/models")}>
-                Back to Models
-              </Button>
-              <Button icon="add" design="Emphasized" onClick={() => setIsModalOpen(true)}>
-                New Draft
-              </Button>
-            </>
-          }
-        />
-      </div>
+            <DataTable
+              data={revisions as any}
+              columns={columns}
+              loading={isLoading}
+              filterPlaceholder="Search revisions…"
+              hideEmptyState={layout !== "OneColumn"}
+              onRowClick={(rev: any) => navigate(`/admin/models/${modelId}/revisions/${rev.id}`)}
+              actions={
+                <>
+                  <Button icon="nav-back" design="Transparent" onClick={() => navigate("/admin/models")}>
+                    Back to Models
+                  </Button>
+                  <Button icon="add" design="Emphasized" onClick={() => setLayout("TwoColumnsStartExpanded")}>
+                    New Draft
+                  </Button>
+                </>
+              }
+            />
+          </div>
+        }
+        midColumn={
+          <Page
+            header={<Bar startContent={<Title>Create Revision Draft</Title>} />}
+            footer={
+              <Bar
+                design="Footer"
+                endContent={
+                  <FlexBox style={{ gap: "0.5rem" }}>
+                    <Button
+                      design="Emphasized"
+                      onClick={() => createRevision.mutate()}
+                      disabled={createRevision.isPending || !newRevisionCode}
+                    >
+                      {createRevision.isPending ? "Creating…" : "Create Draft"}
+                    </Button>
+                    <Button onClick={() => setLayout("OneColumn")} design="Transparent">Cancel</Button>
+                  </FlexBox>
+                }
+              />
+            }
+            style={{ height: "100%", borderRadius: "0 16px 16px 0", borderLeft: "1px solid var(--sapList_BorderColor)" }}
+          >
+            <div style={{ padding: "1.5rem", height: "100%", overflowY: "auto" }}>
+              <ApiErrorBanner message={createRevision.isError ? formatApiError(createRevision.error) : undefined} />
+              <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
+                <FormItem labelContent={<Label required style={{ fontWeight: 600 }}>Revision Code</Label>}>
+                  <Input value={newRevisionCode} onInput={(e) => setNewRevisionCode(e.target.value)} placeholder="e.g. R01" style={{ width: "100%" }} />
+                </FormItem>
+                <FormItem labelContent={<Label style={{ fontWeight: 600 }}>Clone From (Optional)</Label>}>
+                  <Select value={cloneFromRevisionId} onChange={(e) => setCloneFromRevisionId(e.target.value)} style={{ width: "100%" }}>
+                    <Option value="">-- Empty Draft --</Option>
+                    {(revisions as ModelRevision[]).map((r) => (
+                      <Option key={r.id} value={r.id}>{r.revision_code} ({r.status})</Option>
+                    ))}
+                  </Select>
+                </FormItem>
+              </Form>
+            </div>
+          </Page>
+        }
+      />
 
       {/* Activate confirmation */}
       <ConfirmDialog
@@ -200,57 +253,6 @@ export default function ModelDetailsPage() {
           activateRevision.mutate(activateTarget.id);
         }}
       />
-
-      {/* Create draft dialog */}
-      <Dialog
-        headerText="Create Revision Draft"
-        open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        footer={
-          <Bar
-            endContent={
-              <>
-                <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                <Button
-                  design="Emphasized"
-                  onClick={() => createRevision.mutate()}
-                  disabled={createRevision.isPending || !newRevisionCode}
-                >
-                  {createRevision.isPending ? "Creating…" : "Create Draft"}
-                </Button>
-              </>
-            }
-          />
-        }
-      >
-        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "1.25rem", gap: "1rem", width: "340px" }}>
-          <ApiErrorBanner
-            message={createRevision.isError ? formatApiError(createRevision.error) : undefined}
-          />
-          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.375rem" }}>
-            <Label required style={{ fontWeight: 600 }}>Revision Code</Label>
-            <Input
-              value={newRevisionCode}
-              onInput={(e) => setNewRevisionCode(e.target.value)}
-              placeholder="e.g. R01"
-            />
-          </FlexBox>
-          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.375rem" }}>
-            <Label style={{ fontWeight: 600 }}>Clone From (Optional)</Label>
-            <Select
-              value={cloneFromRevisionId}
-              onChange={(e) => setCloneFromRevisionId(e.target.value)}
-            >
-              <Option value="">-- Empty Draft --</Option>
-              {(revisions as ModelRevision[]).map((r) => (
-                <Option key={r.id} value={r.id}>
-                  {r.revision_code} ({r.status})
-                </Option>
-              ))}
-            </Select>
-          </FlexBox>
-        </FlexBox>
-      </Dialog>
     </PageLayout>
   );
 }

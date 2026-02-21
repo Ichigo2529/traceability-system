@@ -29,6 +29,12 @@ const injectedStyles = `
   ui5-table-row.hoverable-row:hover {
     background-color: var(--sapList_Hover_Background, rgba(0,0,0,0.04)) !important;
   }
+  
+  /* Force Web Components Table to respect fixed widths and allow horizontal scroll */
+  ui5-table.fixed-table::part(table) {
+    table-layout: fixed;
+    width: 100%;
+  }
 `;
 
 const headerLabelStyle: React.CSSProperties = {
@@ -145,8 +151,9 @@ export function DataTable<TData>({
       )}
 
       {/* ── Table ────────────────────────────────────────────────────────── */}
-      <div style={{ overflowX: "auto", overflowY: "visible" }}>
+      <div style={{ overflowX: "auto", overflowY: "visible", width: "100%" }}>
         <Table
+          className="fixed-table"
           headerRow={
             <TableHeaderRow>
               {table.getHeaderGroups().map((headerGroup) =>
@@ -154,8 +161,9 @@ export function DataTable<TData>({
                   <TableHeaderCell
                     key={header.id}
                     style={{
-                      width: header.column.columnDef.size !== 150 ? `${header.column.columnDef.size}px` : "auto",
-                      minWidth: header.column.columnDef.minSize !== 20 ? `${header.column.columnDef.minSize}px` : "100px",
+                      width: header.column.columnDef.size ? `${header.column.columnDef.size}px` : "auto",
+                      minWidth: header.column.columnDef.minSize ? `${header.column.columnDef.minSize}px` : "auto",
+                      maxWidth: header.column.columnDef.maxSize && header.column.columnDef.maxSize !== Number.MAX_SAFE_INTEGER ? `${header.column.columnDef.maxSize}px` : "none",
                       position: "relative",
                       padding: "0.75rem 0.5rem",
                     }}
@@ -225,7 +233,9 @@ export function DataTable<TData>({
                   <TableCell 
                     key={cell.id}
                     style={{
-                        width: cell.column.columnDef.size !== 150 ? `${cell.column.columnDef.size}px` : "auto",
+                        width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : "auto",
+                        minWidth: cell.column.columnDef.minSize ? `${cell.column.columnDef.minSize}px` : "auto",
+                        maxWidth: cell.column.columnDef.maxSize && cell.column.columnDef.maxSize !== Number.MAX_SAFE_INTEGER ? `${cell.column.columnDef.maxSize}px` : "none",
                     }}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
