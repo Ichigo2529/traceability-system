@@ -515,9 +515,12 @@ materialRequestRoutes.get(
         supplier_name: suppliers.name,
         vendor_name: suppliers.name,
         remarks: materialRequestItemIssues.remarks,
+        gr_number: inventoryDo.grNumber,
+        available_qty: sql<number>`${inventoryDo.qtyReceived} - ${inventoryDo.qtyIssued}`,
       })
       .from(materialRequestItemIssues)
       .leftJoin(suppliers, eq(suppliers.id, materialRequestItemIssues.supplierId))
+      .leftJoin(inventoryDo, eq(inventoryDo.id, materialRequestItemIssues.doId))
       .where(eq(materialRequestItemIssues.materialRequestId, params.id))
       .orderBy(asc(materialRequestItemIssues.createdAt));
 

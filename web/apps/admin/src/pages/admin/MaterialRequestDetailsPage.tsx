@@ -11,13 +11,14 @@ import {
   TextArea,
   FlexBox,
   FlexBoxAlignItems,
+  FlexBoxJustifyContent,
   BusyIndicator,
   Bar,
-  FlexBoxDirection
+  FlexBoxDirection,
+  Text,
 } from "@ui5/webcomponents-react";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
-import { IssueAllocationWorkbench } from "../../components/material/IssueAllocationWorkbench";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import {
   approveMaterialRequest,
@@ -115,37 +116,30 @@ export function MaterialRequestDetailsPage() {
       subtitle={
         <FlexBox alignItems={FlexBoxAlignItems.Center}>
           <span className="indicator-live" />
-          <span>Material Request Details and Approvals</span>
+          <Text>Material Request Details and Approvals</Text>
         </FlexBox>
       }
       icon="request"
       iconColor="blue"
     >
-      <div className="page-container motion-safe:animate-panel-slide-in-left">
+      <div className="page-container">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
         {detailsQuery.isLoading ? (
           <BusyIndicator active text="Loading details..." style={{ marginTop: "2rem" }} />
         ) : detailsQuery.data ? (
           <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1.5rem", paddingBottom: "4rem" }}>
-            <MaterialRequestVoucherView detail={detailsQuery.data} onBack={() => navigate("/admin/material-requests")} />
-
-            {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-              <IssueAllocationWorkbench
-                issueOptions={issueOptionsQuery.data}
-                isLoading={issueOptionsQuery.isLoading}
-                issueRemarks={workbench.issueRemarks}
-                onIssueRemarksChange={workbench.setIssueRemarks}
-                manualAllocations={workbench.manualAllocations}
-                setManualAllocations={workbench.setManualAllocations}
-                allocationTotalsByItem={workbench.allocationTotalsByItem}
-                addAllocationLine={workbench.addAllocationLine}
-                issueValidationError={workbench.issueValidationError}
-              />
-            )}
+            <MaterialRequestVoucherView 
+                detail={detailsQuery.data} 
+                onBack={() => navigate("/admin/material-requests")}
+                workbench={workbench}
+                showIssueOptions={detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED"}
+            />
           </FlexBox>
         ) : (
-          <div style={{ textAlign: "center", padding: "3rem" }}>Request not found</div>
+          <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ padding: "3rem" }}>
+            <Text style={{ color: "var(--sapContent_LabelColor)" }}>Request not found.</Text>
+          </FlexBox>
         )}
       </div>
 
@@ -219,7 +213,7 @@ export function MaterialRequestDetailsPage() {
           });
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.5rem 0" }}>
+        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.75rem", padding: "0.5rem 0" }}>
           <TextArea
             value={rejectReason}
             onInput={(e) => setRejectReason(e.target.value)}
@@ -227,7 +221,7 @@ export function MaterialRequestDetailsPage() {
             placeholder="Enter reason for rejection..."
             style={{ width: "100%" }}
           />
-        </div>
+        </FlexBox>
       </ConfirmDialog>
 
       <ToastComponent />

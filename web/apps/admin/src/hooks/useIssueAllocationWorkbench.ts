@@ -6,6 +6,7 @@ export type ManualAllocationLine = {
   item_id: string;
   item_no: number;
   part_number: string;
+  description: string;
   vendor_id: string;
   do_number: string;
   gr_number: string;
@@ -66,6 +67,7 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
           item_id: item.item_id,
           item_no: item.item_no,
           part_number: item.part_number,
+          description: "-",
           vendor_id: "",
           do_number: "",
           gr_number: "",

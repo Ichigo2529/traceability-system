@@ -9,7 +9,6 @@ import { MaterialRequestVoucherView } from "../../components/material/MaterialRe
 import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
 import { useDelayedBusy } from "../../hooks/useDelayedBusy";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
-import { IssueAllocationWorkbench } from "../../components/material/IssueAllocationWorkbench";
 import { FormDialog } from "../../components/shared/FormDialog";
 import {
   approveMaterialRequest,
@@ -29,12 +28,12 @@ import {
     Tab, 
     TabSeparator,
     Button,
-    Card,
-    CardHeader,
     MessageStrip,
     TextArea,
     Label,
     BusyIndicator,
+    FlexBox,
+    FlexBoxJustifyContent,
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/form.js";
 import "@ui5/webcomponents-icons/dist/history.js";
@@ -176,7 +175,6 @@ export function StoreMaterialApprovalPage() {
   );
 
   const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
-  const showIssueOptionsLoading = useDelayedBusy(Boolean(selectedId) && issueOptionsQuery.isLoading, 250);
 
   if (!canUsePage) {
     return <MessageStrip design="Negative">Role Access Denied. Requires STORE or SUPERVISOR role.</MessageStrip>;
@@ -205,42 +203,30 @@ export function StoreMaterialApprovalPage() {
               <div style={{ padding: "1rem", maxWidth: "1200px", margin: "0 auto" }}>
                   {showDetailsLoading ? <BusyIndicator active /> : detailsQuery.data ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                          <MaterialRequestVoucherView detail={detailsQuery.data} />
-                          
+                          <MaterialRequestVoucherView 
+                              detail={detailsQuery.data} 
+                              workbench={workbench}
+                              showIssueOptions={detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED"}
+                          />
                           {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-                              <Card header={<CardHeader titleText="Issue & Allocation" />}>
-                                  <div style={{ padding: "1rem" }}>
-                                    <IssueAllocationWorkbench
-                                        issueOptions={issueOptionsQuery.data}
-                                        isLoading={showIssueOptionsLoading}
-                                        issueRemarks={workbench.issueRemarks}
-                                        onIssueRemarksChange={workbench.setIssueRemarks}
-                                        manualAllocations={workbench.manualAllocations}
-                                        setManualAllocations={workbench.setManualAllocations}
-                                        allocationTotalsByItem={workbench.allocationTotalsByItem}
-                                        addAllocationLine={workbench.addAllocationLine}
-                                        issueValidationError={workbench.issueValidationError}
-                                    />
-                                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
-                                        {detailsQuery.data.status === "REQUESTED" && (
-                                            <Button 
-                                                design="Negative" 
-                                                onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
-                                                disabled={approveMutation.isPending || rejectMutation.isPending}
-                                            >
-                                                Reject
-                                            </Button>
-                                        )}
-                                        <Button 
-                                            design="Emphasized"
-                                            onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
-                                            disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || issueMutation.isPending)}
-                                        >
-                                            {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue" : "Issue Material"}
-                                        </Button>
-                                    </div>
-                                  </div>
-                              </Card>
+                              <FlexBox justifyContent={FlexBoxJustifyContent.End} style={{ gap: "1rem", marginTop: "1rem" }}>
+                                  {detailsQuery.data.status === "REQUESTED" && (
+                                      <Button 
+                                          design="Negative" 
+                                          onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
+                                          disabled={approveMutation.isPending || rejectMutation.isPending}
+                                      >
+                                          Reject
+                                      </Button>
+                                  )}
+                                  <Button 
+                                      design="Emphasized"
+                                      onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
+                                      disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || issueMutation.isPending)}
+                                  >
+                                      {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue" : "Issue Material"}
+                                  </Button>
+                              </FlexBox>
                           )}
                       </div>
                   ) : <div>No details found</div>}
