@@ -16,9 +16,11 @@ import {
   Bar,
   FlexBoxDirection,
   Text,
+  MessageStrip,
 } from "@ui5/webcomponents-react";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
+import { StatusBadge } from "../../components/shared/StatusBadge";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import {
   approveMaterialRequest,
@@ -29,6 +31,7 @@ import {
 } from "../../lib/material-api";
 
 import "@ui5/webcomponents-icons/dist/print.js";
+import "@ui5/webcomponents-icons/dist/nav-back.js";
 import "@ui5/webcomponents-icons/dist/accept.js";
 import "@ui5/webcomponents-icons/dist/decline.js";
 import "@ui5/webcomponents-icons/dist/request.js";
@@ -110,6 +113,9 @@ export function MaterialRequestDetailsPage() {
 
   const anyError = detailsQuery.error ?? issueOptionsQuery.error ?? approveMutation.error ?? rejectMutation.error ?? issueMutation.error;
 
+  const showActionButtons =
+    detailsQuery.data && (detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED");
+
   return (
     <PageLayout
       title={`Request: ${detailsQuery.data?.request_no ?? "Loading..."}`}
@@ -121,6 +127,52 @@ export function MaterialRequestDetailsPage() {
       }
       icon="request"
       iconColor="blue"
+      toolbar={
+        detailsQuery.data ? (
+          <Bar
+            design="Header"
+            startContent={
+              <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.75rem" }}>
+                <Button icon="nav-back" design="Transparent" onClick={() => navigate("/admin/material-requests")}>
+                  Back
+                </Button>
+                <StatusBadge status={detailsQuery.data.status} />
+                {detailsQuery.data.status === "ISSUED" && (
+                  <Button icon="print" design="Transparent" onClick={() => window.print()} tooltip="Print Voucher">
+                    Print
+                  </Button>
+                )}
+              </FlexBox>
+            }
+            endContent={
+              showActionButtons ? (
+                <FlexBox style={{ gap: "0.5rem" }} alignItems={FlexBoxAlignItems.Center}>
+                  {detailsQuery.data.status === "REQUESTED" && (
+                    <Button
+                      icon="decline"
+                      design="Negative"
+                      onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
+                      disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
+                    >
+                      Reject
+                    </Button>
+                  )}
+                  {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
+                    <Button
+                      icon="accept"
+                      design="Emphasized"
+                      onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
+                      disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
+                    >
+                      {detailsQuery.data.status === "REQUESTED" ? "Approve & Issue" : "Issue"}
+                    </Button>
+                  )}
+                </FlexBox>
+              ) : null
+            }
+          />
+        ) : undefined
+      }
     >
       <div className="page-container">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
@@ -128,13 +180,27 @@ export function MaterialRequestDetailsPage() {
         {detailsQuery.isLoading ? (
           <BusyIndicator active text="Loading details..." style={{ marginTop: "2rem" }} />
         ) : detailsQuery.data ? (
-          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1.5rem", paddingBottom: "4rem" }}>
+          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1.5rem", paddingBottom: "1rem", marginTop: "1.5rem" }}>
             <MaterialRequestVoucherView 
                 detail={detailsQuery.data} 
                 onBack={() => navigate("/admin/material-requests")}
                 workbench={workbench}
                 showIssueOptions={detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED"}
+                hideTopBarActions
             />
+
+            {/* Hint: when data is complete, scroll up to approve */}
+            {showActionButtons && (
+              <MessageStrip design="Information" hideCloseButton style={{ width: "100%", boxSizing: "border-box" }}>
+                <Text style={{ fontSize: "0.8125rem", lineHeight: 1.5 }}>
+                  {detailsQuery.data.status === "REQUESTED" ? (
+                    <>Reject: use when the request is invalid (reason required). When you have added all DO lines and issued totals match requested, scroll up and click <strong>Approve &amp; Issue</strong> in the toolbar.</>
+                  ) : (
+                    <>When you have added all DO lines and issued totals match requested, scroll up and click <strong>Issue</strong> in the toolbar.</>
+                  )}
+                </Text>
+              </MessageStrip>
+            )}
           </FlexBox>
         ) : (
           <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ padding: "3rem" }}>
@@ -143,40 +209,16 @@ export function MaterialRequestDetailsPage() {
         )}
       </div>
 
-      {detailsQuery.data && (detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-        <Bar
-          design="FloatingFooter"
-          endContent={
-            <>
-              {detailsQuery.data.status === "REQUESTED" && (
-                <Button
-                  icon="decline"
-                  design="Negative"
-                  onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
-                  disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
-                >
-                  Reject
-                </Button>
-              )}
-              <Button
-                icon="accept"
-                design="Positive"
-                onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
-                disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
-              >
-                {detailsQuery.data.status === "REQUESTED" ? "Approve + Issue Material" : "Issue Material"}
-              </Button>
-            </>
-          }
-        />
-      )}
-
       {/* Dialogs */}
       <ConfirmDialog
         open={confirmIssueOpen}
         title={detailsQuery.data?.status === "REQUESTED" ? "Confirm Approve & Issue" : "Confirm Issue Material"}
-        description={detailsQuery.data?.status === "REQUESTED" ? "Approve and issue this request now?" : "Issue this approved request now?"}
-        confirmText="Issue"
+        description={
+          detailsQuery.data?.status === "REQUESTED"
+            ? "This will approve the request and issue material. Ensure all items have DO allocations and issued qty matches requested."
+            : "This will issue material for the approved request."
+        }
+        confirmText={detailsQuery.data?.status === "REQUESTED" ? "Approve & Issue" : "Issue"}
         submitting={issueMutation.isPending || approveMutation.isPending}
         onCancel={() => setConfirmIssueOpen(false)}
         onConfirm={() => {
@@ -195,7 +237,7 @@ export function MaterialRequestDetailsPage() {
       <ConfirmDialog
         open={confirmRejectOpen}
         title="Reject Request"
-        description="Please specify the reason for rejecting this material request."
+        description="The request will be rejected and the requester will be notified. Please provide a reason (recommended for audit and clarity)."
         confirmText="Reject"
         destructive
         submitting={rejectMutation.isPending}
@@ -213,12 +255,15 @@ export function MaterialRequestDetailsPage() {
           });
         }}
       >
-        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.75rem", padding: "0.5rem 0" }}>
+        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem", padding: "0.5rem 0" }}>
+          <Text style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--sapContent_LabelColor)" }}>
+            Reason for rejection
+          </Text>
           <TextArea
             value={rejectReason}
             onInput={(e) => setRejectReason(e.target.value)}
             rows={3}
-            placeholder="Enter reason for rejection..."
+            placeholder="Enter reason for rejection (optional but recommended)..."
             style={{ width: "100%" }}
           />
         </FlexBox>

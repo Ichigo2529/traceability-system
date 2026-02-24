@@ -69,11 +69,14 @@ export function MaterialRequestVoucherView({
     onBack,
     workbench,
     showIssueOptions,
+    hideTopBarActions,
 }: {
     detail: MaterialRequestDetail;
     onBack?: () => void;
     workbench?: ReturnType<typeof useIssueAllocationWorkbench>;
     showIssueOptions?: boolean;
+    /** When true, Back / Status / Print are not rendered here (e.g. shown in page toolbar instead). */
+    hideTopBarActions?: boolean;
 }) {
     return (
         <FlexBox
@@ -110,13 +113,15 @@ export function MaterialRequestVoucherView({
                     </FlexBox>
                 </FlexBox>
 
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }} className="no-print">
-                    {onBack && <Button icon="nav-back" design="Transparent" onClick={onBack}>Back</Button>}
-                    <StatusBadge status={detail.status} />
-                    {detail.status === "ISSUED" && (
-                        <Button icon="print" design="Transparent" onClick={() => window.print()} tooltip="Print Voucher">Print</Button>
-                    )}
-                </FlexBox>
+                {!hideTopBarActions && (
+                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }} className="no-print">
+                        {onBack && <Button icon="nav-back" design="Transparent" onClick={onBack}>Back</Button>}
+                        <StatusBadge status={detail.status} />
+                        {detail.status === "ISSUED" && (
+                            <Button icon="print" design="Transparent" onClick={() => window.print()} tooltip="Print Voucher">Print</Button>
+                        )}
+                    </FlexBox>
+                )}
             </FlexBox>
 
             {/* ── Document Title ── */}
@@ -163,11 +168,18 @@ export function MaterialRequestVoucherView({
                     borderRadius: "4px 4px 0 0",
                 }}
             >
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                    <Title level="H6">Material Items</Title>
-                    <Text style={{ color: "var(--sapNeutralElementColor)", fontSize: "0.8rem" }}>
-                        ({detail.items.length})
-                    </Text>
+                <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+                        <Title level="H6">Material Items</Title>
+                        <Text style={{ color: "var(--sapNeutralElementColor)", fontSize: "0.8rem" }}>
+                            ({detail.items.length})
+                        </Text>
+                    </FlexBox>
+                    {showIssueOptions && (
+                        <Text style={{ fontSize: "0.7rem", color: "var(--sapContent_LabelColor)" }}>
+                            For each item: click &quot;Add DO. No.&quot;, select DO, enter Qty (and optional Rack/Remarks). When every item shows Summary <strong>OK</strong>, scroll up and click Approve &amp; Issue.
+                        </Text>
+                    )}
                 </FlexBox>
             </FlexBox>
 
@@ -177,19 +189,19 @@ export function MaterialRequestVoucherView({
                 style={{ width: "100%" }}
                 headerRow={
                     <TableHeaderRow>
-                        <TableHeaderCell width="40px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>ITEM</Label></TableHeaderCell>
+                        <TableHeaderCell width="56px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>ITEM</Label></TableHeaderCell>
                         <TableHeaderCell width="90px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>TYPE</Label></TableHeaderCell>
                         <TableHeaderCell width="150px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>MODEL</Label></TableHeaderCell>
                         <TableHeaderCell width="90px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>PART NO.</Label></TableHeaderCell>
                         <TableHeaderCell width="250px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>DESCRIPTION</Label></TableHeaderCell>
                         <TableHeaderCell width="160px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>DO NO.</Label></TableHeaderCell>
                         <TableHeaderCell width="80px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>VENDOR</Label></TableHeaderCell>
-                        <TableHeaderCell width="72px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>GR NO.</Label></TableHeaderCell>
+                        <TableHeaderCell width="120px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>GR NO.</Label></TableHeaderCell>
                         <TableHeaderCell width="52px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>NET</Label></TableHeaderCell>
-                        <TableHeaderCell width="56px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>QTY</Label></TableHeaderCell>
+                        <TableHeaderCell width="80px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>QTY</Label></TableHeaderCell>
                         <TableHeaderCell width="44px"><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>UOM</Label></TableHeaderCell>
                         <TableHeaderCell><Label style={{ fontWeight: "bold", fontSize: "0.75rem" }}>REMARKS</Label></TableHeaderCell>
-                        <TableHeaderCell width="36px"></TableHeaderCell>
+                        <TableHeaderCell width="72px"></TableHeaderCell>
                     </TableHeaderRow>
                 }
             >
@@ -305,8 +317,9 @@ export function MaterialRequestVoucherView({
                                                 onInput={(e) => workbench.setManualAllocations(prev =>
                                                     prev.map(x => x.id === row.id ? { ...x, description: e.target.value } : x)
                                                 )}
-                                                placeholder="-"
+                                                placeholder="Required — e.g. P.1 J001/1, P2.J002/1 (Rack)"
                                                 style={{ width: "100%" }}
+                                                required
                                             />
                                         </TableCell>
                                         <TableCell>
@@ -382,10 +395,11 @@ export function MaterialRequestVoucherView({
                                                 style={{ width: "100%" }}
                                             />
                                         </TableCell>
-                                        <TableCell>
+                                        <TableCell style={{ paddingLeft: "0.5rem", paddingRight: "1rem", minWidth: "72px", overflow: "visible" }}>
                                             <Button
                                                 icon="delete"
-                                                design="Transparent"
+                                                design="Negative"
+                                                tooltip="Remove this DO line"
                                                 onClick={() => workbench.setManualAllocations(prev => prev.filter(x => x.id !== row.id))}
                                             />
                                         </TableCell>
@@ -433,6 +447,13 @@ export function MaterialRequestVoucherView({
                         );
 
                         // ── Status Summary Row ──
+                        const uom = item.uom || "PCS";
+                        const summaryExplanation =
+                            absoluteDiff === 0
+                                ? `Requested ${requestedQty} ${uom}, Issued ${absoluteTotal} ${uom} — Match`
+                                : absoluteDiff > 0
+                                    ? `Requested ${requestedQty} ${uom}, Issued ${absoluteTotal} ${uom} — Over by ${absoluteDiff}`
+                                    : `Requested ${requestedQty} ${uom}, Issued ${absoluteTotal} ${uom} — Short by ${Math.abs(absoluteDiff)}`;
                         rows.push(
                             <TableRow
                                 key={`${key}-summary`}
@@ -440,20 +461,19 @@ export function MaterialRequestVoucherView({
                             >
                                 <TableCell /><TableCell /><TableCell /><TableCell />
                                 <TableCell>
-                                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                                        <Text style={{ fontSize: "0.7rem", fontWeight: "700", color: "var(--sapNeutralElementColor)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                                            Summary
-                                        </Text>
-                                        <ObjectStatus
-                                            state={absoluteDiff === 0 ? "Positive" : absoluteDiff > 0 ? "Information" : "Negative"}
-                                            inverted
-                                            showDefaultIcon
-                                        >
-                                            {absoluteDiff === 0 ? "OK" : absoluteDiff > 0 ? "Over" : "Short"}
-                                        </ObjectStatus>
-                                    </FlexBox>
+                                    <Text style={{ fontSize: "0.7rem", fontWeight: "700", color: "var(--sapNeutralElementColor)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                        Summary
+                                    </Text>
                                 </TableCell>
-                                <TableCell /><TableCell /><TableCell /><TableCell />
+                                <TableCell /><TableCell /><TableCell />
+                                <TableCell>
+                                    <ObjectStatus
+                                        state={absoluteDiff === 0 ? "Positive" : absoluteDiff > 0 ? "Information" : "Negative"}
+                                        showDefaultIcon={false}
+                                    >
+                                        {absoluteDiff === 0 ? "OK" : absoluteDiff > 0 ? "Over" : "Short"}
+                                    </ObjectStatus>
+                                </TableCell>
                                 <TableCell>
                                     <Label style={{
                                         textAlign: "right",
@@ -468,7 +488,13 @@ export function MaterialRequestVoucherView({
                                         {absoluteDiff > 0 ? `+${absoluteDiff}` : absoluteDiff}
                                     </Label>
                                 </TableCell>
-                                <TableCell /><TableCell /><TableCell />
+                                <TableCell><Label style={{ fontWeight: "bold" }}>{item.uom || "PCS"}</Label></TableCell>
+                                <TableCell>
+                                    <Text style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)", whiteSpace: "nowrap" }}>
+                                        {summaryExplanation}
+                                    </Text>
+                                </TableCell>
+                                <TableCell />
                             </TableRow>
                         );
 

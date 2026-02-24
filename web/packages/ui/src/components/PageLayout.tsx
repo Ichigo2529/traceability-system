@@ -18,6 +18,12 @@ export interface PageLayoutProps {
   iconColor?: string;
   actions?: ReactNode;
   headerActions?: ReactNode;
+  /** Full-width toolbar bar below title (e.g. Back, Status, primary actions). Renders in DynamicPageHeader. */
+  toolbar?: ReactNode;
+  /** Show pin button so user can pin/unpin the header. Default true when toolbar is provided. */
+  headerContentPinnable?: boolean;
+  /** Default state for header: true = pinned (header stays visible when scrolling). Default true. */
+  headerPinnedByDefault?: boolean;
   filters?: ReactNode;
   children: ReactNode;
   maxWidth?: string;
@@ -37,6 +43,9 @@ export function PageLayout({
   iconColor,
   actions,
   headerActions,
+  toolbar,
+  headerContentPinnable = true,
+  headerPinnedByDefault = true,
   filters,
   children,
   maxWidth,
@@ -76,10 +85,12 @@ export function PageLayout({
   return (
     <DynamicPageCasted
       backgroundDesign="Transparent"
+      headerContentPinnable={headerContentPinnable}
+      headerContentPinned={headerPinnedByDefault}
       titleArea={
         <DynamicPageTitle
           heading={
-            <div style={{ paddingLeft: "2rem", paddingTop: "1.25rem", paddingBottom: "1rem" }}>
+            <div style={{ paddingLeft: "2rem", paddingTop: "1.25rem", paddingBottom: "1.5rem" }}>
               <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "1.5rem" }}>
                 {showBackButton && (
                   <Button icon="nav-back" design="Transparent" onClick={onBackClick} />
@@ -131,9 +142,14 @@ export function PageLayout({
         />
       }
       headerArea={
-        filters || actions ? (
+        filters || actions || toolbar ? (
           <DynamicPageHeader>
             <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {toolbar && (
+                <div style={{ width: "100%" }}>
+                  {toolbar}
+                </div>
+              )}
               {actions && (
                 <div style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
                   {actions}

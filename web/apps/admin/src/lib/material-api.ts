@@ -27,6 +27,7 @@ type IssueAllocationPayload = {
     issued_packs: number;
     issued_qty?: number;
     vendor_pack_size?: number;
+    description?: string;
     remarks?: string;
   }>;
 };

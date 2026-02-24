@@ -19,7 +19,7 @@
     "check:go-live": "bun run check && bun run --cwd backend db:health",
     "build:admin": "bun run --cwd web/apps/admin build",
     "build:kiosk": "bun run --cwd web/apps/kiosk-pi5 build",
-    "format:check": "bunx prettier --check README.md ROADMAP_STABILITY.md IMPLEMENTATION_CHECKLIST.md TECH_DECISIONS.md docs backend/src web/apps web/packages"
+    "format:check": "bunx prettier --check README.md docs backend/src web/apps web/packages"
   },
   "devDependencies": {
     "prettier": "^3.6.2"
