@@ -25,24 +25,35 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
     return totals;
   }, [manualAllocations]);
 
-  const issueValidationError = useMemo(() => {
-    if (!issueOptions) return "Issue options not loaded";
-    for (const row of manualAllocations) {
-      if (!row.do_number.trim()) return "Please select a DO number for each Store row (column DO NO.).";
-      if (!row.description.trim()) return "Please enter Description (e.g. rack/location) for each Store row.";
-      if (!row.vendor_id.trim()) return "Please select vendor for manual DO line";
-      if (row.issued_qty <= 0) return "Issued quantity must be greater than 0";
+  const issueValidationErrors = useMemo(() => {
+    const errors: string[] = [];
+    if (!issueOptions) return ["Issue options not loaded"];
+
+    for (const [idx, row] of manualAllocations.entries()) {
+      const rowPrefix = `Allocation row ${idx + 1} (Item ${row.item_no} - ${row.part_number})`;
+      if (!row.do_number.trim()) errors.push(`${rowPrefix}: please select a DO number.`);
+      if (!row.description.trim()) errors.push(`${rowPrefix}: please enter Description (e.g. rack/location).`);
+      if (!row.vendor_id.trim()) errors.push(`${rowPrefix}: please select vendor.`);
+      if (row.issued_qty <= 0) errors.push(`${rowPrefix}: issued quantity must be greater than 0.`);
     }
+
     for (const item of issueOptions.items) {
       const total = allocationTotalsByItem[item.item_id] ?? 0;
       if (item.requested_qty > 0 && total < item.requested_qty) {
-        return `Item ${item.item_no} (${item.part_number}) issued qty is below requested`;
+        errors.push(
+          `Item ${item.item_no} (${item.part_number}) issued qty is below requested (${total}/${item.requested_qty}).`
+        );
       }
     }
+
     const hasPositiveAllocation = manualAllocations.some((row) => row.issued_qty > 0);
-    if (!hasPositiveAllocation) return "Please enter issued quantity";
-    return null;
+    if (!hasPositiveAllocation) {
+      errors.push("Please add at least one allocation with issued quantity.");
+    }
+    return errors;
   }, [allocationTotalsByItem, issueOptions, manualAllocations]);
+
+  const issueValidationError = issueValidationErrors.length > 0 ? issueValidationErrors.join(" ") : null;
 
   const addAllocationLine = useCallback(
     (itemId: string) => {
@@ -96,6 +107,7 @@ export function useIssueAllocationWorkbench(issueOptions?: MaterialRequestIssueO
     manualAllocations,
     setManualAllocations,
     allocationTotalsByItem,
+    issueValidationErrors,
     issueValidationError,
     addAllocationLine,
     buildAllocationsPayload,

@@ -24,6 +24,7 @@ import {
   TextArea,
   Card,
   CardHeader,
+  MessageStrip,
   FlexBox,
   FlexBoxDirection,
   FlexBoxAlignItems
@@ -33,6 +34,7 @@ import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/bar-code.js";
 import "@ui5/webcomponents-icons/dist/simulate.js";
+import "@ui5/webcomponents-icons/dist/copy.js";
 
 const schema = z.object({
   key: z.string().min(1),
@@ -66,6 +68,11 @@ function listToCsv(value?: string[] | null) {
   return (value ?? []).join(",");
 }
 
+function toCloneKey(key: string) {
+  const base = `${key.trim().toUpperCase()}_CUSTOM`;
+  return base.length <= 80 ? base : base.slice(0, 80);
+}
+
 export function BarcodeTemplatesPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -78,6 +85,23 @@ export function BarcodeTemplatesPage() {
     queryKey: ["barcode-templates"],
     queryFn: () => sdk.admin.getBarcodeTemplates(),
   });
+
+  const openCloneDialog = (item: BarcodeTemplate) => {
+    setEditing(null);
+    form.reset({
+      key: toCloneKey(item.key),
+      name: `${item.name} (Custom)`,
+      identifiers: listToCsv(item.identifiers),
+      lot_identifiers: listToCsv(item.lot_identifiers),
+      quantity_identifiers: listToCsv(item.quantity_identifiers),
+      part_identifiers: listToCsv(item.part_identifiers),
+      vendor_identifiers: listToCsv(item.vendor_identifiers),
+      production_date_identifiers: listToCsv(item.production_date_identifiers),
+      notes: item.notes ?? "",
+      is_active: true,
+    });
+    setOpen(true);
+  };
 
   const form = useForm<TemplateForm>({
     resolver: zodResolver(schema),
@@ -206,36 +230,48 @@ export function BarcodeTemplatesPage() {
         header: "Actions",
         cell: ({ row }) => (
           <div style={{ display: "flex", gap: "0.5rem" }}>
-            <Button
-              icon="edit"
-              design="Transparent"
-              onClick={() => {
-                const item = row.original;
-                setEditing(item);
-                form.reset({
-                  key: item.key,
-                  name: item.name,
-                  identifiers: listToCsv(item.identifiers),
-                  lot_identifiers: listToCsv(item.lot_identifiers),
-                  quantity_identifiers: listToCsv(item.quantity_identifiers),
-                  part_identifiers: listToCsv(item.part_identifiers),
-                  vendor_identifiers: listToCsv(item.vendor_identifiers),
-                  production_date_identifiers: listToCsv(item.production_date_identifiers),
-                  notes: item.notes ?? "",
-                  is_active: item.is_active,
-                });
-                setOpen(true);
-              }}
-              tooltip="Edit Template"
-              aria-label="Edit Template"
-            />
-            <Button 
-                icon="delete" 
-                design="Transparent" 
-                onClick={() => setDeleteTarget(row.original)} 
-                tooltip="Delete Template"
-                aria-label="Delete Template"
-            />
+            {row.original.is_system || row.original.source === "SYSTEM" ? (
+              <Button
+                icon="copy"
+                design="Transparent"
+                onClick={() => openCloneDialog(row.original)}
+                tooltip="Clone as Custom Template"
+                aria-label="Clone as Custom Template"
+              />
+            ) : (
+              <>
+                <Button
+                  icon="edit"
+                  design="Transparent"
+                  onClick={() => {
+                    const item = row.original;
+                    setEditing(item);
+                    form.reset({
+                      key: item.key,
+                      name: item.name,
+                      identifiers: listToCsv(item.identifiers),
+                      lot_identifiers: listToCsv(item.lot_identifiers),
+                      quantity_identifiers: listToCsv(item.quantity_identifiers),
+                      part_identifiers: listToCsv(item.part_identifiers),
+                      vendor_identifiers: listToCsv(item.vendor_identifiers),
+                      production_date_identifiers: listToCsv(item.production_date_identifiers),
+                      notes: item.notes ?? "",
+                      is_active: item.is_active,
+                    });
+                    setOpen(true);
+                  }}
+                  tooltip="Edit Template"
+                  aria-label="Edit Template"
+                />
+                <Button
+                  icon="delete"
+                  design="Transparent"
+                  onClick={() => setDeleteTarget(row.original)}
+                  tooltip="Delete Template"
+                  aria-label="Delete Template"
+                />
+              </>
+            )}
           </div>
         ),
       },
@@ -257,6 +293,11 @@ export function BarcodeTemplatesPage() {
     >
       <div className="page-container">
         <ApiErrorBanner message={errorMessage} />
+        {rows.length === 0 && !isLoading && (
+          <MessageStrip design="Information" hideCloseButton style={{ marginBottom: "0.75rem" }}>
+            No custom barcode templates yet. You can add one, or use built-in parser keys in the Parse Tester.
+          </MessageStrip>
+        )}
 
         <DataTable 
             data={rows} 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  confirmMaterialReceipt,
   createMaterialQueryKeys,
   createMaterialRequest,
   getMaterialRequestById,
@@ -8,6 +9,7 @@ import {
   getMaterialRequestNextNumbers,
   getMaterialRequests,
   NextNumbersResponse,
+  useProductionReceiptScanWorkbench,
   withdrawMaterialRequest,
 } from "@traceability/material";
 import {
@@ -24,10 +26,14 @@ import {
   FlexBoxAlignItems,
   Label,
   Input,
+  InputDomRef,
   MessageBox,
   MessageStrip,
   ObjectStatus,
+  Option,
+  Select,
   Text,
+  TextArea,
   Title,
 } from "@ui5/webcomponents-react";
 import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail, WorkflowApprovalConfig } from "@traceability/sdk";
@@ -40,6 +46,7 @@ import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsReal
 import { formatDate, formatDateTime } from "../../lib/datetime";
 import { formatApiError } from "../../lib/errors";
 import { toast } from "sonner";
+import { ScanInput } from "../../components/shared/ScanInput";
 
 function blankLine(itemNo: number): MaterialRequestLineForm {
   return {
@@ -77,6 +84,8 @@ export function ProductionMaterialRequestPage() {
   const [systemErrorMsg, setSystemErrorMsg] = useState<string | null>(null);
   const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   const [withdrawReason, setWithdrawReason] = useState("");
+  const [confirmReceiptReviewOpen, setConfirmReceiptReviewOpen] = useState(false);
+  const scanInputRef = useRef<InputDomRef>(null);
   const showingDetails = Boolean(selectedId);
 
   const { meta, sectionNotSet } = useMaterialRequestMeta(canUsePage);
@@ -179,6 +188,23 @@ export function ProductionMaterialRequestPage() {
     onError: (err: any) => {
       setSystemErrorMsg(err?.message || "Failed to withdraw request. Please try again.");
     },
+  });
+  const confirmReceiptMutation = useMutation<
+    { id: string; status: string; scans_saved?: number },
+    any,
+    { id: string; scans: Array<{ part_number: string; do_number: string; scan_data: string }>; remarks?: string }
+  >({
+    mutationFn: ({ id, scans, remarks }) => confirmMaterialReceipt(id, { scans, remarks }),
+    onSuccess: async () => {
+      toast.success("Production receipt acknowledged successfully.");
+      setConfirmReceiptReviewOpen(false);
+      resetScanWorkbench();
+      if (selectedId) {
+        await queryClient.invalidateQueries({ queryKey: keys.request(selectedId) });
+      }
+      await queryClient.invalidateQueries({ queryKey: keys.requests() });
+    },
+    onError: (err: any) => setSystemErrorMsg(err?.message || "Failed to confirm receipt"),
   });
 
   /** Run zod validation; if OK open confirm, if not → show inline errors */
@@ -287,6 +313,53 @@ export function ProductionMaterialRequestPage() {
     email: row.email ?? "",
   }));
   const pendingRows = detail ? allApprovalRows.filter((row) => row.from_status === detailStatus) : [];
+  const issuedTargets = useMemo(() => {
+    if (!detail) return [] as Array<{ part_number: string; do_number: string; required_packs: number }>;
+    const rows = detail.items.flatMap((item) =>
+      (item.issue_allocations ?? [])
+        .map((alloc) => ({
+          part_number: String(item.part_number ?? "").toUpperCase(),
+          do_number: String(alloc.do_number ?? "").toUpperCase(),
+          required_packs: Math.max(1, Number(alloc.issued_packs ?? 1)),
+        }))
+        .filter((x) => x.part_number && x.do_number)
+    );
+    const merged = new Map<string, { part_number: string; do_number: string; required_packs: number }>();
+    for (const row of rows) {
+      const key = `${row.part_number}|${row.do_number}`;
+      const current = merged.get(key);
+      if (!current) {
+        merged.set(key, row);
+      } else {
+        merged.set(key, { ...current, required_packs: current.required_packs + row.required_packs });
+      }
+    }
+    return Array.from(merged.values());
+  }, [detail]);
+  const scanWorkbench = useProductionReceiptScanWorkbench(issuedTargets);
+  const {
+    partOptions,
+    doOptionsForPart,
+    selectedPart,
+    setSelectedPart,
+    selectedDo,
+    setSelectedDo,
+    scanData,
+    setScanData,
+    manualMode,
+    setManualMode,
+    manualReason,
+    setManualReason,
+    stagedScans,
+    coverage,
+    feedback,
+    addStagedScan,
+    removeStagedScan,
+    clearStagedScans,
+    buildPayloadScans,
+    buildManualRemarks,
+    reset: resetScanWorkbench,
+  } = scanWorkbench;
   const pendingApprovalText =
     pendingRows.length > 0
       ? pendingRows
@@ -316,6 +389,22 @@ export function ProductionMaterialRequestPage() {
 
   // Preview lines for confirm dialog
   const previewLines = lines.filter((l) => l.part_number.trim().length > 0);
+  const canScanReceive = detail?.status === "ISSUED" && !detail?.production_ack_at;
+  useEffect(() => {
+    if (!canScanReceive || manualMode) return;
+    const focusInput = () => scanInputRef.current?.focus();
+    focusInput();
+    const timer = window.setInterval(focusInput, 1200);
+    return () => window.clearInterval(timer);
+  }, [canScanReceive, manualMode, feedback.at]);
+
+  useEffect(() => {
+    if (canScanReceive) return;
+    if (stagedScans.length > 0 || selectedPart || selectedDo || scanData || manualReason || manualMode) {
+      resetScanWorkbench();
+    }
+  }, [canScanReceive, manualMode, manualReason, resetScanWorkbench, scanData, selectedDo, selectedPart, stagedScans.length]);
+
   const detailHeaderActions = canWithdrawRequest ? (
     <Button design="Negative" disabled={withdrawMutation.isPending} onClick={() => setConfirmWithdrawOpen(true)}>
       {withdrawMutation.isPending ? "Withdrawing..." : "Withdraw"}
@@ -446,6 +535,108 @@ export function ProductionMaterialRequestPage() {
             detail ? (
               <>
                 <MaterialRequestVoucherView detail={detail} hideTopBarActions hideIssueTotalsBeforeIssued />
+                {canScanReceive && (
+                  <div
+                    style={{
+                      border: "1px solid var(--sapGroup_ContentBorderColor)",
+                      borderRadius: "0.5rem",
+                      background: "var(--sapGroup_ContentBackground)",
+                      padding: "0.75rem 1rem",
+                    }}
+                  >
+                    <Title level="H6" style={{ margin: "0 0 0.75rem" }}>
+                      Receive & Scan 2D
+                    </Title>
+                    <Text style={{ display: "block", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)", marginBottom: "0.5rem" }}>
+                      Scanner mode: choose Part + DO, then keep scanning continuously.
+                    </Text>
+                    {feedback.type !== "idle" && (
+                      <MessageStrip design={feedback.type === "success" ? "Positive" : "Negative"} hideCloseButton style={{ marginBottom: "0.6rem" }}>
+                        {feedback.message}
+                      </MessageStrip>
+                    )}
+                    <FlexBox style={{ gap: "0.75rem", flexWrap: "wrap" }}>
+                      <div style={{ minWidth: "14rem" }}>
+                        <Label>Part Number</Label>
+                        <Select value={selectedPart} onChange={(e) => { setSelectedPart(e.target.value); setSelectedDo(""); }} style={{ width: "100%" }}>
+                          <Option value="">Select part number</Option>
+                          {partOptions.map((part) => (
+                            <Option key={`part-${part}`} value={part}>{part}</Option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div style={{ minWidth: "12rem" }}>
+                        <Label>DO Number</Label>
+                        <Select value={selectedDo} onChange={(e) => setSelectedDo(e.target.value)} style={{ width: "100%" }}>
+                          <Option value="">Select DO number</Option>
+                          {doOptionsForPart.map((row) => (
+                            <Option key={`do-${selectedPart}-${row}`} value={row}>{row}</Option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div style={{ minWidth: "18rem", flex: 1 }}>
+                        <Label>{manualMode ? "Manual fallback note" : "2D Barcode Data"}</Label>
+                        {manualMode ? (
+                          <TextArea value={manualReason} onInput={(e) => setManualReason(e.target.value)} rows={2} />
+                        ) : (
+                          <div onClick={() => scanInputRef.current?.focus()}>
+                            <ScanInput
+                              ref={scanInputRef}
+                              value={scanData}
+                              onChange={setScanData}
+                              onSubmit={addStagedScan}
+                              placeholder="Scan 2D barcode and press Enter"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </FlexBox>
+                    <FlexBox style={{ gap: "0.5rem", marginTop: "0.6rem" }}>
+                      <Button design={manualMode ? "Emphasized" : "Transparent"} onClick={() => setManualMode((v) => !v)}>
+                        {manualMode ? "Manual Fallback ON" : "Use Manual Fallback"}
+                      </Button>
+                      <Button design="Emphasized" onClick={addStagedScan}>
+                        Add Scan Row
+                      </Button>
+                      <Button
+                        design="Positive"
+                        disabled={!coverage.ready || confirmReceiptMutation.isPending || stagedScans.length === 0}
+                        onClick={() => setConfirmReceiptReviewOpen(true)}
+                      >
+                        Review & Confirm ACK
+                      </Button>
+                      <Button
+                        design="Transparent"
+                        disabled={stagedScans.length === 0 || confirmReceiptMutation.isPending}
+                        onClick={clearStagedScans}
+                      >
+                        Clear All
+                      </Button>
+                    </FlexBox>
+                    <Text style={{ display: "block", marginTop: "0.4rem", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)" }}>
+                      Coverage (packs): {coverage.scannedCount}/{coverage.requiredCount}{" "}
+                      {coverage.missing.length ? `| Remaining ${coverage.missing.length}` : "| Ready"}
+                    </Text>
+                    {stagedScans.length > 0 && (
+                      <div style={{ marginTop: "0.5rem", maxHeight: "11rem", overflowY: "auto", borderTop: "1px solid var(--sapList_BorderColor)", paddingTop: "0.4rem" }}>
+                        {stagedScans.map((row, idx) => (
+                          <div key={row.id} style={{ fontSize: "0.82rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>
+                              {idx + 1}. {row.part_number} / {row.do_number} [{row.source}]
+                              {row.reason ? ` - ${row.reason}` : ""}
+                            </span>
+                            <Button design="Transparent" icon="decline" onClick={() => removeStagedScan(row.id)} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {detail?.status === "ISSUED" && Boolean(detail?.production_ack_at) && (
+                  <MessageStrip design="Positive" hideCloseButton>
+                    Production receipt already acknowledged.
+                  </MessageStrip>
+                )}
 
                 {/* Workflow Timeline */}
                 <div
@@ -686,6 +877,23 @@ export function ProductionMaterialRequestPage() {
             />
           </div>
         </ConfirmDialog>
+
+        <ConfirmDialog
+          open={confirmReceiptReviewOpen}
+          title="Review & Confirm Production ACK"
+          description={`Confirm ${stagedScans.length} scan row(s) for receipt acknowledgement?`}
+          confirmText="Confirm ACK"
+          submitting={confirmReceiptMutation.isPending}
+          onCancel={() => setConfirmReceiptReviewOpen(false)}
+          onConfirm={() => {
+            if (!selectedId) return;
+            confirmReceiptMutation.mutate({
+              id: selectedId,
+              scans: buildPayloadScans(),
+              remarks: buildManualRemarks(),
+            });
+          }}
+        />
       </PageLayout>
     </div>
   );

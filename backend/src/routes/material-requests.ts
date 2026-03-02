@@ -181,6 +181,13 @@ function canApproveMaterialRequestByWorkflow(user: AccessTokenPayload, policy: M
   return policy.approver_users.some((approver) => approver.user_id === user.userId);
 }
 
+function canStoreHandleIssue(user: AccessTokenPayload, policy: MaterialWorkflowPolicy) {
+  // Store issue flow should remain operable by STORE/SUPERVISOR even when
+  // workflow approver-user config is stricter than role mapping.
+  if (hasAnyRole(user, ["STORE", "SUPERVISOR", "ADMIN"])) return true;
+  return canApproveMaterialRequestByWorkflow(user, policy);
+}
+
 async function resolveMaterialRequestAlertRecipients(policy: MaterialWorkflowPolicy): Promise<AlertRecipient[]> {
   if (policy.approver_users.length > 0) {
     const approverIds = policy.approver_users.map((approver) => approver.user_id);
@@ -1041,9 +1048,9 @@ materialRequestRoutes.get(
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;
     const workflowPolicy = await getMaterialWorkflowPolicy();
-    if (!canApproveMaterialRequestByWorkflow(currentUser, workflowPolicy)) {
+    if (!canStoreHandleIssue(currentUser, workflowPolicy)) {
       set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "Current user is not configured as level-2 approver" };
+      return { success: false, error_code: "FORBIDDEN", message: "Requires STORE/SUPERVISOR role or workflow approver permission" };
     }
 
     const [header] = await db
@@ -1285,9 +1292,9 @@ materialRequestRoutes.post(
     const currentUser = user as AccessTokenPayload;
 
     const workflowPolicy = await getMaterialWorkflowPolicy();
-    if (!canApproveMaterialRequestByWorkflow(currentUser, workflowPolicy)) {
+    if (!canStoreHandleIssue(currentUser, workflowPolicy)) {
       set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "Current user is not configured as level-2 approver" };
+      return { success: false, error_code: "FORBIDDEN", message: "Requires STORE/SUPERVISOR role or workflow approver permission" };
     }
 
     const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
@@ -1295,25 +1302,9 @@ materialRequestRoutes.post(
       set.status = 404;
       return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
     }
-    if (existing.status !== "APPROVED") {
+    if (existing.status !== "APPROVED" && existing.status !== "REQUESTED") {
       set.status = 400;
-      return { success: false, error_code: "INVALID_STATUS", message: "Only APPROVED can be issued" };
-    }
-    if (!existing.dispatchedAt) {
-      set.status = 400;
-      return {
-        success: false,
-        error_code: "INVALID_STATUS",
-        message: "Request must be dispatched to forklift before issuing",
-      };
-    }
-    if (!existing.dispatchedAt) {
-      set.status = 400;
-      return {
-        success: false,
-        error_code: "INVALID_STATUS",
-        message: "Request must be dispatched to forklift before issuing",
-      };
+      return { success: false, error_code: "INVALID_STATUS", message: "Only REQUESTED or APPROVED can be issued" };
     }
 
     const lines = (body.allocations ?? []).filter(
@@ -1460,6 +1451,8 @@ materialRequestRoutes.post(
             dmiNo: body.dmi_no?.trim() || existing.dmiNo,
             remarks: body.remarks?.trim() || existing.remarks,
             approvedByUserId: existing.approvedByUserId ?? currentUser.userId,
+            dispatchedByUserId: existing.dispatchedByUserId ?? currentUser.userId,
+            dispatchedAt: existing.dispatchedAt ?? new Date(),
             issuedByUserId: currentUser.userId,
             issuedAt: new Date(),
             updatedAt: new Date(),

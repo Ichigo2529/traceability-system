@@ -311,6 +311,8 @@ export interface BarcodeTemplate {
   notes?: string | null;
   created_at: string;
   updated_at: string;
+  source?: "SYSTEM" | "CUSTOM";
+  is_system?: boolean;
 }
 
 export interface InventoryDoRecord {

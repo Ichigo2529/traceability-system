@@ -173,6 +173,8 @@ type BarcodeTemplateMasterRecord = {
   notes?: string | null;
   created_at: string;
   updated_at: string;
+  source?: "SYSTEM" | "CUSTOM";
+  is_system?: boolean;
 };
 
 function normalizeTemplateRecord(input: any): BarcodeTemplateMasterRecord | null {
@@ -205,7 +207,86 @@ function normalizeTemplateRecord(input: any): BarcodeTemplateMasterRecord | null
     notes: input.notes ? String(input.notes) : null,
     created_at: input.created_at ? String(input.created_at) : nowIso,
     updated_at: input.updated_at ? String(input.updated_at) : nowIso,
+    source: input.source === "SYSTEM" ? "SYSTEM" : "CUSTOM",
+    is_system: input.is_system === true || input.source === "SYSTEM",
   };
+}
+
+const SYSTEM_BARCODE_TEMPLATE_ROWS: Array<Partial<BarcodeTemplateMasterRecord>> = [
+  {
+    id: "sys-marlin-magnet-v1",
+    key: "MARLIN_MAGNET_V1",
+    name: "Marlin Magnet v1",
+    format: "ASTERISK_DFI",
+    identifiers: ["3S", "PD", "PL", "PT", "K", "P", "E", "Q", "V", "D", "R"],
+    lot_identifiers: ["PT"],
+    quantity_identifiers: ["Q"],
+    part_identifiers: ["P"],
+    vendor_identifiers: ["V"],
+    production_date_identifiers: ["PD", "D"],
+    is_active: true,
+    version: 1,
+    notes: "Built-in parser template. Read-only.",
+    source: "SYSTEM",
+    is_system: true,
+  },
+  {
+    id: "sys-marlin-plate-v1",
+    key: "MARLIN_PLATE_V1",
+    name: "Marlin Plate v1",
+    format: "ASTERISK_DFI",
+    identifiers: ["PD", "PL", "PT", "SW", "P", "E", "Q", "V", "R"],
+    lot_identifiers: ["PT"],
+    quantity_identifiers: ["Q"],
+    part_identifiers: ["P"],
+    vendor_identifiers: ["V"],
+    production_date_identifiers: ["PD"],
+    is_active: true,
+    version: 1,
+    notes: "Built-in parser template. Read-only.",
+    source: "SYSTEM",
+    is_system: true,
+  },
+  {
+    id: "sys-marlin-pin-v1",
+    key: "MARLIN_PIN_V1",
+    name: "Marlin Pin v1",
+    format: "ASTERISK_DFI",
+    identifiers: ["TD", "AD", "PS", "PL", "P", "E", "Q", "V", "R"],
+    lot_identifiers: ["PL"],
+    quantity_identifiers: ["Q"],
+    part_identifiers: ["P"],
+    vendor_identifiers: ["V"],
+    production_date_identifiers: ["TD"],
+    is_active: true,
+    version: 1,
+    notes: "Built-in parser template. Read-only.",
+    source: "SYSTEM",
+    is_system: true,
+  },
+  {
+    id: "sys-marlin-crash-stop-v1",
+    key: "MARLIN_CRASH_STOP_V1",
+    name: "Marlin Crash Stop v1",
+    format: "ASTERISK_DFI",
+    identifiers: ["MD", "SC", "SD", "OD", "OL", "WO", "P", "E", "Q", "V", "R"],
+    lot_identifiers: ["OL"],
+    quantity_identifiers: ["Q"],
+    part_identifiers: ["P"],
+    vendor_identifiers: ["V"],
+    production_date_identifiers: ["MD", "OD"],
+    is_active: true,
+    version: 1,
+    notes: "Built-in parser template. Read-only.",
+    source: "SYSTEM",
+    is_system: true,
+  },
+];
+
+function getSystemBarcodeTemplateRecords() {
+  return SYSTEM_BARCODE_TEMPLATE_ROWS.map((entry) => normalizeTemplateRecord(entry))
+    .filter((entry): entry is BarcodeTemplateMasterRecord => Boolean(entry))
+    .sort((a, b) => a.key.localeCompare(b.key));
 }
 
 function toParserTemplate(record: BarcodeTemplateMasterRecord): BarcodeTemplateDefinition {
@@ -238,6 +319,15 @@ async function getBarcodeTemplateMasterRecords() {
     .filter((entry): entry is BarcodeTemplateMasterRecord => Boolean(entry));
 
   return normalized.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+async function getMergedBarcodeTemplateRecords() {
+  const systemRows = getSystemBarcodeTemplateRecords();
+  const customRows = await getBarcodeTemplateMasterRecords();
+  const merged = new Map<string, BarcodeTemplateMasterRecord>();
+  for (const row of systemRows) merged.set(row.key, row);
+  for (const row of customRows) merged.set(row.key, { ...row, source: "CUSTOM", is_system: false });
+  return Array.from(merged.values()).sort((a, b) => a.key.localeCompare(b.key));
 }
 
 async function saveBarcodeTemplateMasterRecords(records: BarcodeTemplateMasterRecord[]) {
@@ -3329,7 +3419,7 @@ adminRoutes.get("/supplier-part-profiles", async () => {
 });
 
 adminRoutes.get("/supplier-pack-parsers", async () => {
-  const templates = await getBarcodeTemplateMasterRecords();
+  const templates = await getMergedBarcodeTemplateRecords();
   const templateKeys = templates.filter((item) => item.is_active).map((item) => item.key);
   const keys = Array.from(new Set([...listSupplierPackParsers(), ...templateKeys])).sort();
   return {
@@ -3339,7 +3429,7 @@ adminRoutes.get("/supplier-pack-parsers", async () => {
 });
 
 adminRoutes.get("/barcode-templates", async () => {
-  const rows = await getBarcodeTemplateMasterRecords();
+  const rows = await getMergedBarcodeTemplateRecords();
   return { success: true, data: rows };
 });
 
@@ -3347,12 +3437,13 @@ adminRoutes.post(
   "/barcode-templates",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
     const existing = await getBarcodeTemplateMasterRecords();
+    const allTemplates = await getMergedBarcodeTemplateRecords();
     const normalized = normalizeTemplateRecord(body);
     if (!normalized) {
       set.status = 400;
       return { success: false, error_code: "INVALID_INPUT", message: "Invalid barcode template payload" };
     }
-    if (existing.some((item) => item.key === normalized.key)) {
+    if (allTemplates.some((item) => item.key === normalized.key)) {
       set.status = 409;
       return { success: false, error_code: "DUPLICATE_KEY", message: "Template key already exists" };
     }
@@ -3399,6 +3490,11 @@ adminRoutes.post(
 adminRoutes.put(
   "/barcode-templates/:id",
   async ({ params, body, set, user }: { params: { id: string }; body: any; set: any; user: AccessTokenPayload }) => {
+    const systemRows = getSystemBarcodeTemplateRecords();
+    if (systemRows.some((row) => row.id === params.id)) {
+      set.status = 400;
+      return { success: false, error_code: "READONLY_TEMPLATE", message: "System template is read-only. Please clone it." };
+    }
     const rows = await getBarcodeTemplateMasterRecords();
     const index = rows.findIndex((row) => row.id === params.id);
     if (index < 0) {
@@ -3420,7 +3516,8 @@ adminRoutes.put(
       set.status = 400;
       return { success: false, error_code: "INVALID_INPUT", message: "Invalid barcode template payload" };
     }
-    const keyConflict = rows.some((row) => row.id !== params.id && row.key === merged.key);
+    const allTemplates = await getMergedBarcodeTemplateRecords();
+    const keyConflict = allTemplates.some((row) => row.id !== params.id && row.key === merged.key);
     if (keyConflict) {
       set.status = 409;
       return { success: false, error_code: "DUPLICATE_KEY", message: "Template key already exists" };
@@ -3458,6 +3555,11 @@ adminRoutes.put(
 );
 
 adminRoutes.delete("/barcode-templates/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+  const systemRows = getSystemBarcodeTemplateRecords();
+  if (systemRows.some((row) => row.id === params.id)) {
+    set.status = 400;
+    return { success: false, error_code: "READONLY_TEMPLATE", message: "System template is read-only. Please clone it." };
+  }
   const rows = await getBarcodeTemplateMasterRecords();
   const existing = rows.find((row) => row.id === params.id);
   if (!existing) {
@@ -3481,7 +3583,7 @@ adminRoutes.post(
   "/barcode-templates/test-parse",
   async ({ body, set }: { body: any; set: any }) => {
     try {
-      const templates = await getBarcodeTemplateMasterRecords();
+      const templates = await getMergedBarcodeTemplateRecords();
       const templateMap = getActiveTemplateMap(templates);
       const raw = String(body.pack_barcode_raw ?? "").trim();
       if (!raw) {
@@ -3836,7 +3938,7 @@ adminRoutes.post(
   "/supplier-packs/receive",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
     try {
-      const templateMap = getActiveTemplateMap(await getBarcodeTemplateMasterRecords());
+      const templateMap = getActiveTemplateMap(await getMergedBarcodeTemplateRecords());
       const supplierId = String(body.vendor_id ?? body.supplier_id ?? "").trim();
       if (!supplierId) {
         set.status = 400;

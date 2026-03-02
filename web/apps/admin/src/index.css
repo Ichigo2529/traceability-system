@@ -574,4 +574,34 @@ ui5-tabcontainer.process-tabs::part(content) {
   .no-print {
     display: none !important;
   }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  .material-voucher {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .material-voucher .voucher-items-wrapper {
+    overflow: visible !important;
+  }
+
+  .material-voucher .voucher-items-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .material-voucher .voucher-item-row {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .material-voucher ui5-table-header-row {
+    display: table-header-group !important;
+  }
 }

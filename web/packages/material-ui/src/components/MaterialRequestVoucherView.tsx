@@ -109,6 +109,7 @@ export function MaterialRequestVoucherView({
 
   return (
     <FlexBox
+      className="material-voucher"
       direction={FlexBoxDirection.Column}
       style={{
         padding: "1.5rem",
@@ -205,8 +206,9 @@ export function MaterialRequestVoucherView({
         </FlexBox>
       </FlexBox>
 
-      <div style={{ border: BORDER, borderTop: "none", borderRadius: "0 0 4px 4px", overflow: "auto" }}>
+      <div className="voucher-items-wrapper" style={{ border: BORDER, borderTop: "none", borderRadius: "0 0 4px 4px", overflow: "auto" }}>
         <Table
+          className="voucher-items-table"
           style={{ width: "100%" }}
           headerRow={
             <TableHeaderRow>
@@ -238,7 +240,7 @@ export function MaterialRequestVoucherView({
 
               const rows: any[] = [];
               rows.push(
-                <TableRow key={`${key}-requested`}>
+                <TableRow className="voucher-item-row" key={`${key}-requested`}>
                   <TableCell><Label style={{ fontWeight: "600" }}>{item.item_no}</Label></TableCell>
                   <TableCell><ObjectStatus state="None">Requested</ObjectStatus></TableCell>
                   <TableCell><Label style={{ fontSize: "0.82rem" }}>{detail.model_code || "-"}</Label></TableCell>
@@ -263,7 +265,7 @@ export function MaterialRequestVoucherView({
 
               allocations.forEach((alloc, idx) => {
                 rows.push(
-                  <TableRow key={`${key}-alloc-${alloc.id || idx}`}>
+                  <TableRow className="voucher-item-row" key={`${key}-alloc-${alloc.id || idx}`}>
                     <TableCell><Label style={{ color: "var(--sapInformativeElementColor)", fontSize: "0.82rem", fontWeight: "600" }}>{`${item.item_no}.${idx + 1}`}</Label></TableCell>
                     <TableCell><ObjectStatus state="Information">DO Alloc</ObjectStatus></TableCell>
                     <TableCell><Label style={{ fontSize: "0.82rem" }}>{detail.model_code || "-"}</Label></TableCell>
@@ -288,7 +290,7 @@ export function MaterialRequestVoucherView({
 
                 manualRows.forEach((row, idx) => {
                   rows.push(
-                    <TableRow key={`manual-${row.id}`}>
+                    <TableRow className="voucher-item-row" key={`manual-${row.id}`}>
                       <TableCell><Label style={{ color: "var(--sapCriticalElementColor)", fontSize: "0.82rem", fontWeight: "600" }}>{`${item.item_no}.${allocations.length + idx + 1}`}</Label></TableCell>
                       <TableCell><ObjectStatus state="Critical">Store</ObjectStatus></TableCell>
                       <TableCell><Label style={{ fontSize: "0.82rem" }}>{detail.model_code || "-"}</Label></TableCell>
@@ -336,7 +338,6 @@ export function MaterialRequestVoucherView({
                           style={{ width: "100%" }}
                         >
                           <Option data-value="NONE">Select DO. No.</Option>
-                          {availableDos.length > 0 && <Option data-value="">— Available —</Option>}
                           {availableDos.map((doOpt) => {
                             const doKey = doOpt.do_id ?? doOpt.do_number;
                             return (
@@ -396,7 +397,7 @@ export function MaterialRequestVoucherView({
 
               if (shouldShowIssueTotals) {
                 rows.push(
-                  <TableRow key={`${key}-actual`} style={{ background: "var(--sapList_AlternatingBackground)" }}>
+                  <TableRow className="voucher-item-row" key={`${key}-actual`} style={{ background: "var(--sapList_AlternatingBackground)" }}>
                     <TableCell><Label style={{ fontWeight: "600", fontSize: "0.82rem" }}>{item.item_no}</Label></TableCell>
                     <TableCell><ObjectStatus state="Positive">Total</ObjectStatus></TableCell>
                     <TableCell />
@@ -414,7 +415,7 @@ export function MaterialRequestVoucherView({
                 );
 
                 rows.push(
-                  <TableRow key={`${key}-summary`} style={{ background: "var(--sapGroup_TitleBackground)", borderBottom: "2px solid var(--sapGroup_ContentBorderColor)" }}>
+                  <TableRow className="voucher-item-row" key={`${key}-summary`} style={{ background: "var(--sapGroup_TitleBackground)", borderBottom: "2px solid var(--sapGroup_ContentBorderColor)" }}>
                     <TableCell />
                     <TableCell />
                     <TableCell />
@@ -470,7 +471,15 @@ export function MaterialRequestVoucherView({
 
       {showIssueOptions && workbench?.issueValidationError && (
         <MessageStrip design="Negative" hideCloseButton style={{ marginTop: "0.75rem" }}>
-          {workbench.issueValidationError}
+          {workbench.issueValidationErrors?.length ? (
+            <div>
+              {workbench.issueValidationErrors.map((error, idx) => (
+                <div key={`issue-validation-${idx}`}>- {error}</div>
+              ))}
+            </div>
+          ) : (
+            workbench.issueValidationError
+          )}
         </MessageStrip>
       )}
 
