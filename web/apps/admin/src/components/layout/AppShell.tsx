@@ -70,6 +70,7 @@ import "@ui5/webcomponents-icons/dist/grid.js"; // Master Data
 import "@ui5/webcomponents-icons/dist/table-view.js"; // Alternative for grid/database
 import "@ui5/webcomponents-icons/dist/attachment.js";
 import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/email.js";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -108,6 +109,7 @@ const adminNav: NavItem[] = [
   { to: "/admin/devices", label: "Devices", icon: "laptop", group: "operations", roles: ["ADMIN"] },
   { to: "/admin/recovery", label: "Set Recovery", icon: "wrench", group: "operations", roles: ["ADMIN"] },
   { to: "/admin/approvals", label: "Workflow Approvals", icon: "approvals", group: "governance", roles: ["ADMIN"] },
+  { to: "/admin/email-settings", label: "Email Settings", icon: "email", group: "governance", roles: ["ADMIN"] },
   { to: "/admin/heartbeat", label: "Device Heartbeat", icon: "heart", group: "governance", roles: ["ADMIN"] },
   { to: "/admin/system-health", label: "System Health", icon: "sys-monitor", group: "governance", roles: ["ADMIN"] },
   { to: "/admin/audit-logs", label: "Audit Logs", icon: "history", group: "governance", roles: ["ADMIN"] },

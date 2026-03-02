@@ -1,5 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
+import { Toaster } from "sonner";
 import { OfflineQueueProvider } from "@traceability/offline-queue";
 import { AuthProvider, sdk } from "./context/AuthContext";
 import { AppRoutes } from "./app/AppRoutes";
@@ -17,8 +18,17 @@ export default function App() {
               v7_relativeSplatPath: true,
             }}
           >
-              <EdenFallbackDebugPanel />
-              <AppRoutes />
+            <EdenFallbackDebugPanel />
+            <AppRoutes />
+            <Toaster
+              position="top-center"
+              richColors
+              closeButton
+              duration={5000}
+              toastOptions={{
+                style: { fontFamily: "var(--sapFontFamily, inherit)" },
+              }}
+            />
           </BrowserRouter>
         </OfflineQueueProvider>
       </AuthProvider>

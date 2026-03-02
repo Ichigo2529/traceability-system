@@ -16,6 +16,8 @@
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-table": "^8.21.3",
     "@traceability/offline-queue": "*",
+    "@traceability/material": "*",
+    "@traceability/material-ui": "*",
     "@traceability/sdk": "*",
     "@traceability/ui": "*",
     "@ui5/webcomponents": "^2.19.2",

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MaterialRequestDetail, MaterialRequestIssueOptionsResponse } from "@traceability/sdk";
+import { createMaterialQueryKeys } from "@traceability/material";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
@@ -13,14 +14,12 @@ import {
   FlexBoxAlignItems,
   FlexBoxJustifyContent,
   BusyIndicator,
-  Bar,
   FlexBoxDirection,
   Text,
   MessageStrip,
 } from "@ui5/webcomponents-react";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
-import { StatusBadge } from "../../components/shared/StatusBadge";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import {
   approveMaterialRequest,
@@ -38,6 +37,7 @@ import "@ui5/webcomponents-icons/dist/request.js";
 
 export function MaterialRequestDetailsPage() {
   const { id } = useParams<{ id: string }>();
+  const keys = createMaterialQueryKeys("admin");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { showToast, ToastComponent } = useToast();
@@ -47,13 +47,13 @@ export function MaterialRequestDetailsPage() {
   const [rejectReason, setRejectReason] = useState("");
 
   const detailsQuery = useQuery<MaterialRequestDetail>({
-    queryKey: ["admin-material-request", id],
+    queryKey: keys.request(id),
     queryFn: () => getMaterialRequestById(id!),
     enabled: Boolean(id),
   });
 
   const issueOptionsQuery = useQuery<MaterialRequestIssueOptionsResponse>({
-    queryKey: ["admin-material-request-issue-options", id],
+    queryKey: keys.issueOptions(id),
     queryFn: () => getMaterialIssueOptions(id!),
     enabled:
       Boolean(id) &&
@@ -65,8 +65,8 @@ export function MaterialRequestDetailsPage() {
   const approveMutation = useMutation({
     mutationFn: (requestId: string) => approveMaterialRequest(requestId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-material-request", id] });
+      queryClient.invalidateQueries({ queryKey: keys.requests() });
+      queryClient.invalidateQueries({ queryKey: keys.request(id) });
       showToast("Material request approved");
     },
   });
@@ -74,8 +74,8 @@ export function MaterialRequestDetailsPage() {
   const rejectMutation = useMutation({
     mutationFn: ({ requestId, reason }: { requestId: string; reason?: string }) => rejectMaterialRequest(requestId, reason),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-material-request", id] });
+      queryClient.invalidateQueries({ queryKey: keys.requests() });
+      queryClient.invalidateQueries({ queryKey: keys.request(id) });
       showToast("Material request rejected");
     },
   });
@@ -104,9 +104,9 @@ export function MaterialRequestDetailsPage() {
         allocations,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-material-request", id] });
-      await queryClient.invalidateQueries({ queryKey: ["admin-material-request-issue-options", id] });
+      await queryClient.invalidateQueries({ queryKey: keys.requests() });
+      await queryClient.invalidateQueries({ queryKey: keys.request(id) });
+      await queryClient.invalidateQueries({ queryKey: keys.issueOptions(id) });
       showToast("Material issued successfully");
     },
   });
@@ -118,7 +118,7 @@ export function MaterialRequestDetailsPage() {
 
   return (
     <PageLayout
-      title={`Request: ${detailsQuery.data?.request_no ?? "Loading..."}`}
+      title={detailsQuery.data?.request_no ?? "Loading..."}
       subtitle={
         <FlexBox alignItems={FlexBoxAlignItems.Center}>
           <span className="indicator-live" />
@@ -127,60 +127,47 @@ export function MaterialRequestDetailsPage() {
       }
       icon="request"
       iconColor="blue"
-      toolbar={
+      showBackButton
+      onBackClick={() => navigate("/admin/material-requests")}
+      headerActions={
         detailsQuery.data ? (
-          <Bar
-            design="Header"
-            startContent={
-              <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.75rem" }}>
-                <Button icon="nav-back" design="Transparent" onClick={() => navigate("/admin/material-requests")}>
-                  Back
-                </Button>
-                <StatusBadge status={detailsQuery.data.status} />
-                {detailsQuery.data.status === "ISSUED" && (
-                  <Button icon="print" design="Transparent" onClick={() => window.print()} tooltip="Print Voucher">
-                    Print
-                  </Button>
-                )}
-              </FlexBox>
-            }
-            endContent={
-              showActionButtons ? (
-                <FlexBox style={{ gap: "0.5rem" }} alignItems={FlexBoxAlignItems.Center}>
-                  {detailsQuery.data.status === "REQUESTED" && (
-                    <Button
-                      icon="decline"
-                      design="Negative"
-                      onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
-                      disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
-                    >
-                      Reject
-                    </Button>
-                  )}
-                  {(detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-                    <Button
-                      icon="accept"
-                      design="Emphasized"
-                      onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
-                      disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
-                    >
-                      {detailsQuery.data.status === "REQUESTED" ? "Approve & Issue" : "Issue"}
-                    </Button>
-                  )}
-                </FlexBox>
-              ) : null
-            }
-          />
+          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+            {detailsQuery.data.status === "ISSUED" && (
+              <Button icon="print" design="Transparent" onClick={() => window.print()} tooltip="Print Voucher">
+                Print
+              </Button>
+            )}
+            {showActionButtons && detailsQuery.data.status === "REQUESTED" && (
+              <Button
+                icon="decline"
+                design="Negative"
+                onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
+                disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
+              >
+                Reject
+              </Button>
+            )}
+            {showActionButtons && (detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
+              <Button
+                icon="accept"
+                design="Emphasized"
+                onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
+                disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
+              >
+                {detailsQuery.data.status === "REQUESTED" ? "Approve & Issue" : "Issue"}
+              </Button>
+            )}
+          </FlexBox>
         ) : undefined
       }
     >
-      <div className="page-container">
+      <div className="page-container" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
         {detailsQuery.isLoading ? (
-          <BusyIndicator active text="Loading details..." style={{ marginTop: "2rem" }} />
+          <BusyIndicator active text="Loading details..." style={{ marginTop: "1rem" }} />
         ) : detailsQuery.data ? (
-          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1.5rem", paddingBottom: "1rem", marginTop: "1.5rem" }}>
+          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1.25rem", paddingBottom: "1rem" }}>
             <MaterialRequestVoucherView 
                 detail={detailsQuery.data} 
                 onBack={() => navigate("/admin/material-requests")}

@@ -10,4 +10,7 @@ export * from './components/PageStack';
 export * from './components/StatCard';
 export * from './components/Skeleton';
 export * from './components/EmptyState';
+export * from './components/DataTable';
+export * from './components/StatusBadge';
+export * from './components/ConfirmDialog';
 // export * from './components/Input';

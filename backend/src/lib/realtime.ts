@@ -81,7 +81,14 @@ export const REALTIME_CHANNELS = {
 } as const;
 
 export function publishMaterialRequestUpdate(payload: {
-  event_type: "CREATED" | "APPROVED" | "REJECTED" | "ISSUED" | "RECEIPT_CONFIRMED";
+  event_type:
+    | "CREATED"
+    | "APPROVED"
+    | "REJECTED"
+    | "ISSUED"
+    | "RECEIPT_CONFIRMED"
+    | "DISPATCHED_TO_FORKLIFT"
+    | "FORKLIFT_ACKNOWLEDGED";
   id: string;
   status: string;
   request_no?: string | null;

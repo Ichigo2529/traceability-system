@@ -127,6 +127,20 @@
       "when": 1771601074983,
       "tag": "0017_useful_jack_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1772400000000,
+      "tag": "0018_material_request_handover_ack",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1772416800000,
+      "tag": "0019_email_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -62,6 +62,10 @@ export class MaterialService {
     return this.client.post(`/material-requests/${id}/issue`, payload ?? {});
   }
 
+  async dispatchToForklift(id: string): Promise<{ id: string; status: string; dispatched: boolean }> {
+    return this.client.post(`/material-requests/${id}/dispatch-to-forklift`, {});
+  }
+
   async getIssueOptions(id: string): Promise<MaterialRequestIssueOptionsResponse> {
     return this.client.get<MaterialRequestIssueOptionsResponse>(`/material-requests/${id}/issue-options`);
   }
@@ -108,5 +112,9 @@ export class MaterialService {
     }
   ): Promise<{ id: string; status: string; received_by_user_id?: string; received_at?: string; scans_saved?: number }> {
     return this.client.post(`/material-requests/${id}/confirm-receipt`, payload);
+  }
+
+  async acknowledgeForklift(id: string): Promise<{ id: string; status: string; forklift_acknowledged: boolean }> {
+    return this.client.post(`/material-requests/${id}/ack-forklift`, {});
   }
 }

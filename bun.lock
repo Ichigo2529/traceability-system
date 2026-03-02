@@ -14,11 +14,13 @@
       "dependencies": {
         "@elysiajs/cors": "^1.4.1",
         "@sinclair/typebox": "0.34.14",
+        "@types/nodemailer": "^7.0.11",
         "bcryptjs": "^2.4.3",
         "dotenv": "^16.4.7",
         "drizzle-orm": "^0.38.4",
         "elysia": "1.1.27",
         "jose": "^6.1.3",
+        "nodemailer": "^8.0.1",
         "postgres": "^3.4.5",
         "xlsx": "^0.18.5",
       },
@@ -44,6 +46,8 @@
         "@hookform/resolvers": "^3.10.0",
         "@tanstack/react-query": "^5.90.21",
         "@tanstack/react-table": "^8.21.3",
+        "@traceability/material": "*",
+        "@traceability/material-ui": "*",
         "@traceability/offline-queue": "*",
         "@traceability/sdk": "*",
         "@traceability/ui": "*",
@@ -187,6 +191,45 @@
         "vite": "^5.1.0",
       },
     },
+    "web/packages/material": {
+      "name": "@traceability/material",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tanstack/react-query": "^5.90.21",
+        "@traceability/sdk": "*",
+      },
+      "devDependencies": {
+        "@types/react": "^18.2.55",
+        "@types/react-dom": "^18.2.19",
+        "typescript": "^5.2.2",
+      },
+      "peerDependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+      },
+    },
+    "web/packages/material-ui": {
+      "name": "@traceability/material-ui",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tanstack/react-table": "^8.21.3",
+        "@traceability/material": "*",
+        "@traceability/sdk": "*",
+        "@traceability/ui": "*",
+        "@ui5/webcomponents-icons": "^2.19.2",
+        "@ui5/webcomponents-react": "^2.19.0",
+        "zod": "^3.24.1",
+      },
+      "devDependencies": {
+        "@types/react": "^18.2.55",
+        "@types/react-dom": "^18.2.19",
+        "typescript": "^5.2.2",
+      },
+      "peerDependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+      },
+    },
     "web/packages/offline-queue": {
       "name": "@traceability/offline-queue",
       "version": "0.1.0",
@@ -217,6 +260,7 @@
       "name": "@traceability/ui",
       "version": "0.1.0",
       "dependencies": {
+        "@tanstack/react-table": "^8.21.3",
         "@ui5/webcomponents-react": "^2.19.0",
       },
       "devDependencies": {
@@ -421,6 +465,10 @@
 
     "@tanstack/virtual-core": ["@tanstack/virtual-core@3.13.18", "", {}, "sha512-Mx86Hqu1k39icq2Zusq+Ey2J6dDWTjDvEv43PJtRCoEYTLyfaPnxIQ6iy7YAOK0NV/qOEmZQ/uCufrppZxTgcg=="],
 
+    "@traceability/material": ["@traceability/material@workspace:web/packages/material"],
+
+    "@traceability/material-ui": ["@traceability/material-ui@workspace:web/packages/material-ui"],
+
     "@traceability/offline-queue": ["@traceability/offline-queue@workspace:web/packages/offline-queue"],
 
     "@traceability/sdk": ["@traceability/sdk@workspace:web/packages/sdk"],
@@ -442,6 +490,8 @@
     "@types/jquery": ["@types/jquery@3.5.33", "", { "dependencies": { "@types/sizzle": "*" } }, "sha512-SeyVJXlCZpEki5F0ghuYe+L+PprQta6nRZqhONt9F13dWBtR/ftoaIbdRQ7cis7womE+X2LKhsDdDtkkDhJS6g=="],
 
     "@types/node": ["@types/node@22.19.11", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-BH7YwL6rA93ReqeQS1c4bsPpcfOmJasG+Fkr6Y59q83f9M1WcBRHR2vM+P9eOisYRcN3ujQoiZY8uk5W+1WL8w=="],
+
+    "@types/nodemailer": ["@types/nodemailer@7.0.11", "", { "dependencies": { "@types/node": "*" } }, "sha512-E+U4RzR2dKrx+u3N4DlsmLaDC6mMZOM/TPROxA0UAPiTgI0y4CEFBmZE+coGWTjakDriRsXG368lNk1u9Q0a2g=="],
 
     "@types/openui5": ["@types/openui5@1.144.0", "", { "dependencies": { "@types/jquery": "~3.5.13", "@types/qunit": "^2.5.4" } }, "sha512-RR4UOwNHxpeiJT/fgAc0wdRIWHnZtxfAHMfsQ01abLJCLi+KL9Mz2KISKv0plH4X8QKW2EY9GjIaNz/DvLR0xw=="],
 
@@ -614,6 +664,8 @@
     "nanoid": ["nanoid@3.3.11", "", { "bin": { "nanoid": "bin/nanoid.cjs" } }, "sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w=="],
 
     "node-releases": ["node-releases@2.0.27", "", {}, "sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA=="],
+
+    "nodemailer": ["nodemailer@8.0.1", "", {}, "sha512-5kcldIXmaEjZcHR6F28IKGSgpmZHaF1IXLWFTG+Xh3S+Cce4MiakLtWY+PlBU69fLbRa8HlaGIrC/QolUpHkhg=="],
 
     "openapi-types": ["openapi-types@12.1.3", "", {}, "sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw=="],
 

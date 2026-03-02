@@ -30,6 +30,7 @@ import {
   MaterialRequestDetail,
   MaterialRequestItem,
   MasterRoutingStep,
+  EmailSettings,
 } from "../types";
 
 export class AdminService {
@@ -715,5 +716,18 @@ export class AdminService {
 
   async issueMaterialRequest(id: string, payload?: { dmi_no?: string; remarks?: string }): Promise<{ id: string; status: string }> {
     return this.client.post(`/admin/material-requests/${id}/issue`, payload ?? {});
+  }
+
+  // SMTP email settings
+  async getEmailSettings(): Promise<EmailSettings | null> {
+    return this.client.get<EmailSettings | null>("/admin/email-settings");
+  }
+
+  async updateEmailSettings(data: EmailSettings): Promise<EmailSettings> {
+    return this.client.put<EmailSettings>("/admin/email-settings", data);
+  }
+
+  async sendTestEmail(to: string): Promise<{ status: string }> {
+    return this.client.post<{ status: string }>("/admin/email-settings/test", { to });
   }
 }

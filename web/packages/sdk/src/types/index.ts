@@ -406,22 +406,41 @@ export interface MaterialRequest {
   requested_by_user_id?: string | null;
   requested_by_name?: string | null;
   approved_by_user_id?: string | null;
+  dispatched_by_user_id?: string | null;
+  dispatched_at?: string | null;
   issued_by_user_id?: string | null;
   issued_by_name?: string | null;
   issued_at?: string | null;
   received_by_user_id?: string | null;
   received_by_name?: string | null;
   received_at?: string | null;
+  production_ack_by_user_id?: string | null;
+  production_ack_at?: string | null;
+  forklift_ack_by_user_id?: string | null;
+  forklift_ack_at?: string | null;
   item_count?: number;
   created_at?: string;
   updated_at?: string;
-  alert_status?: "QUEUED_MOCK" | "SENT" | "FAILED";
+  alert_status?: "UNTRACKED" | "SENT" | "FAILED" | "NOT_CONFIGURED" | "NO_RECIPIENTS";
   alert_recipients?: Array<{
     user_id: string;
     display_name?: string | null;
     email?: string | null;
     source?: "WORKFLOW_USER" | "WORKFLOW_ROLE";
   }>;
+}
+
+export interface EmailSettings {
+  id?: string;
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user?: string | null;
+  smtp_password?: string;
+  smtp_from_email: string;
+  smtp_from_name?: string | null;
+  smtp_secure?: boolean;
+  enabled?: boolean;
+  updated_at?: string;
 }
 
 export interface MetaCostCenter {

@@ -5,6 +5,7 @@ import { checkAuth, checkRole } from "../middleware/auth";
 import { authDerive } from "../middleware/auth";
 import { type AccessTokenPayload } from "../lib/jwt";
 import { publishMaterialRequestUpdate } from "../lib/realtime";
+import { sendAlertEmail } from "../lib/alert";
 import {
   bom,
   component2dScans,
@@ -226,6 +227,66 @@ async function resolveMaterialRequestAlertRecipients(policy: MaterialWorkflowPol
   }));
 }
 
+async function resolveRecipientsByRoles(roleNames: string[]): Promise<AlertRecipient[]> {
+  if (!roleNames.length) return [];
+  const rows = await db
+    .select({
+      user_id: users.id,
+      display_name: users.displayName,
+      email: users.email,
+    })
+    .from(userRoles)
+    .innerJoin(users, eq(users.id, userRoles.userId))
+    .innerJoin(roles, eq(roles.id, userRoles.roleId))
+    .where(and(inArray(roles.name, roleNames), eq(users.isActive, true)))
+    .orderBy(asc(users.displayName));
+
+  const uniq = new Map<string, AlertRecipient>();
+  for (const row of rows) {
+    uniq.set(row.user_id, {
+      user_id: row.user_id,
+      display_name: row.display_name,
+      email: row.email,
+      source: "WORKFLOW_ROLE",
+    });
+  }
+  return Array.from(uniq.values());
+}
+
+async function resolveRecipientByUserId(userId: string | null | undefined): Promise<AlertRecipient[]> {
+  if (!userId) return [];
+  const [row] = await db
+    .select({
+      user_id: users.id,
+      display_name: users.displayName,
+      email: users.email,
+    })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.isActive, true)))
+    .limit(1);
+  if (!row) return [];
+  return [
+    {
+      user_id: row.user_id,
+      display_name: row.display_name,
+      email: row.email,
+      source: "WORKFLOW_USER",
+    },
+  ];
+}
+
+async function resolveActorName(userId: string): Promise<string> {
+  const [row] = await db
+    .select({
+      display_name: users.displayName,
+      email: users.email,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.display_name ?? row?.email ?? userId;
+}
+
 async function buildNextVoucherNumbers(targetDate: Date = new Date()) {
   const dateIso = targetDate.toISOString().slice(0, 10);
   const dateKey = dateIso.replace(/-/g, "");
@@ -316,6 +377,8 @@ materialRequestRoutes.get(
     const unauthorized = checkAuth({ user, set });
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;
+    const workflowPolicy = await getMaterialWorkflowPolicy();
+    const alertRecipients = await resolveMaterialRequestAlertRecipients(workflowPolicy);
 
     const conditions = [];
     const canViewAll = hasAnyRole(currentUser, ["STORE", "SUPERVISOR", "ADMIN"]);
@@ -346,9 +409,15 @@ materialRequestRoutes.get(
         requested_by_user_id: materialRequests.requestedByUserId,
         requested_by_name: reqUser.displayName,
         approved_by_user_id: materialRequests.approvedByUserId,
+        dispatched_by_user_id: materialRequests.dispatchedByUserId,
+        dispatched_at: materialRequests.dispatchedAt,
         issued_by_user_id: materialRequests.issuedByUserId,
         issued_at: materialRequests.issuedAt,
         received_by_user_id: materialRequests.receivedByUserId,
+        production_ack_by_user_id: materialRequests.productionAcknowledgedByUserId,
+        production_ack_at: materialRequests.productionAcknowledgedAt,
+        forklift_ack_by_user_id: materialRequests.forkliftAcknowledgedByUserId,
+        forklift_ack_at: materialRequests.forkliftAcknowledgedAt,
         created_at: materialRequests.createdAt,
         updated_at: materialRequests.updatedAt,
       })
@@ -379,6 +448,8 @@ materialRequestRoutes.get(
       data: rows.map((row) => ({
         ...row,
         item_count: itemCounts[row.id] ?? 0,
+        alert_status: "UNTRACKED",
+        alert_recipients: alertRecipients,
       })),
     };
   },
@@ -396,6 +467,7 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
   if (unauthorized) return unauthorized;
   const currentUser = user as AccessTokenPayload;
   const policy = await getMaterialWorkflowPolicy();
+  const alertRecipients = await resolveMaterialRequestAlertRecipients(policy);
   if (!canApproveMaterialRequestByWorkflow(currentUser, policy)) {
     return { success: true, data: [] };
   }
@@ -420,9 +492,15 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
       requested_by_user_id: materialRequests.requestedByUserId,
       requested_by_name: reqUser.displayName,
       approved_by_user_id: materialRequests.approvedByUserId,
+      dispatched_by_user_id: materialRequests.dispatchedByUserId,
+      dispatched_at: materialRequests.dispatchedAt,
       issued_by_user_id: materialRequests.issuedByUserId,
       issued_at: materialRequests.issuedAt,
       received_by_user_id: materialRequests.receivedByUserId,
+      production_ack_by_user_id: materialRequests.productionAcknowledgedByUserId,
+      production_ack_at: materialRequests.productionAcknowledgedAt,
+      forklift_ack_by_user_id: materialRequests.forkliftAcknowledgedByUserId,
+      forklift_ack_at: materialRequests.forkliftAcknowledgedAt,
       created_at: materialRequests.createdAt,
       updated_at: materialRequests.updatedAt,
     })
@@ -432,7 +510,14 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
     .where(eq(materialRequests.status, "REQUESTED"))
     .orderBy(asc(materialRequests.requestDate), asc(materialRequests.createdAt));
 
-  return { success: true, data: rows };
+  return {
+    success: true,
+    data: rows.map((row) => ({
+      ...row,
+      alert_status: "UNTRACKED",
+      alert_recipients: alertRecipients,
+    })),
+  };
 });
 
 materialRequestRoutes.get(
@@ -441,6 +526,8 @@ materialRequestRoutes.get(
     const unauthorized = checkAuth({ user, set });
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;
+    const workflowPolicy = await getMaterialWorkflowPolicy();
+    const alertRecipients = await resolveMaterialRequestAlertRecipients(workflowPolicy);
     const reqUser = aliasedTable(users, "request_user");
 
     const [header] = await db
@@ -461,9 +548,15 @@ materialRequestRoutes.get(
         requested_by_user_id: materialRequests.requestedByUserId,
         requested_by_name: reqUser.displayName,
         approved_by_user_id: materialRequests.approvedByUserId,
+        dispatched_by_user_id: materialRequests.dispatchedByUserId,
+        dispatched_at: materialRequests.dispatchedAt,
         issued_by_user_id: materialRequests.issuedByUserId,
         issued_at: materialRequests.issuedAt,
         received_by_user_id: materialRequests.receivedByUserId,
+        production_ack_by_user_id: materialRequests.productionAcknowledgedByUserId,
+        production_ack_at: materialRequests.productionAcknowledgedAt,
+        forklift_ack_by_user_id: materialRequests.forkliftAcknowledgedByUserId,
+        forklift_ack_at: materialRequests.forkliftAcknowledgedAt,
         created_at: materialRequests.createdAt,
         updated_at: materialRequests.updatedAt,
       })
@@ -557,6 +650,8 @@ materialRequestRoutes.get(
         issued_by_name: issuedByName,
         received_by_name: receivedByName,
         received_at: header.received_by_user_id ? header.updated_at : null,
+        alert_status: "UNTRACKED",
+        alert_recipients: alertRecipients,
         items: items.map((item) => ({
           ...item,
           issue_allocations: allocationsByItem[item.id] ?? [],
@@ -876,11 +971,20 @@ materialRequestRoutes.post(
       });
 
       const alertRecipients = await resolveMaterialRequestAlertRecipients(workflowPolicy);
+      const alertStatus = await sendAlertEmail({
+        templateId: "material_request_created",
+        recipients: alertRecipients,
+        context: {
+          requestNo: created.request_no,
+          dmiNo: created.dmi_no,
+          actorName: requestUser?.display_name ?? currentUser.username,
+        },
+      });
       return {
         success: true,
         data: {
           ...created,
-          alert_status: "QUEUED_MOCK",
+          alert_status: alertStatus,
           alert_recipients: alertRecipients,
         },
       };
@@ -1120,7 +1224,19 @@ materialRequestRoutes.post(
       dmi_no: existing.dmiNo,
     });
 
-    return { success: true, data: { id: params.id, status: "APPROVED" } };
+    const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_approved",
+      recipients: requestorRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+      },
+    });
+
+    return { success: true, data: { id: params.id, status: "APPROVED", alert_status: alertStatus } };
   }
 );
 
@@ -1167,9 +1283,25 @@ materialRequestRoutes.post(
       set.status = 404;
       return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
     }
-    if (!["REQUESTED", "APPROVED"].includes(existing.status)) {
+    if (existing.status !== "APPROVED") {
       set.status = 400;
-      return { success: false, error_code: "INVALID_STATUS", message: "Only REQUESTED/APPROVED can be issued" };
+      return { success: false, error_code: "INVALID_STATUS", message: "Only APPROVED can be issued" };
+    }
+    if (!existing.dispatchedAt) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Request must be dispatched to forklift before issuing",
+      };
+    }
+    if (!existing.dispatchedAt) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Request must be dispatched to forklift before issuing",
+      };
     }
 
     const lines = (body.allocations ?? []).filter(
@@ -1339,7 +1471,19 @@ materialRequestRoutes.post(
         dmi_no: body.dmi_no ?? existing.dmiNo ?? null,
       });
 
-      return { success: true, data: { id: params.id, status: "ISSUED" } };
+      const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+      const actorName = await resolveActorName(currentUser.userId);
+      const alertStatus = await sendAlertEmail({
+        templateId: "material_request_issued",
+        recipients: requestorRecipients,
+        context: {
+          requestNo: existing.requestNo,
+          dmiNo: body.dmi_no ?? existing.dmiNo ?? null,
+          actorName,
+        },
+      });
+
+      return { success: true, data: { id: params.id, status: "ISSUED", alert_status: alertStatus } };
     } catch (error) {
       set.status = 400;
       return {
@@ -1368,6 +1512,73 @@ materialRequestRoutes.post(
         })
       ),
     }),
+  }
+);
+
+materialRequestRoutes.post(
+  "/:id/dispatch-to-forklift",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload | null }) => {
+    const unauthorized = checkAuth({ user, set });
+    if (unauthorized) return unauthorized;
+    const currentUser = user as AccessTokenPayload;
+
+    const workflowPolicy = await getMaterialWorkflowPolicy();
+    if (!canApproveMaterialRequestByWorkflow(currentUser, workflowPolicy)) {
+      set.status = 403;
+      return { success: false, error_code: "FORBIDDEN", message: "Current user is not configured as approver" };
+    }
+
+    const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
+    }
+    if (existing.status !== "APPROVED") {
+      set.status = 400;
+      return { success: false, error_code: "INVALID_STATUS", message: "Only APPROVED can be dispatched to forklift" };
+    }
+
+    await db
+      .update(materialRequests)
+      .set({
+        dispatchedByUserId: currentUser.userId,
+        dispatchedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(materialRequests.id, params.id));
+
+    await auditConfigChange(
+      currentUser.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "DISPATCH_TO_FORKLIFT",
+      { status: existing.status, dispatched_at: existing.dispatchedAt ?? null },
+      { status: existing.status, dispatched_at: new Date().toISOString() }
+    );
+    publishMaterialRequestUpdate({
+      event_type: "DISPATCHED_TO_FORKLIFT",
+      id: params.id,
+      status: existing.status,
+      request_no: existing.requestNo,
+      dmi_no: existing.dmiNo,
+    });
+
+    const forkliftRecipients = await resolveRecipientsByRoles(["OPERATOR", "STORE"]);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_dispatched",
+      recipients: forkliftRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+      },
+    });
+
+    return {
+      success: true,
+      data: { id: params.id, status: existing.status, dispatched: true, alert_status: alertStatus },
+    };
   }
 );
 
@@ -1412,8 +1623,12 @@ materialRequestRoutes.post(
     const [header] = await db
       .select({
         id: materialRequests.id,
+        request_no: materialRequests.requestNo,
+        dmi_no: materialRequests.dmiNo,
         status: materialRequests.status,
         received_by_user_id: materialRequests.receivedByUserId,
+        dispatched_by_user_id: materialRequests.dispatchedByUserId,
+        production_ack_at: materialRequests.productionAcknowledgedAt,
         remarks: materialRequests.remarks,
       })
       .from(materialRequests)
@@ -1431,6 +1646,14 @@ materialRequestRoutes.post(
         success: false,
         error_code: "INVALID_STATUS",
         message: "Only ISSUED can be confirmed by production receipt",
+      };
+    }
+    if (header.production_ack_at) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Production acknowledgement already completed",
       };
     }
 
@@ -1514,6 +1737,8 @@ materialRequestRoutes.post(
           .update(materialRequests)
           .set({
             receivedByUserId: currentUser.userId,
+            productionAcknowledgedByUserId: currentUser.userId,
+            productionAcknowledgedAt: new Date(),
             remarks: mergedRemarks,
             updatedAt: new Date(),
           })
@@ -1536,13 +1761,30 @@ materialRequestRoutes.post(
       params.id,
       "CONFIRM_RECEIPT",
       { status: header.status, received_by_user_id: header.received_by_user_id ?? null },
-      { status: header.status, received_by_user_id: currentUser.userId, scans_saved: saved }
+      {
+        status: header.status,
+        received_by_user_id: currentUser.userId,
+        production_ack_by_user_id: currentUser.userId,
+        scans_saved: saved,
+      }
     );
 
     publishMaterialRequestUpdate({
       event_type: "RECEIPT_CONFIRMED",
       id: params.id,
       status: "ISSUED",
+    });
+
+    const forkliftRecipients = await resolveRecipientByUserId(header.dispatched_by_user_id);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_receipt_confirmed",
+      recipients: forkliftRecipients,
+      context: {
+        requestNo: header.request_no,
+        dmiNo: header.dmi_no,
+        actorName,
+      },
     });
 
     return {
@@ -1553,6 +1795,7 @@ materialRequestRoutes.post(
         received_by_user_id: currentUser.userId,
         received_at: new Date().toISOString(),
         scans_saved: saved,
+        alert_status: alertStatus,
       },
     };
   },
@@ -1630,12 +1873,106 @@ materialRequestRoutes.post(
       dmi_no: existing.dmiNo,
     });
 
-    return { success: true, data: { id: params.id, status: "REJECTED" } };
+    const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_rejected",
+      recipients: requestorRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+        reason: body.reason ?? "",
+      },
+    });
+
+    return { success: true, data: { id: params.id, status: "REJECTED", alert_status: alertStatus } };
   },
   {
     body: t.Object({
       reason: t.Optional(t.String()),
     }),
+  }
+);
+
+materialRequestRoutes.post(
+  "/:id/ack-forklift",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload | null }) => {
+    const unauthorized = checkAuth({ user, set });
+    if (unauthorized) return unauthorized;
+    const currentUser = user as AccessTokenPayload;
+    if (!hasAnyRole(currentUser, ["STORE", "OPERATOR", "SUPERVISOR", "ADMIN"])) {
+      set.status = 403;
+      return { success: false, error_code: "FORBIDDEN", message: "Requires forklift/store role" };
+    }
+
+    const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
+    }
+    if (existing.status !== "ISSUED") {
+      set.status = 400;
+      return { success: false, error_code: "INVALID_STATUS", message: "Only ISSUED can be forklift-acknowledged" };
+    }
+    if (!existing.productionAcknowledgedAt) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Production acknowledgement is required before forklift acknowledgement",
+      };
+    }
+
+    await db
+      .update(materialRequests)
+      .set({
+        forkliftAcknowledgedByUserId: currentUser.userId,
+        forkliftAcknowledgedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(materialRequests.id, params.id));
+
+    await auditConfigChange(
+      currentUser.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "ACK_FORKLIFT",
+      {
+        status: existing.status,
+        forklift_ack_by_user_id: existing.forkliftAcknowledgedByUserId ?? null,
+        forklift_ack_at: existing.forkliftAcknowledgedAt ?? null,
+      },
+      {
+        status: existing.status,
+        forklift_ack_by_user_id: currentUser.userId,
+        forklift_ack_at: new Date().toISOString(),
+      }
+    );
+    publishMaterialRequestUpdate({
+      event_type: "FORKLIFT_ACKNOWLEDGED",
+      id: params.id,
+      status: existing.status,
+      request_no: existing.requestNo,
+      dmi_no: existing.dmiNo,
+    });
+
+    const storeRecipients = await resolveRecipientsByRoles(["STORE", "SUPERVISOR", "ADMIN"]);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_forklift_ack",
+      recipients: storeRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+      },
+    });
+
+    return {
+      success: true,
+      data: { id: params.id, status: existing.status, forklift_acknowledged: true, alert_status: alertStatus },
+    };
   }
 );
 
@@ -1700,7 +2037,19 @@ materialRequestRoutes.post(
       dmi_no: body.dmi_no ?? existing.dmiNo ?? null,
     });
 
-    return { success: true, data: { id: params.id, status: "ISSUED" } };
+    const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_issued",
+      recipients: requestorRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: body.dmi_no ?? existing.dmiNo ?? null,
+        actorName,
+      },
+    });
+
+    return { success: true, data: { id: params.id, status: "ISSUED", alert_status: alertStatus } };
   },
   {
     body: t.Object({

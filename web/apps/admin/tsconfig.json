@@ -18,7 +18,12 @@
     /* Paths */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@traceability/sdk": ["../../packages/sdk/src"],
+      "@traceability/ui": ["../../packages/ui/src"],
+      "@traceability/offline-queue": ["../../packages/offline-queue/src"],
+      "@traceability/material": ["../../packages/material/src"],
+      "@traceability/material-ui": ["../../packages/material-ui/src"]
     }
   },
   "include": ["src"],

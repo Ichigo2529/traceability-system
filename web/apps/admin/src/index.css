@@ -162,6 +162,23 @@ ui5-dynamic-page-header,
 
 ui5-dynamic-page-title::part(root) {
   padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Heading takes space so actionsBar stays on the right; title visible when collapsed */
+ui5-dynamic-page-title::part(root) > *:first-child {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* Request Items panel: white content background (override UI5 Table list grey) */
+.request-items-panel,
+.request-items-panel ui5-table,
+.request-items-panel ui5-table::part(table) {
+  background: var(--sapBaseColor) !important;
 }
 
 body {

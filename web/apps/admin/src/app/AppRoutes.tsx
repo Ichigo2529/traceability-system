@@ -32,6 +32,7 @@ const MaterialRequestsPage = lazy(() => import("../pages/admin/MaterialRequestsP
 const MaterialRequestCreatePage = lazy(() => import("../pages/admin/MaterialRequestCreatePage").then((m) => ({ default: m.MaterialRequestCreatePage })));
 const MaterialRequestDetailsPage = lazy(() => import("../pages/admin/MaterialRequestDetailsPage").then((m) => ({ default: m.MaterialRequestDetailsPage })));
 const SetRecoveryPage = lazy(() => import("../pages/admin/SetRecoveryPage").then((m) => ({ default: m.SetRecoveryPage })));
+const EmailSettingsPage = lazy(() => import("../pages/admin/EmailSettingsPage"));
 
 const Ui5SmokeTest = lazy(() => import("../pages/Ui5SmokeTest"));
 const MachinesPage = lazy(() => import("../pages/MachinesPage"));
@@ -89,6 +90,7 @@ export function AppRoutes() {
           <Route path="stations" element={<StationsPage />} />
           <Route path="devices" element={<DevicesPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="email-settings" element={<EmailSettingsPage />} />
           <Route path="suppliers" element={<SuppliersPage />} />
           <Route path="departments" element={<DepartmentsPage />} />
           <Route path="cost-centers" element={<CostCentersPage />} />
