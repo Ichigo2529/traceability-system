@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { EmailSettings } from "@traceability/sdk";
+import { EmailSettings, ReminderPolicy } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
 import { PageLayout, Section } from "@traceability/ui";
 import {
@@ -31,6 +31,13 @@ const EMPTY_SETTINGS: EmailSettings = {
   enabled: true,
 };
 
+const EMPTY_REMINDER_POLICY: ReminderPolicy = {
+  enabled: false,
+  cadence_mode: "daily",
+  interval_hours: 24,
+  max_reminders: null,
+};
+
 export function EmailSettingsPage() {
   const queryClient = useQueryClient();
   const { showToast, ToastComponent } = useToast();
@@ -38,10 +45,15 @@ export function EmailSettingsPage() {
   const [openTestDialog, setOpenTestDialog] = useState(false);
   const [testRecipient, setTestRecipient] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
+  const [reminderPolicy, setReminderPolicy] = useState<ReminderPolicy>(EMPTY_REMINDER_POLICY);
 
   const settingsQuery = useQuery({
     queryKey: ["email-settings"],
     queryFn: () => sdk.admin.getEmailSettings(),
+  });
+  const reminderPolicyQuery = useQuery({
+    queryKey: ["email-reminder-policy"],
+    queryFn: () => sdk.admin.getReminderPolicy(),
   });
 
   useEffect(() => {
@@ -54,6 +66,14 @@ export function EmailSettingsPage() {
       });
     }
   }, [settingsQuery.data]);
+  useEffect(() => {
+    if (reminderPolicyQuery.data?.policy) {
+      setReminderPolicy({
+        ...EMPTY_REMINDER_POLICY,
+        ...reminderPolicyQuery.data.policy,
+      });
+    }
+  }, [reminderPolicyQuery.data]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: EmailSettings) => sdk.admin.updateEmailSettings(payload),
@@ -70,8 +90,21 @@ export function EmailSettingsPage() {
       setOpenTestDialog(false);
     },
   });
+  const saveReminderPolicyMutation = useMutation({
+    mutationFn: (policy: ReminderPolicy) => sdk.admin.updateReminderPolicy(policy),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["email-reminder-policy"] });
+      showToast("Reminder policy saved");
+    },
+  });
 
-  const mergedError = localError || formatApiError(settingsQuery.error || saveMutation.error || testMutation.error);
+  const apiError =
+    settingsQuery.error ??
+    reminderPolicyQuery.error ??
+    saveMutation.error ??
+    testMutation.error ??
+    saveReminderPolicyMutation.error;
+  const mergedError = localError || (apiError ? formatApiError(apiError) : null);
 
   const onSave = () => {
     setLocalError(null);
@@ -101,6 +134,24 @@ export function EmailSettingsPage() {
       return;
     }
     testMutation.mutate(testRecipient.trim());
+  };
+
+  const onSaveReminderPolicy = () => {
+    setLocalError(null);
+    const intervalHours = Number(reminderPolicy.interval_hours || 0);
+    if (!Number.isFinite(intervalHours) || intervalHours <= 0) {
+      setLocalError("Reminder interval must be a positive number");
+      return;
+    }
+    const maxReminders =
+      reminderPolicy.max_reminders == null || reminderPolicy.max_reminders === 0
+        ? null
+        : Math.max(1, Number(reminderPolicy.max_reminders));
+    saveReminderPolicyMutation.mutate({
+      ...reminderPolicy,
+      interval_hours: intervalHours,
+      max_reminders: maxReminders,
+    });
   };
 
   return (
@@ -170,6 +221,61 @@ export function EmailSettingsPage() {
               text="Enable email alerts"
               checked={Boolean(model.enabled)}
               onChange={(e) => setModel((m) => ({ ...m, enabled: e.target.checked }))}
+            />
+          </FormItem>
+        </Form>
+      </Section>
+
+      <Section
+        title="Pending Approval Reminder"
+        subtitle="Automatic reminder emails for requests still waiting for approval"
+        variant="card"
+      >
+        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem", justifyContent: "flex-end" }}>
+          <Button design="Emphasized" onClick={onSaveReminderPolicy} disabled={saveReminderPolicyMutation.isPending}>
+            {saveReminderPolicyMutation.isPending ? "Saving..." : "Save Reminder Policy"}
+          </Button>
+        </FlexBox>
+        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
+          <FormItem labelContent={<Label>Enabled</Label>}>
+            <CheckBox
+              text="Enable reminder emails for pending approvals"
+              checked={Boolean(reminderPolicy.enabled)}
+              onChange={(e) => setReminderPolicy((prev) => ({ ...prev, enabled: e.target.checked }))}
+            />
+          </FormItem>
+          <FormItem labelContent={<Label>Cadence Mode</Label>}>
+            <CheckBox
+              text="Use daily cadence (every 24 hours)"
+              checked={reminderPolicy.cadence_mode === "daily"}
+              onChange={(e) =>
+                setReminderPolicy((prev) => ({
+                  ...prev,
+                  cadence_mode: e.target.checked ? "daily" : "interval_hours",
+                  interval_hours: e.target.checked ? 24 : prev.interval_hours || 24,
+                }))
+              }
+            />
+          </FormItem>
+          <FormItem labelContent={<Label>Interval (hours)</Label>}>
+            <Input
+              type="Number"
+              value={String(reminderPolicy.interval_hours ?? 24)}
+              disabled={reminderPolicy.cadence_mode === "daily"}
+              onInput={(e) => setReminderPolicy((prev) => ({ ...prev, interval_hours: Number(e.target.value || 0) }))}
+            />
+          </FormItem>
+          <FormItem labelContent={<Label>Max Reminders (optional)</Label>}>
+            <Input
+              type="Number"
+              placeholder="Leave empty for unlimited"
+              value={reminderPolicy.max_reminders == null ? "" : String(reminderPolicy.max_reminders)}
+              onInput={(e) =>
+                setReminderPolicy((prev) => ({
+                  ...prev,
+                  max_reminders: e.target.value ? Number(e.target.value) : null,
+                }))
+              }
             />
           </FormItem>
         </Form>

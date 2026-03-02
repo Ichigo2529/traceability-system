@@ -126,4 +126,32 @@ export function registerMaterialRequestAlertTemplates() {
         actorName: ctx.actorName,
       }),
   });
+
+  registerAlertTemplate("material_request_pending_reminder", {
+    subject: (ctx) => `[Material Request] Reminder pending approval ${safe(ctx.requestNo)}`,
+    html: (ctx) =>
+      baseHtml({
+        title: "Pending Approval Reminder",
+        subtitle: "This request is still waiting for approval action.",
+        status: "REQUESTED",
+        requestNo: ctx.requestNo,
+        dmiNo: ctx.dmiNo,
+        actorName: "Reminder Scheduler",
+        note: `Reminder cadence: every ${safe(ctx.intervalHours, "24")} hour(s)`,
+      }),
+  });
+
+  registerAlertTemplate("material_request_withdrawn", {
+    subject: (ctx) => `[Material Request] Withdrawn ${safe(ctx.requestNo)}`,
+    html: (ctx) =>
+      baseHtml({
+        title: "Material Request Withdrawn",
+        subtitle: "This request was withdrawn and will no longer proceed in workflow.",
+        status: "CANCELLED",
+        requestNo: ctx.requestNo,
+        dmiNo: ctx.dmiNo,
+        actorName: ctx.actorName,
+        note: ctx.reason,
+      }),
+  });
 }

@@ -117,4 +117,8 @@ export class MaterialService {
   async acknowledgeForklift(id: string): Promise<{ id: string; status: string; forklift_acknowledged: boolean }> {
     return this.client.post(`/material-requests/${id}/ack-forklift`, {});
   }
+
+  async withdrawRequest(id: string, reason?: string): Promise<{ id: string; status: string; alert_status?: string }> {
+    return this.client.post(`/material-requests/${id}/withdraw`, { reason });
+  }
 }

@@ -8,6 +8,7 @@ import {
   getMaterialRequestNextNumbers,
   getMaterialRequests,
   NextNumbersResponse,
+  withdrawMaterialRequest,
 } from "@traceability/material";
 import {
   MaterialRequestForm,
@@ -18,9 +19,11 @@ import {
 } from "@traceability/material-ui";
 import { PageLayout } from "@traceability/ui";
 import {
+  Button,
   FlexBox,
   FlexBoxAlignItems,
   Label,
+  Input,
   MessageBox,
   MessageStrip,
   ObjectStatus,
@@ -72,6 +75,8 @@ export function ProductionMaterialRequestPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<MaterialRequestFormErrors | undefined>();
   const [systemErrorMsg, setSystemErrorMsg] = useState<string | null>(null);
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState("");
   const showingDetails = Boolean(selectedId);
 
   const { meta, sectionNotSet } = useMaterialRequestMeta(canUsePage);
@@ -160,6 +165,22 @@ export function ProductionMaterialRequestPage() {
     },
   });
 
+  const withdrawMutation = useMutation<{ id: string; status: string; alert_status?: string }, any, string>({
+    mutationFn: (id: string) => withdrawMaterialRequest(id, withdrawReason.trim() || undefined),
+    onSuccess: async () => {
+      toast.success("Material request withdrawn.");
+      setConfirmWithdrawOpen(false);
+      setWithdrawReason("");
+      await queryClient.invalidateQueries({ queryKey: keys.requests() });
+      if (selectedId) {
+        await queryClient.invalidateQueries({ queryKey: keys.request(selectedId) });
+      }
+    },
+    onError: (err: any) => {
+      setSystemErrorMsg(err?.message || "Failed to withdraw request. Please try again.");
+    },
+  });
+
   /** Run zod validation; if OK open confirm, if not → show inline errors */
   const handleSubmitClick = () => {
     const result = validateMaterialRequestForm({
@@ -237,6 +258,12 @@ export function ProductionMaterialRequestPage() {
   const detail = detailsQuery.data;
   const isTerminalStatus = detailStatus === "ISSUED" || detailStatus === "REJECTED" || detailStatus === "CANCELLED";
   const selectedRequestSummary = (requestsQuery.data ?? []).find((row) => row.id === selectedId);
+  const isRequestOwner = detail?.requested_by_user_id && user?.id ? detail.requested_by_user_id === user.id : false;
+  const canWithdrawRequest =
+    Boolean(detail?.id) &&
+    (detail?.status === "REQUESTED" || detail?.status === "APPROVED") &&
+    !detail?.dispatched_at &&
+    (isRequestOwner || hasRole("ADMIN"));
 
   // Workflow timeline step states
   const workflowStepsDone = useMemo(() => {
@@ -289,6 +316,11 @@ export function ProductionMaterialRequestPage() {
 
   // Preview lines for confirm dialog
   const previewLines = lines.filter((l) => l.part_number.trim().length > 0);
+  const detailHeaderActions = canWithdrawRequest ? (
+    <Button design="Negative" disabled={withdrawMutation.isPending} onClick={() => setConfirmWithdrawOpen(true)}>
+      {withdrawMutation.isPending ? "Withdrawing..." : "Withdraw"}
+    </Button>
+  ) : undefined;
 
   return (
     <div>
@@ -328,7 +360,7 @@ export function ProductionMaterialRequestPage() {
           if (showCreateForm) { setShowCreateForm(false); setFormErrors(undefined); }
           if (showingDetails) setSelectedId(null);
         }}
-        headerActions={undefined}
+        headerActions={showingDetails ? detailHeaderActions : undefined}
       >
         <div className="page-container motion-safe:animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
@@ -413,7 +445,7 @@ export function ProductionMaterialRequestPage() {
             /* ── DETAIL / VOUCHER VIEW ─────────────────────── */
             detail ? (
               <>
-                <MaterialRequestVoucherView detail={detail} hideTopBarActions />
+                <MaterialRequestVoucherView detail={detail} hideTopBarActions hideIssueTotalsBeforeIssued />
 
                 {/* Workflow Timeline */}
                 <div
@@ -627,6 +659,32 @@ export function ProductionMaterialRequestPage() {
               )}
             </div>
           )}
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={confirmWithdrawOpen}
+          title="Confirm Withdraw"
+          description={`Withdraw request ${detail?.request_no ?? ""}? This action cannot be undone.`}
+          confirmText="Withdraw"
+          submitting={withdrawMutation.isPending}
+          onCancel={() => {
+            setConfirmWithdrawOpen(false);
+            setWithdrawReason("");
+          }}
+          onConfirm={() => {
+            if (!selectedId) return;
+            withdrawMutation.mutate(selectedId);
+          }}
+        >
+          <div style={{ marginTop: "0.75rem" }}>
+            <Label style={{ display: "block", marginBottom: "0.4rem" }}>Reason (optional)</Label>
+            <Input
+              value={withdrawReason}
+              onInput={(e) => setWithdrawReason(e.target.value)}
+              placeholder="Optional note for workflow/audit"
+              disabled={withdrawMutation.isPending}
+            />
+          </div>
         </ConfirmDialog>
       </PageLayout>
     </div>

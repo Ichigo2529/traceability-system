@@ -12,3 +12,4 @@ export * from "./audit";
 export * from "./material-requests";
 export * from "./genealogy";
 export * from "./email-settings";
+export * from "./email-reminder-logs";

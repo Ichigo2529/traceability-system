@@ -31,6 +31,8 @@ import {
   MaterialRequestItem,
   MasterRoutingStep,
   EmailSettings,
+  ReminderPolicy,
+  ReminderPolicyConfig,
 } from "../types";
 
 export class AdminService {
@@ -729,5 +731,13 @@ export class AdminService {
 
   async sendTestEmail(to: string): Promise<{ status: string }> {
     return this.client.post<{ status: string }>("/admin/email-settings/test", { to });
+  }
+
+  async getReminderPolicy(): Promise<ReminderPolicyConfig> {
+    return this.client.get<ReminderPolicyConfig>("/admin/email-settings/reminder-policy");
+  }
+
+  async updateReminderPolicy(policy: ReminderPolicy): Promise<ReminderPolicyConfig> {
+    return this.client.put<ReminderPolicyConfig>("/admin/email-settings/reminder-policy", policy);
   }
 }

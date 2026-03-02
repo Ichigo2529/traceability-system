@@ -443,6 +443,18 @@ export interface EmailSettings {
   updated_at?: string;
 }
 
+export interface ReminderPolicy {
+  enabled: boolean;
+  cadence_mode: "daily" | "interval_hours";
+  interval_hours: number;
+  max_reminders?: number | null;
+}
+
+export interface ReminderPolicyConfig {
+  flow_code: string;
+  policy: ReminderPolicy;
+}
+
 export interface MetaCostCenter {
   cost_center_id: string;
   cost_code: string;

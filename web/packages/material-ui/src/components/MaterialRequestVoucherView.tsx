@@ -86,6 +86,7 @@ export function MaterialRequestVoucherView({
   workbench,
   showIssueOptions,
   hideTopBarActions,
+  hideIssueTotalsBeforeIssued = false,
   formatDate = defaultFormatDate,
   formatDateTime = defaultFormatDateTime,
 }: {
@@ -94,9 +95,18 @@ export function MaterialRequestVoucherView({
   workbench?: ReturnType<typeof useIssueAllocationWorkbench>;
   showIssueOptions?: boolean;
   hideTopBarActions?: boolean;
+  hideIssueTotalsBeforeIssued?: boolean;
   formatDate?: (value?: string | null) => string;
   formatDateTime?: (value?: string | null) => string;
 }) {
+  const isIssuedCompleted =
+    detail.status === "ISSUED" ||
+    Boolean(detail.issued_at) ||
+    detail.items.some(
+      (item) => (item.issue_allocations?.length ?? 0) > 0 || Number(item.issued_qty ?? 0) > 0
+    );
+  const shouldShowIssueTotals = !hideIssueTotalsBeforeIssued || isIssuedCompleted;
+
   return (
     <FlexBox
       direction={FlexBoxDirection.Column}
@@ -384,53 +394,55 @@ export function MaterialRequestVoucherView({
                   ? `Requested ${requestedQty} ${uom}, Issued ${absoluteTotal} ${uom} — Over by ${absoluteDiff}`
                   : `Requested ${requestedQty} ${uom}, Issued ${absoluteTotal} ${uom} — Short by ${Math.abs(absoluteDiff)}`;
 
-              rows.push(
-                <TableRow key={`${key}-actual`} style={{ background: "var(--sapList_AlternatingBackground)" }}>
-                  <TableCell><Label style={{ fontWeight: "600", fontSize: "0.82rem" }}>{item.item_no}</Label></TableCell>
-                  <TableCell><ObjectStatus state="Positive">Total</ObjectStatus></TableCell>
-                  <TableCell />
-                  <TableCell />
-                  <TableCell><Label style={{ fontWeight: "bold", fontSize: "0.85rem" }}>Actual Issued Total</Label></TableCell>
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell><Label style={{ textAlign: "right", display: "block", fontWeight: "bold", fontSize: "0.95rem", color: absoluteTotal > 0 ? "var(--sapPositiveElementColor)" : undefined }}>{absoluteTotal || "—"}</Label></TableCell>
-                  <TableCell><Label style={{ fontWeight: "bold" }}>{uom}</Label></TableCell>
-                  <TableCell><Text style={{ fontStyle: "italic", fontSize: "0.75rem", color: "var(--sapContent_LabelColor)" }}>{item.remarks || "—"}</Text></TableCell>
-                  <TableCell />
-                </TableRow>
-              );
+              if (shouldShowIssueTotals) {
+                rows.push(
+                  <TableRow key={`${key}-actual`} style={{ background: "var(--sapList_AlternatingBackground)" }}>
+                    <TableCell><Label style={{ fontWeight: "600", fontSize: "0.82rem" }}>{item.item_no}</Label></TableCell>
+                    <TableCell><ObjectStatus state="Positive">Total</ObjectStatus></TableCell>
+                    <TableCell />
+                    <TableCell />
+                    <TableCell><Label style={{ fontWeight: "bold", fontSize: "0.85rem" }}>Actual Issued Total</Label></TableCell>
+                    <TableCell />
+                    <TableCell />
+                    <TableCell />
+                    <TableCell />
+                    <TableCell><Label style={{ textAlign: "right", display: "block", fontWeight: "bold", fontSize: "0.95rem", color: absoluteTotal > 0 ? "var(--sapPositiveElementColor)" : undefined }}>{absoluteTotal || "—"}</Label></TableCell>
+                    <TableCell><Label style={{ fontWeight: "bold" }}>{uom}</Label></TableCell>
+                    <TableCell><Text style={{ fontStyle: "italic", fontSize: "0.75rem", color: "var(--sapContent_LabelColor)" }}>{item.remarks || "—"}</Text></TableCell>
+                    <TableCell />
+                  </TableRow>
+                );
 
-              rows.push(
-                <TableRow key={`${key}-summary`} style={{ background: "var(--sapGroup_TitleBackground)", borderBottom: "2px solid var(--sapGroup_ContentBorderColor)" }}>
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell><Text style={{ fontSize: "0.7rem", fontWeight: "700", color: "var(--sapNeutralElementColor)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Summary</Text></TableCell>
-                  <TableCell />
-                  <TableCell />
-                  <TableCell />
-                  <TableCell><ObjectStatus state={absoluteDiff === 0 ? "Positive" : absoluteDiff > 0 ? "Information" : "Negative"} showDefaultIcon={false}>{absoluteDiff === 0 ? "OK" : absoluteDiff > 0 ? "Over" : "Short"}</ObjectStatus></TableCell>
-                  <TableCell>
-                    <Label
-                      style={{
-                        textAlign: "right",
-                        display: "block",
-                        fontWeight: "bold",
-                        color:
-                          absoluteDiff === 0 ? "var(--sapPositiveElementColor)" : absoluteDiff > 0 ? "var(--sapInformativeElementColor)" : "var(--sapNegativeElementColor)",
-                      }}
-                    >
-                      {absoluteDiff > 0 ? `+${absoluteDiff}` : absoluteDiff}
-                    </Label>
-                  </TableCell>
-                  <TableCell><Label style={{ fontWeight: "bold" }}>{uom}</Label></TableCell>
-                  <TableCell><Text style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)", whiteSpace: "nowrap" }}>{summaryExplanation}</Text></TableCell>
-                  <TableCell />
-                </TableRow>
-              );
+                rows.push(
+                  <TableRow key={`${key}-summary`} style={{ background: "var(--sapGroup_TitleBackground)", borderBottom: "2px solid var(--sapGroup_ContentBorderColor)" }}>
+                    <TableCell />
+                    <TableCell />
+                    <TableCell />
+                    <TableCell />
+                    <TableCell><Text style={{ fontSize: "0.7rem", fontWeight: "700", color: "var(--sapNeutralElementColor)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Summary</Text></TableCell>
+                    <TableCell />
+                    <TableCell />
+                    <TableCell />
+                    <TableCell><ObjectStatus state={absoluteDiff === 0 ? "Positive" : absoluteDiff > 0 ? "Information" : "Negative"} showDefaultIcon={false}>{absoluteDiff === 0 ? "OK" : absoluteDiff > 0 ? "Over" : "Short"}</ObjectStatus></TableCell>
+                    <TableCell>
+                      <Label
+                        style={{
+                          textAlign: "right",
+                          display: "block",
+                          fontWeight: "bold",
+                          color:
+                            absoluteDiff === 0 ? "var(--sapPositiveElementColor)" : absoluteDiff > 0 ? "var(--sapInformativeElementColor)" : "var(--sapNegativeElementColor)",
+                        }}
+                      >
+                        {absoluteDiff > 0 ? `+${absoluteDiff}` : absoluteDiff}
+                      </Label>
+                    </TableCell>
+                    <TableCell><Label style={{ fontWeight: "bold" }}>{uom}</Label></TableCell>
+                    <TableCell><Text style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)", whiteSpace: "nowrap" }}>{summaryExplanation}</Text></TableCell>
+                    <TableCell />
+                  </TableRow>
+                );
+              }
 
               return rows;
             })

@@ -86,6 +86,7 @@ export function publishMaterialRequestUpdate(payload: {
     | "APPROVED"
     | "REJECTED"
     | "ISSUED"
+    | "WITHDRAWN"
     | "RECEIPT_CONFIRMED"
     | "DISPATCHED_TO_FORKLIFT"
     | "FORKLIFT_ACKNOWLEDGED";

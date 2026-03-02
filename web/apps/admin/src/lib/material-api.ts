@@ -11,4 +11,5 @@ export {
   getPendingMaterialRequests,
   issueMaterialRequestWithAllocation,
   rejectMaterialRequest,
+  withdrawMaterialRequest,
 } from "@traceability/material";

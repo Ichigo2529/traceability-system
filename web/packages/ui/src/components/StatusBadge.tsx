@@ -11,6 +11,7 @@ const statusToState: Record<string, "None" | "Positive" | "Critical" | "Negative
   approved: "Positive",
   issued: "Positive",
   rejected: "Negative",
+  cancelled: "None",
   waiting: "Critical",
   hold: "Critical",
   maintenance: "Critical",

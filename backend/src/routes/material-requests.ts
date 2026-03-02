@@ -275,6 +275,18 @@ async function resolveRecipientByUserId(userId: string | null | undefined): Prom
   ];
 }
 
+function mergeAlertRecipients(...groups: AlertRecipient[][]): AlertRecipient[] {
+  const uniq = new Map<string, AlertRecipient>();
+  for (const group of groups) {
+    for (const row of group) {
+      const key = row.user_id || String(row.email ?? "").toLowerCase();
+      if (!key) continue;
+      if (!uniq.has(key)) uniq.set(key, row);
+    }
+  }
+  return Array.from(uniq.values());
+}
+
 async function resolveActorName(userId: string): Promise<string> {
   const [row] = await db
     .select({
@@ -1809,6 +1821,102 @@ materialRequestRoutes.post(
         })
       ),
       remarks: t.Optional(t.String()),
+    }),
+  }
+);
+
+materialRequestRoutes.post(
+  "/:id/withdraw",
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string };
+    body: { reason?: string };
+    set: any;
+    user: AccessTokenPayload | null;
+  }) => {
+    const unauthorized = checkAuth({ user, set });
+    if (unauthorized) return unauthorized;
+    const currentUser = user as AccessTokenPayload;
+
+    const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
+    }
+    if (!["REQUESTED", "APPROVED"].includes(existing.status)) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Only REQUESTED or APPROVED can be withdrawn",
+      };
+    }
+    if (existing.dispatchedAt) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Cannot withdraw after dispatch to forklift",
+      };
+    }
+
+    const isOwner = existing.requestedByUserId === currentUser.userId;
+    const isAdmin = hasAnyRole(currentUser, ["ADMIN"]);
+    if (!isOwner && !isAdmin) {
+      set.status = 403;
+      return { success: false, error_code: "FORBIDDEN", message: "Only request owner or ADMIN can withdraw this request" };
+    }
+
+    const reason = String(body.reason ?? "").trim();
+    const actorName = await resolveActorName(currentUser.userId);
+    await db
+      .update(materialRequests)
+      .set({
+        status: "CANCELLED",
+        remarks: reason ? `${existing.remarks ? `${existing.remarks}\n` : ""}[WITHDRAW] ${reason}` : existing.remarks,
+        updatedAt: new Date(),
+      })
+      .where(eq(materialRequests.id, params.id));
+
+    await auditConfigChange(
+      currentUser.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "WITHDRAW",
+      { status: existing.status, dispatched_at: existing.dispatchedAt ?? null },
+      { status: "CANCELLED", reason: reason || null }
+    );
+    publishMaterialRequestUpdate({
+      event_type: "WITHDRAWN",
+      id: params.id,
+      status: "CANCELLED",
+      request_no: existing.requestNo,
+      dmi_no: existing.dmiNo,
+    });
+
+    const workflowPolicy = await getMaterialWorkflowPolicy();
+    const workflowRecipients = await resolveMaterialRequestAlertRecipients(workflowPolicy);
+    const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_withdrawn",
+      recipients: mergeAlertRecipients(workflowRecipients, requestorRecipients),
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+        reason,
+      },
+    });
+
+    return { success: true, data: { id: params.id, status: "CANCELLED", alert_status: alertStatus } };
+  },
+  {
+    body: t.Object({
+      reason: t.Optional(t.String()),
     }),
   }
 );

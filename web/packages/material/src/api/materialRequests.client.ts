@@ -115,3 +115,10 @@ export async function confirmMaterialReceipt(
 ): Promise<{ id: string; status: string; received_by_user_id?: string; received_at?: string; scans_saved?: number }> {
   return sdk.material.confirmReceipt(id, payload);
 }
+
+export async function withdrawMaterialRequest(
+  id: string,
+  reason?: string
+): Promise<{ id: string; status: string; alert_status?: string }> {
+  return sdk.material.withdrawRequest(id, reason);
+}
