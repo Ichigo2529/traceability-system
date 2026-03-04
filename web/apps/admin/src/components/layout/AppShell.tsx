@@ -276,27 +276,24 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
           />
         }
         profile={
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Button
-              icon={theme === "sap_horizon" ? "dark-mode" : "light-mode"}
-              design="Transparent"
-              onClick={toggleTheme}
-              title={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
-              aria-label={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
-            />
-            <Avatar
-              id="shellbar-avatar"
-              initials={user?.display_name?.[0] ?? "U"}
-              colorScheme="Accent6"
-              aria-label={`User profile: ${user?.display_name}`}
-              style={{ cursor: "pointer" }}
-              onClick={() => setProfileOpen(true)}
-            />
-          </div>
+          <Avatar
+            id="shellbar-avatar"
+            initials={user?.display_name?.[0] ?? "U"}
+            colorScheme="Accent6"
+            aria-label={`User profile: ${user?.display_name}`}
+            style={{ cursor: "pointer" }}
+            onClick={() => setProfileOpen(true)}
+          />
         }
         onProfileClick={() => setProfileOpen(true)}
       >
         <ShellBarSpacer />
+        <ShellBarItem
+          icon={theme === "sap_horizon" ? "dark-mode" : "light-mode"}
+          text={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+          onClick={toggleTheme}
+          aria-label={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+        />
         <ShellBarItem
           id="shellbar-notifications"
           icon="bell"

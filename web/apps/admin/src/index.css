@@ -214,20 +214,7 @@ body {
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15) !important;
 }
 
-/* ShellBar Override for tighter left alignment */
-ui5-shellbar {
-  padding-left: 0 !important;
-  --_ui5_shellbar_header_height: 3rem; /* Optional: Adjust height if needed */
-}
-
-ui5-shellbar::part(root) {
-  padding-left: 0.25rem !important; /* Minimal padding */
-}
-
-/* Target the logo area specifically if possible */
-ui5-shellbar::part(logo) {
-  margin-right: 0.5rem !important;
-}
+/* Removed aggressive ShellBar overrides that caused visual glitches */
 
 /* Micro-interactions */
 .hover-scale {
