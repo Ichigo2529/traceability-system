@@ -30,6 +30,8 @@ import {
   userSections,
   users,
   workflowApprovalConfigs,
+  handoverBatches,
+  handoverBatchItems,
 } from "../db/schema";
 
 function parseErrorCode(error: unknown): string {
@@ -39,7 +41,7 @@ function parseErrorCode(error: unknown): string {
   return "INTERNAL_ERROR";
 }
 
-async function auditConfigChange(
+export async function auditConfigChange(
   userId: string,
   entityType: string,
   entityId: string,
@@ -1458,6 +1460,50 @@ materialRequestRoutes.post(
             updatedAt: new Date(),
           })
           .where(eq(materialRequests.id, params.id));
+
+        // Create the handover batch
+        const dateStr = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
+        const batchNo = `HB-${dateStr}-${Math.floor(Math.random() * 10000)
+          .toString()
+          .padStart(4, "0")}`;
+
+        const [batch] = await tx
+          .insert(handoverBatches)
+          .values({
+            batchNo,
+            materialRequestId: params.id,
+            issuedByUserId: currentUser.userId,
+            expectedItemCount: normalized.length,
+            status: "PENDING",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+
+        // Map the newly inserted item issues to batch items
+        // We need the inserted IDs, so we re-select them. Since this is in tx,
+        // it's safe to select by materialRequestId = params.id
+        const currentIssues = await tx
+          .select({ id: materialRequestItemIssues.id, partNumber: materialRequestItemIssues.partNumber, doNumber: materialRequestItemIssues.doNumber, issuedQty: materialRequestItemIssues.issuedQty, issuedPacks: materialRequestItemIssues.issuedPacks })
+          .from(materialRequestItemIssues)
+          .where(eq(materialRequestItemIssues.materialRequestId, params.id));
+
+        if (currentIssues.length > 0) {
+          await tx.insert(handoverBatchItems).values(
+            currentIssues.map((issue) => ({
+              handoverBatchId: batch.id,
+              materialRequestItemIssueId: issue.id,
+              partNumber: issue.partNumber,
+              doNumber: issue.doNumber,
+              expectedQty: issue.issuedQty,
+              expectedPacks: issue.issuedPacks,
+              scannedQty: 0,
+              scannedPacks: 0,
+              status: "PENDING",
+              createdAt: new Date(),
+            }))
+          );
+        }
       });
 
       await auditConfigChange(

@@ -105,6 +105,7 @@ const adminNav: NavItem[] = [
   { to: "/admin/inventory-do", label: "Delivery Orders (DO)", icon: "document", group: "operations", roles: ["ADMIN", "STORE"] },
   { to: "/admin/vendor-pack-detail", label: "Vendor Pack Detail", icon: "customer-and-contacts", group: "operations", roles: ["ADMIN", "STORE"] },
   { to: "/admin/inbound-packs", label: "Inbound Vendor Packs", icon: "shipping-status", group: "operations", roles: ["ADMIN", "STORE"] },
+  { to: "/admin/forklift-intake", label: "Forklift Intake", icon: "shipping-status", group: "operations", roles: ["ADMIN", "STORE", "FORKLIFT"] },
   { to: "/admin/machines", label: "Machines", icon: "machine", group: "operations", roles: ["ADMIN", "PROCESS_ENGINEER"] },
   { to: "/admin/devices", label: "Devices", icon: "laptop", group: "operations", roles: ["ADMIN"] },
   { to: "/admin/recovery", label: "Set Recovery", icon: "wrench", group: "operations", roles: ["ADMIN"] },

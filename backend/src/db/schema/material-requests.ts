@@ -20,6 +20,8 @@ export const materialRequestStatusEnum = pgEnum("material_request_status", [
   "APPROVED",
   "REJECTED",
   "ISSUED",
+  "PARTIALLY_RECEIVED",
+  "INTAKE_COMPLETE",
   "CANCELLED",
 ]);
 
