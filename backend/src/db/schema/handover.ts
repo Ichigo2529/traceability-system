@@ -158,6 +158,7 @@ export const scanEvents = pgTable(
     parsedExpiryDate: date("parsed_expiry_date"),
     parsedProductionDate: date("parsed_production_date"),
     parsedData: jsonb("parsed_data").$type<Record<string, unknown>>(),
+    packCount: integer("pack_count").notNull().default(1),
     result: scanEventResultEnum("result").notNull(),
     resultDetail: text("result_detail"),
     matchedBatchItemId: uuid("matched_batch_item_id").references(() => handoverBatchItems.id),

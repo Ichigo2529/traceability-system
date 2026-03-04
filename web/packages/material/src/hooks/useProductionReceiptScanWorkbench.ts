@@ -23,6 +23,7 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
   const [selectedPart, setSelectedPart] = useState("");
   const [selectedDo, setSelectedDo] = useState("");
   const [scanData, setScanData] = useState("");
+  const [packCount, setPackCount] = useState(1);
   const [manualMode, setManualMode] = useState(false);
   const [manualReason, setManualReason] = useState("");
   const [stagedScans, setStagedScans] = useState<ProductionReceiptScanRow[]>([]);
@@ -38,6 +39,7 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
     return Array.from(new Set(issuedTargets.filter((x) => upper(x.part_number) === part).map((x) => upper(x.do_number))));
   }, [issuedTargets, selectedPart]);
 
+  // Coverage now sums pack_count instead of counting 1:1
   const coverage = useMemo(() => {
     const requiredByKey = new Map<string, number>();
     for (const row of issuedTargets) {
@@ -45,10 +47,11 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
       const packs = Math.max(1, Number(row.required_packs ?? 1));
       requiredByKey.set(key, (requiredByKey.get(key) ?? 0) + (Number.isFinite(packs) ? Math.floor(packs) : 1));
     }
+    // Sum pack_count for each staged scan
     const scannedByKey = new Map<string, number>();
     for (const row of stagedScans) {
       const key = `${upper(row.part_number)}|${upper(row.do_number)}`;
-      scannedByKey.set(key, (scannedByKey.get(key) ?? 0) + 1);
+      scannedByKey.set(key, (scannedByKey.get(key) ?? 0) + (row.pack_count ?? 1));
     }
     const missing: string[] = [];
     for (const [key, required] of requiredByKey.entries()) {
@@ -58,9 +61,11 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
     }
     let requiredCount = 0;
     for (const n of requiredByKey.values()) requiredCount += n;
+    let scannedCount = 0;
+    for (const n of scannedByKey.values()) scannedCount += n;
     return {
       requiredCount,
-      scannedCount: stagedScans.length,
+      scannedCount,
       missing,
       ready: requiredCount > 0 && missing.length === 0,
     };
@@ -86,17 +91,32 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
       setFeedback({ type: "error", message: `This Part/DO is not in issued allocation: ${part} / ${doNo}`, at: Date.now() });
       return false;
     }
-    if (stagedScans.some((x) => x.scan_data.trim() === scanData.trim())) {
-      setFeedback({ type: "error", message: "Duplicate barcode scan detected.", at: Date.now() });
-      return false;
+
+    // Validate pack_count is positive
+    const count = Math.max(1, Math.floor(packCount));
+
+    // Info feedback if same barcode was already staged (not blocking)
+    const trimmed = scanData.trim();
+    const existingWithSameBarcode = stagedScans.filter((x) => x.scan_data === trimmed);
+    if (existingWithSameBarcode.length > 0 && !manualMode) {
+      const totalPrevPacks = existingWithSameBarcode.reduce((sum, x) => sum + x.pack_count, 0);
+      setFeedback({
+        type: "success",
+        message: `Added ${count} more pack(s) of ${part} / ${doNo} (previously: ${totalPrevPacks} packs with same barcode)`,
+        at: Date.now(),
+      });
+    } else {
+      setFeedback({ type: "success", message: `Added ${part} / ${doNo} × ${count} pack(s)`, at: Date.now() });
     }
+
     setStagedScans((prev) => [
       ...prev,
       {
         id: uid(),
         part_number: part,
         do_number: doNo,
-        scan_data: manualMode ? `MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` : scanData.trim(),
+        scan_data: manualMode ? `MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` : trimmed,
+        pack_count: count,
         source: manualMode ? "MANUAL" : "SCAN",
         reason: manualMode ? manualReason.trim() : undefined,
         scanned_at: new Date().toISOString(),
@@ -104,9 +124,9 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
     ]);
     setScanData("");
     setManualReason("");
-    setFeedback({ type: "success", message: `Added ${part} / ${doNo}`, at: Date.now() });
+    setPackCount(1);
     return true;
-  }, [issuedTargets, manualMode, manualReason, scanData, selectedDo, selectedPart, stagedScans]);
+  }, [issuedTargets, manualMode, manualReason, packCount, scanData, selectedDo, selectedPart, stagedScans]);
 
   const removeStagedScan = useCallback((id: string) => {
     setStagedScans((prev) => prev.filter((x) => x.id !== id));
@@ -118,7 +138,7 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
   }, []);
 
   const buildPayloadScans = useCallback(
-    () => stagedScans.map((x) => ({ part_number: x.part_number, do_number: x.do_number, scan_data: x.scan_data })),
+    () => stagedScans.map((x) => ({ part_number: x.part_number, do_number: x.do_number, scan_data: x.scan_data, pack_count: x.pack_count })),
     [stagedScans]
   );
 
@@ -133,6 +153,7 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
     setSelectedPart("");
     setSelectedDo("");
     setScanData("");
+    setPackCount(1);
     setManualMode(false);
     setManualReason("");
     setStagedScans([]);
@@ -148,6 +169,8 @@ export function useProductionReceiptScanWorkbench(issuedTargets: ProductionRecei
     setSelectedDo,
     scanData,
     setScanData,
+    packCount,
+    setPackCount,
     manualMode,
     setManualMode,
     manualReason,

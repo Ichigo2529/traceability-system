@@ -481,6 +481,7 @@ export interface MaterialRequestMeta {
 
 export interface MaterialRequestDetail extends MaterialRequest {
   items: MaterialRequestItem[];
+  handover_batch_no?: string | null;
 }
 
 export interface MaterialRequestCatalogItem {

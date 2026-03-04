@@ -80,6 +80,7 @@ export type ProductionReceiptScanRow = {
   part_number: string;
   do_number: string;
   scan_data: string;
+  pack_count: number;
   source: "SCAN" | "MANUAL";
   reason?: string;
   scanned_at: string;
@@ -107,6 +108,8 @@ export type ProductionReceiptScanWorkbench = {
   setSelectedDo: Dispatch<SetStateAction<string>>;
   scanData: string;
   setScanData: Dispatch<SetStateAction<string>>;
+  packCount: number;
+  setPackCount: Dispatch<SetStateAction<number>>;
   manualMode: boolean;
   setManualMode: Dispatch<SetStateAction<boolean>>;
   manualReason: string;
@@ -117,7 +120,7 @@ export type ProductionReceiptScanWorkbench = {
   addStagedScan: () => boolean;
   removeStagedScan: (id: string) => void;
   clearStagedScans: () => void;
-  buildPayloadScans: () => Array<{ part_number: string; do_number: string; scan_data: string }>;
+  buildPayloadScans: () => Array<{ part_number: string; do_number: string; scan_data: string; pack_count: number }>;
   buildManualRemarks: () => string | undefined;
   reset: () => void;
 };

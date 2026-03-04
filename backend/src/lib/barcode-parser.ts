@@ -265,16 +265,13 @@ export function validateScannedBarcode(
     return { result: "PARSE_ERROR", detail: "No part number found in barcode" };
   }
 
-  // 2. Duplicate check (same raw barcode already MATCHED in this batch)
-  const isDuplicate = existingScans.some(
+  // 2. Duplicate awareness (same raw barcode already MATCHED in this batch)
+  // NOTE: We no longer block duplicates — identical barcodes are expected
+  // because all packs of the same part/lot/vendor share the same 2D barcode.
+  // Instead, we flag it as informational so the caller can warn the user.
+  const previousMatchCount = existingScans.filter(
     (s) => s.barcode_raw === parsed.raw && s.result === "MATCHED"
-  );
-  if (isDuplicate) {
-    return {
-      result: "DUPLICATE",
-      detail: `Already scanned: ${parsed.raw.slice(0, 40)}${parsed.raw.length > 40 ? "..." : ""}`,
-    };
-  }
+  ).length;
 
   // 3. Find matching batch item by part_number (case-insensitive)
   const normalizedPart = parsed.partNumber.toUpperCase().trim();
@@ -302,9 +299,12 @@ export function validateScannedBarcode(
 
   // 5. Over-scan warning (matched but already at or above expected)
   const overIntake = matchingItem.scanned_packs >= matchingItem.expected_packs;
+  const details: string[] = [];
+  if (previousMatchCount > 0) details.push(`ALREADY_SCANNED:${previousMatchCount}`);
+  if (overIntake) details.push("OVER_INTAKE_WARNING");
   return {
     result: "MATCHED",
-    detail: overIntake ? "OVER_INTAKE_WARNING" : undefined,
+    detail: details.length > 0 ? details.join(",") : undefined,
     matchedItemId: matchingItem.id,
     parsedQty: parsed.quantity ?? undefined,
   };

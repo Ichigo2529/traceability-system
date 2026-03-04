@@ -89,6 +89,7 @@ export function MaterialRequestVoucherView({
   hideIssueTotalsBeforeIssued = false,
   formatDate = defaultFormatDate,
   formatDateTime = defaultFormatDateTime,
+  handoverBatchNo,
 }: {
   detail: MaterialRequestDetail;
   onBack?: () => void;
@@ -98,6 +99,7 @@ export function MaterialRequestVoucherView({
   hideIssueTotalsBeforeIssued?: boolean;
   formatDate?: (value?: string | null) => string;
   formatDateTime?: (value?: string | null) => string;
+  handoverBatchNo?: string | null;
 }) {
   const isIssuedCompleted =
     detail.status === "ISSUED" ||
@@ -186,6 +188,39 @@ export function MaterialRequestVoucherView({
           <FieldBox label="COST CENTER" value={detail.cost_center} />
         </div>
       </div>
+
+      {/* QR Code for Forklift Kiosk Scan */}
+      {(handoverBatchNo || detail.handover_batch_no) && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "1rem",
+            border: BORDER,
+            borderRadius: "4px",
+            padding: "0.75rem 1rem",
+            marginBottom: "1.25rem",
+            background: "var(--sapInformationBackground, #e8f0fe)",
+          }}
+        >
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(handoverBatchNo || detail.handover_batch_no || "")}&format=svg`}
+            alt={`QR: ${handoverBatchNo || detail.handover_batch_no}`}
+            style={{ width: 100, height: 100, flexShrink: 0 }}
+          />
+          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
+            <Text style={{ fontSize: "0.7rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.07em", color: "var(--sapContent_LabelColor)" }}>
+              HANDOVER BATCH NO.
+            </Text>
+            <Title level="H5" style={{ fontWeight: "700", color: "var(--sapInformativeElementColor)" }}>
+              {handoverBatchNo || detail.handover_batch_no}
+            </Title>
+            <Text style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)" }}>
+              Scan this QR code at the Kiosk to confirm pickup
+            </Text>
+          </FlexBox>
+        </div>
+      )}
 
       <FlexBox
         justifyContent={FlexBoxJustifyContent.SpaceBetween}

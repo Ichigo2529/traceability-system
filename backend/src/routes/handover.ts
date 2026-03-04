@@ -153,7 +153,7 @@ export const scanSessionRoutes = new Elysia({ prefix: "/scan-sessions" })
   )
   .post(
     "/:id/scans",
-    async ({ params, body, set, user }: { params: { id: string }; body: { idempotency_key: string; barcode_raw: string; scanned_at_device: string; device_id?: string; parser_key?: string }; set: any; user: AccessTokenPayload | null }) => {
+    async ({ params, body, set, user }: { params: { id: string }; body: { idempotency_key: string; barcode_raw: string; scanned_at_device: string; device_id?: string; parser_key?: string; pack_count?: number }; set: any; user: AccessTokenPayload | null }) => {
       const unauthorized = checkAuth({ user, set });
       if (unauthorized) return unauthorized;
       const currentUser = user as AccessTokenPayload;
@@ -176,10 +176,19 @@ export const scanSessionRoutes = new Elysia({ prefix: "/scan-sessions" })
       }
 
       // 1. Fetch expected batch items
-      const batchItems = await db
+      const batchItemRows = await db
         .select()
         .from(handoverBatchItems)
         .where(eq(handoverBatchItems.handoverBatchId, session.handoverBatchId));
+
+      // Map Drizzle camelCase → BatchItemForValidation snake_case
+      const batchItems = batchItemRows.map((row) => ({
+        id: row.id,
+        part_number: row.partNumber,
+        do_number: row.doNumber,
+        expected_packs: row.expectedPacks,
+        scanned_packs: row.scannedPacks,
+      }));
 
       // 2. Fetch existing scans (to check duplicates)
       const existingScans = await db
@@ -194,6 +203,7 @@ export const scanSessionRoutes = new Elysia({ prefix: "/scan-sessions" })
       const validation = validateScannedBarcode(parsed, batchItems, existingScans);
 
       // 5. Store Event + Update Item and Session
+      const packCount = Math.max(1, Math.floor(Number(body.pack_count ?? 1)));
       let scanEventId = "";
       await db.transaction(async (tx) => {
         const [event] = await tx
@@ -211,6 +221,7 @@ export const scanSessionRoutes = new Elysia({ prefix: "/scan-sessions" })
             parsedExpiryDate: parsed.expiryDate,
             parsedProductionDate: parsed.productionDate,
             parsedData: parsed.segments,
+            packCount: packCount,
             result: validation.result,
             resultDetail: validation.detail,
             matchedBatchItemId: validation.matchedItemId,
@@ -260,6 +271,7 @@ export const scanSessionRoutes = new Elysia({ prefix: "/scan-sessions" })
           result: validation.result,
           result_detail: validation.detail,
           matched_item_id: validation.matchedItemId,
+          pack_count: packCount,
         },
       };
 
@@ -272,6 +284,7 @@ export const scanSessionRoutes = new Elysia({ prefix: "/scan-sessions" })
         scanned_at_device: t.String(),
         device_id: t.Optional(t.String()),
         parser_key: t.Optional(t.String()),
+        pack_count: t.Optional(t.Number()),
       }),
     }
   )

@@ -664,6 +664,14 @@ materialRequestRoutes.get(
       receivedByName = receivedByUser?.display_name ?? receivedByUser?.email ?? null;
     }
 
+    // Fetch handover batch number for QR code on voucher
+    const [batchRow] = await db
+      .select({ batch_no: handoverBatches.batchNo })
+      .from(handoverBatches)
+      .where(eq(handoverBatches.materialRequestId, params.id))
+      .orderBy(asc(handoverBatches.createdAt))
+      .limit(1);
+
     return {
       success: true,
       data: {
@@ -671,6 +679,7 @@ materialRequestRoutes.get(
         issued_by_name: issuedByName,
         received_by_name: receivedByName,
         received_at: header.received_by_user_id ? header.updated_at : null,
+        handover_batch_no: batchRow?.batch_no ?? null,
         alert_status: "UNTRACKED",
         alert_recipients: alertRecipients,
         items: items.map((item) => ({
@@ -1642,7 +1651,7 @@ materialRequestRoutes.post(
     user,
   }: {
     params: { id: string };
-    body: { scans: Array<{ part_number: string; do_number: string; scan_data: string }>; remarks?: string };
+    body: { scans: Array<{ part_number: string; do_number: string; scan_data: string; pack_count?: number }>; remarks?: string };
     set: any;
     user: AccessTokenPayload | null;
   }) => {
@@ -1663,6 +1672,7 @@ materialRequestRoutes.post(
           .trim()
           .toUpperCase(),
         scan_data: String(row.scan_data ?? "").trim(),
+        pack_count: Math.max(1, Math.floor(Number(row.pack_count ?? 1))),
       }))
       .filter((row) => row.part_number && row.do_number && row.scan_data);
 
@@ -1779,8 +1789,9 @@ materialRequestRoutes.post(
             unitId: pack?.unit_id ?? null,
             scanData: scan.scan_data,
             parsedData: pack?.parsed_data ?? null,
+            packCount: scan.pack_count,
           });
-          insertedCount += 1;
+          insertedCount += scan.pack_count;
         }
 
         const mergedRemarks = [header.remarks, body.remarks].filter(Boolean).join(" | ") || null;
@@ -1857,6 +1868,7 @@ materialRequestRoutes.post(
           part_number: t.String(),
           do_number: t.String(),
           scan_data: t.String(),
+          pack_count: t.Optional(t.Number()),
         })
       ),
       remarks: t.Optional(t.String()),
