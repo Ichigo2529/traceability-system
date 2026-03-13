@@ -10,22 +10,22 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ui5/webcomponents": "^2.19.2",
-    "@ui5/webcomponents-base": "^2.19.2",
-    "@ui5/webcomponents-icons": "^2.19.2",
-    "@ui5/webcomponents-localization": "^2.19.2",
-    "@ui5/webcomponents-react": "^2.19.0",
+    "@ui5/webcomponents": "^2.20.0",
+    "@ui5/webcomponents-base": "^2.20.0",
+    "@ui5/webcomponents-icons": "^2.20.0",
+    "@ui5/webcomponents-localization": "^2.20.0",
+    "@ui5/webcomponents-react": "^2.20.0",
     "@traceability/offline-queue": "*",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "react-router-dom": "^6.22.0",
     "@traceability/sdk": "*"
   },
   "devDependencies": {
-    "@types/react": "^18.2.55",
-    "@types/react-dom": "^18.2.19",
-    "@vitejs/plugin-react": "^4.2.1",
-    "typescript": "^5.2.2",
-    "vite": "^5.1.0"
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.8.0",
+    "vite": "^6.0.0"
   }
 }

@@ -1,11 +1,12 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   build: {
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -14,6 +15,8 @@ export default defineConfig({
           if (id.includes("@tanstack/")) return "vendor-tanstack";
           if (id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("axios")) return "vendor-axios";
+          if (id.includes("@react-pdf/")) return "vendor-pdf";
+          // Do not chunk @ui5 separately to avoid circular dependency with vendor-tanstack
           return undefined;
         },
       },
@@ -21,12 +24,12 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true
+    host: true,
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
-  envDir: '../../' // Load .env from web root
-})
+  envDir: "../../", // Load .env from web root
+});

@@ -20,7 +20,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    
+
     /* Paths */
     "baseUrl": ".",
     "paths": {
@@ -29,8 +29,7 @@
       "@traceability/offline-queue": ["packages/offline-queue/src"],
       "@traceability/material": ["packages/material/src"],
       "@traceability/material-ui": ["packages/material-ui/src"]
-    },
-    "types": ["vite/client"]
+    }
   },
   "include": ["apps", "packages", "vite-env.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "typecheck": "bunx tsc --noEmit",
+    "test": "bun test",
     "test:contracts": "bun test src/lib/*.contract.test.js",
     "rules:validate": "bun run src/scripts/validate_rules.ts",
     "db:generate": "drizzle-kit generate",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.13.5",
+    "bun-types": "latest",
     "drizzle-kit": "^0.31.9",
     "typescript": "^5.7.3"
   }

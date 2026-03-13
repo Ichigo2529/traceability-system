@@ -1,6 +1,7 @@
 import Elysia, { t } from "elysia";
 import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "../db/connection";
+import { ok, fail } from "../lib/http";
 import { type AccessTokenPayload } from "../lib/jwt";
 import { hashPassword } from "../lib/password";
 import { authDerive } from "../middleware/auth";
@@ -179,13 +180,19 @@ type BarcodeTemplateMasterRecord = {
 
 function normalizeTemplateRecord(input: any): BarcodeTemplateMasterRecord | null {
   if (!input || typeof input !== "object") return null;
-  const key = String(input.key ?? "").trim().toUpperCase();
+  const key = String(input.key ?? "")
+    .trim()
+    .toUpperCase();
   if (!key) return null;
   const nowIso = new Date().toISOString();
   const normalizeIdList = (value: unknown, fallback: string[]) =>
     Array.isArray(value)
       ? value
-          .map((x) => String(x ?? "").trim().toUpperCase())
+          .map((x) =>
+            String(x ?? "")
+              .trim()
+              .toUpperCase()
+          )
           .filter((x) => x.length > 0)
       : fallback;
 
@@ -402,10 +409,7 @@ function ensureDraftRevisionOrThrow(revisionStatus: string) {
   }
 }
 
-async function validateBomReferenceOrThrow(input: {
-  componentUnitType?: string;
-  componentPartNumber?: string | null;
-}) {
+async function validateBomReferenceOrThrow(input: { componentUnitType?: string; componentPartNumber?: string | null }) {
   const componentUnitType = input.componentUnitType?.trim();
   const componentPartNumber = input.componentPartNumber?.trim();
 
@@ -486,17 +490,44 @@ async function runReadinessValidation(modelId: string, targetRevisionId?: string
   const revisionId = targetRevision.id;
   const variantRows = await db.select({ id: variants.id }).from(variants).where(eq(variants.revisionId, revisionId));
   const bomRows = await db.select({ id: bom.id }).from(bom).where(eq(bom.revisionId, revisionId));
-  const [routingRow] = await db.select({ id: routing.id }).from(routing).where(eq(routing.revisionId, revisionId)).limit(1);
+  const [routingRow] = await db
+    .select({ id: routing.id })
+    .from(routing)
+    .where(eq(routing.revisionId, revisionId))
+    .limit(1);
   const stepRows = routingRow
     ? await db.select({ id: routingSteps.id }).from(routingSteps).where(eq(routingSteps.routingId, routingRow.id))
     : [];
-  const bindingRows = await db.select({ id: labelBindings.id }).from(labelBindings).where(eq(labelBindings.modelRevisionId, revisionId));
+  const bindingRows = await db
+    .select({ id: labelBindings.id })
+    .from(labelBindings)
+    .where(eq(labelBindings.modelRevisionId, revisionId));
 
-  if (!variantRows.length) issues.push({ code: "MISSING_VARIANTS", message: "Revision has no variants", scope: "VARIANTS", path: "variants" });
-  if (!bomRows.length) issues.push({ code: "MISSING_BOM", message: "Revision has no BOM entries", scope: "BOM", path: "bom" });
-  if (!routingRow) issues.push({ code: "MISSING_ROUTING", message: "Revision has no routing definition", scope: "ROUTING", path: "routing" });
-  else if (!stepRows.length) issues.push({ code: "MISSING_ROUTING_STEPS", message: "Routing has no steps", scope: "ROUTING", path: "routing.steps" });
-  if (!bindingRows.length) issues.push({ code: "MISSING_LABEL_BINDINGS", message: "Revision has no label bindings", scope: "LABEL_BINDING", path: "label_bindings" });
+  if (!variantRows.length)
+    issues.push({ code: "MISSING_VARIANTS", message: "Revision has no variants", scope: "VARIANTS", path: "variants" });
+  if (!bomRows.length)
+    issues.push({ code: "MISSING_BOM", message: "Revision has no BOM entries", scope: "BOM", path: "bom" });
+  if (!routingRow)
+    issues.push({
+      code: "MISSING_ROUTING",
+      message: "Revision has no routing definition",
+      scope: "ROUTING",
+      path: "routing",
+    });
+  else if (!stepRows.length)
+    issues.push({
+      code: "MISSING_ROUTING_STEPS",
+      message: "Routing has no steps",
+      scope: "ROUTING",
+      path: "routing.steps",
+    });
+  if (!bindingRows.length)
+    issues.push({
+      code: "MISSING_LABEL_BINDINGS",
+      message: "Revision has no label bindings",
+      scope: "LABEL_BINDING",
+      path: "label_bindings",
+    });
 
   return {
     status: issues.length ? ("FAIL" as const) : ("PASS" as const),
@@ -506,19 +537,17 @@ async function runReadinessValidation(modelId: string, targetRevisionId?: string
   };
 }
 
-export const adminRoutes = new Elysia({ prefix: "/admin" })
-  .use(authDerive)
-  .onBeforeHandle((ctx) => {
-    const { user, set } = ctx as any;
-    if (!user) {
-      set.status = 401;
-      return { success: false, error_code: "UNAUTHORIZED", message: "Authentication required" };
-    }
-    if (!(user as AccessTokenPayload).roles?.includes("ADMIN")) {
-      set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "Requires ADMIN role" };
-    }
-  });
+export const adminRoutes = new Elysia({ prefix: "/admin" }).use(authDerive).onBeforeHandle((ctx) => {
+  const { user, set } = ctx as any;
+  if (!user) {
+    set.status = 401;
+    return fail("UNAUTHORIZED", "Authentication required");
+  }
+  if (!(user as AccessTokenPayload).roles?.includes("ADMIN")) {
+    set.status = 403;
+    return fail("FORBIDDEN", "Requires ADMIN role");
+  }
+});
 adminRoutes.get("/users", async () => {
   const allUsers = await db
     .select({
@@ -555,16 +584,16 @@ adminRoutes.get("/users", async () => {
         .where(eq(userDepartments.userId, u.id))
         .limit(1);
 
-      return { 
-        ...u, 
+      return {
+        ...u,
         roles: rows.map((r) => r.role_name),
         section_id: sectionRow?.section_id ?? null,
-        department_id: departmentRow?.department_id ?? null
+        department_id: departmentRow?.department_id ?? null,
       };
     })
   );
 
-  return { success: true, data: enriched };
+  return ok(enriched);
 });
 
 adminRoutes.get("/departments", async () => {
@@ -582,7 +611,7 @@ adminRoutes.get("/departments", async () => {
     .from(departments)
     .orderBy(asc(departments.sortOrder), asc(departments.name));
 
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -592,8 +621,12 @@ adminRoutes.post(
       const [created] = await db
         .insert(departments)
         .values({
-          code: String(body.code ?? "").trim().toUpperCase(),
-          name: String(body.name ?? "").trim().toLowerCase(),
+          code: String(body.code ?? "")
+            .trim()
+            .toUpperCase(),
+          name: String(body.name ?? "")
+            .trim()
+            .toLowerCase(),
           sortOrder: body.sort_order ?? 100,
           isActive: body.is_active ?? true,
           sectionId: body.section_id ?? null,
@@ -609,11 +642,18 @@ adminRoutes.post(
           updated_at: departments.updatedAt,
         });
 
-      await auditConfigChange(user.userId, "DEPARTMENT", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      await auditConfigChange(
+        user.userId,
+        "DEPARTMENT",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create department" };
+      return fail(parseErrorCode(error), "Failed to create department");
     }
   },
   {
@@ -633,7 +673,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(departments).where(eq(departments.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Department not found" };
+      return fail("NOT_FOUND", "Department not found");
     }
 
     try {
@@ -644,7 +684,7 @@ adminRoutes.put(
           name: body.name !== undefined ? String(body.name).trim().toLowerCase() : existing.name,
           sortOrder: body.sort_order ?? existing.sortOrder,
           isActive: body.is_active ?? existing.isActive,
-          sectionId: body.section_id !== undefined ? (body.section_id || null) : existing.sectionId,
+          sectionId: body.section_id !== undefined ? body.section_id || null : existing.sectionId,
           updatedAt: new Date(),
         })
         .where(eq(departments.id, params.id))
@@ -660,10 +700,10 @@ adminRoutes.put(
         });
 
       await auditConfigChange(user.userId, "DEPARTMENT", params.id, "UPDATE", existing as any, updated as any);
-      return { success: true, data: updated };
+      return ok(updated);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to update department" };
+      return fail(parseErrorCode(error), "Failed to update department");
     }
   },
   {
@@ -677,32 +717,46 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/departments/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(departments).where(eq(departments.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Department not found" };
-  }
+adminRoutes.delete(
+  "/departments/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(departments).where(eq(departments.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Department not found");
+    }
 
-  await db.update(departments).set({ isActive: false, updatedAt: new Date() }).where(eq(departments.id, params.id));
-  await auditConfigChange(user.userId, "DEPARTMENT", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
-  return { success: true, data: null };
-});
+    await db.update(departments).set({ isActive: false, updatedAt: new Date() }).where(eq(departments.id, params.id));
+    await auditConfigChange(user.userId, "DEPARTMENT", params.id, "DEACTIVATE", existing as Record<string, unknown>, {
+      is_active: false,
+    });
+    return ok(null);
+  }
+);
 
 adminRoutes.post(
   "/users",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
     try {
-      const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.username, body.username)).limit(1);
+      const [existing] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.username, body.username))
+        .limit(1);
       if (existing) {
         set.status = 409;
-        return { success: false, error_code: "USERNAME_TAKEN", message: "Username already exists" };
+        return fail("USERNAME_TAKEN", "Username already exists");
       }
 
       const normalizedDepartment = await normalizeDepartmentFromMaster(body.department);
-      if (body.department !== undefined && body.department !== null && String(body.department).trim() && !normalizedDepartment) {
+      if (
+        body.department !== undefined &&
+        body.department !== null &&
+        String(body.department).trim() &&
+        !normalizedDepartment
+      ) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "Invalid department value" };
+        return fail("INVALID_INPUT", "Invalid department value");
       }
 
       const [created] = await db
@@ -729,7 +783,8 @@ adminRoutes.post(
 
       if (body.roles?.length) {
         const dbRoles = await db.select({ id: roles.id }).from(roles).where(inArray(roles.name, body.roles));
-        if (dbRoles.length) await db.insert(userRoles).values(dbRoles.map((r) => ({ userId: created.id, roleId: r.id })));
+        if (dbRoles.length)
+          await db.insert(userRoles).values(dbRoles.map((r) => ({ userId: created.id, roleId: r.id })));
       }
 
       if (body.section_id) {
@@ -740,25 +795,32 @@ adminRoutes.post(
         await db.insert(userDepartments).values({ userId: created.id, departmentId: body.department_id });
       }
 
-      await auditConfigChange(user.userId, "USER", created.id, "CREATE", null, created as unknown as Record<string, unknown>);
-      return { success: true, data: { ...created, roles: body.roles ?? [] } };
+      await auditConfigChange(
+        user.userId,
+        "USER",
+        created.id,
+        "CREATE",
+        null,
+        created as unknown as Record<string, unknown>
+      );
+      return ok({ ...created, roles: body.roles ?? [] });
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create user" };
+      return fail(parseErrorCode(error), "Failed to create user");
     }
   },
   {
-      body: t.Object({
-        username: t.String(),
-        password: t.String(),
-        display_name: t.String(),
-        employee_code: t.Optional(t.String()),
-        email: t.Optional(t.String()),
-        department: t.Optional(t.String()),
-        section_id: t.Optional(t.String()),
-        department_id: t.Optional(t.String()),
-        roles: t.Optional(t.Array(t.String())),
-      }),
+    body: t.Object({
+      username: t.String(),
+      password: t.String(),
+      display_name: t.String(),
+      employee_code: t.Optional(t.String()),
+      email: t.Optional(t.String()),
+      department: t.Optional(t.String()),
+      section_id: t.Optional(t.String()),
+      department_id: t.Optional(t.String()),
+      roles: t.Optional(t.Array(t.String())),
+    }),
   }
 );
 
@@ -768,7 +830,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(users).where(eq(users.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "User not found" };
+      return fail("NOT_FOUND", "User not found");
     }
 
     const updateValues: Partial<typeof users.$inferInsert> = {};
@@ -779,7 +841,7 @@ adminRoutes.put(
       const normalizedDepartment = await normalizeDepartmentFromMaster(body.department);
       if (body.department !== null && String(body.department).trim() && !normalizedDepartment) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "Invalid department value" };
+        return fail("INVALID_INPUT", "Invalid department value");
       }
       updateValues.department = normalizedDepartment;
     }
@@ -791,7 +853,8 @@ adminRoutes.put(
       await db.delete(userRoles).where(eq(userRoles.userId, params.id));
       if (body.roles.length) {
         const dbRoles = await db.select({ id: roles.id }).from(roles).where(inArray(roles.name, body.roles));
-        if (dbRoles.length) await db.insert(userRoles).values(dbRoles.map((r) => ({ userId: params.id, roleId: r.id })));
+        if (dbRoles.length)
+          await db.insert(userRoles).values(dbRoles.map((r) => ({ userId: params.id, roleId: r.id })));
       }
     }
 
@@ -832,7 +895,7 @@ adminRoutes.put(
       .where(eq(userRoles.userId, params.id));
 
     await auditConfigChange(user.userId, "USER", params.id, "UPDATE", existing as any, updated as any);
-    return { success: true, data: { ...updated, roles: rows.map((r) => r.role_name) } };
+    return ok({ ...updated, roles: rows.map((r) => r.role_name) });
   },
   {
     body: t.Object({
@@ -849,33 +912,42 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/users/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(users).where(eq(users.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "User not found" };
+adminRoutes.delete(
+  "/users/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(users).where(eq(users.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "User not found");
+    }
+
+    const [activeSession] = await db
+      .select({ id: refreshTokens.id })
+      .from(refreshTokens)
+      .where(
+        and(
+          eq(refreshTokens.userId, params.id),
+          eq(refreshTokens.revoked, false),
+          gte(refreshTokens.expiresAt, new Date())
+        )
+      )
+      .limit(1);
+
+    if (activeSession) {
+      set.status = 409;
+      return fail("LOCKED_USER", "User is currently logged in and cannot be deleted");
+    }
+
+    await db.update(configAuditLogs).set({ userId: null }).where(eq(configAuditLogs.userId, params.id));
+    await db.update(holds).set({ createdBy: null }).where(eq(holds.createdBy, params.id));
+    await db.update(holds).set({ resolvedBy: null }).where(eq(holds.resolvedBy, params.id));
+    await db.update(events).set({ operatorUserId: null }).where(eq(events.operatorUserId, params.id));
+    await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, params.id));
+    await db.delete(users).where(eq(users.id, params.id));
+    await auditConfigChange(user.userId, "USER", params.id, "DELETE", existing as Record<string, unknown>, null);
+    return ok(null);
   }
-
-  const [activeSession] = await db
-    .select({ id: refreshTokens.id })
-    .from(refreshTokens)
-    .where(and(eq(refreshTokens.userId, params.id), eq(refreshTokens.revoked, false), gte(refreshTokens.expiresAt, new Date())))
-    .limit(1);
-
-  if (activeSession) {
-    set.status = 409;
-    return { success: false, error_code: "LOCKED_USER", message: "User is currently logged in and cannot be deleted" };
-  }
-
-  await db.update(configAuditLogs).set({ userId: null }).where(eq(configAuditLogs.userId, params.id));
-  await db.update(holds).set({ createdBy: null }).where(eq(holds.createdBy, params.id));
-  await db.update(holds).set({ resolvedBy: null }).where(eq(holds.resolvedBy, params.id));
-  await db.update(events).set({ operatorUserId: null }).where(eq(events.operatorUserId, params.id));
-  await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.userId, params.id));
-  await db.delete(users).where(eq(users.id, params.id));
-  await auditConfigChange(user.userId, "USER", params.id, "DELETE", existing as Record<string, unknown>, null);
-  return { success: true, data: null };
-});
+);
 
 adminRoutes.get("/permissions", async () => {
   const rows = await db
@@ -889,7 +961,7 @@ adminRoutes.get("/permissions", async () => {
     .from(permissions)
     .orderBy(asc(permissions.module), asc(permissions.code));
 
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.get("/roles", async () => {
@@ -915,7 +987,7 @@ adminRoutes.get("/roles", async () => {
     })
   );
 
-  return { success: true, data };
+  return ok(data);
 });
 
 adminRoutes.post(
@@ -947,10 +1019,10 @@ adminRoutes.post(
       }
 
       await auditConfigChange(user.userId, "ROLE", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: { ...created, permissions: body.permissions ?? [] } };
+      return ok({ ...created, permissions: body.permissions ?? [] });
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create role" };
+      return fail(parseErrorCode(error), "Failed to create role");
     }
   },
   {
@@ -968,7 +1040,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(roles).where(eq(roles.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Role not found" };
+      return fail("NOT_FOUND", "Role not found");
     }
 
     const [updated] = await db
@@ -999,8 +1071,15 @@ adminRoutes.put(
       }
     }
 
-    await auditConfigChange(user.userId, "ROLE", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
-    return { success: true, data: { ...updated, permissions: body.permissions ?? [] } };
+    await auditConfigChange(
+      user.userId,
+      "ROLE",
+      params.id,
+      "UPDATE",
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>
+    );
+    return ok({ ...updated, permissions: body.permissions ?? [] });
   },
   {
     body: t.Object({
@@ -1011,21 +1090,24 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/roles/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(roles).where(eq(roles.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Role not found" };
-  }
-  if (existing.name === "ADMIN") {
-    set.status = 409;
-    return { success: false, error_code: "INVALID_OPERATION", message: "ADMIN role cannot be deleted" };
-  }
+adminRoutes.delete(
+  "/roles/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(roles).where(eq(roles.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Role not found");
+    }
+    if (existing.name === "ADMIN") {
+      set.status = 409;
+      return fail("INVALID_OPERATION", "ADMIN role cannot be deleted");
+    }
 
-  await db.delete(roles).where(eq(roles.id, params.id));
-  await auditConfigChange(user.userId, "ROLE", params.id, "DELETE", existing as Record<string, unknown>, null);
-  return { success: true, data: null };
-});
+    await db.delete(roles).where(eq(roles.id, params.id));
+    await auditConfigChange(user.userId, "ROLE", params.id, "DELETE", existing as Record<string, unknown>, null);
+    return ok(null);
+  }
+);
 
 adminRoutes.get("/devices", async () => {
   const rows = await db
@@ -1115,7 +1197,7 @@ adminRoutes.post(
       };
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create device" };
+      return fail(parseErrorCode(error), "Failed to create device");
     }
   },
   {
@@ -1142,7 +1224,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(devices).where(eq(devices.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Device not found" };
+      return fail("NOT_FOUND", "Device not found");
     }
 
     const [updated] = await db
@@ -1175,8 +1257,15 @@ adminRoutes.put(
         is_active: devices.isActive,
       });
 
-    await auditConfigChange(user.userId, "DEVICE", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
-    return { success: true, data: updated };
+    await auditConfigChange(
+      user.userId,
+      "DEVICE",
+      params.id,
+      "UPDATE",
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>
+    );
+    return ok(updated);
   },
   {
     body: t.Object({
@@ -1194,39 +1283,55 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/devices/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(devices).where(eq(devices.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Device not found" };
-  }
-
-  await db
-    .update(devices)
-    .set({
-      isActive: false,
-      deviceStatus: "disabled",
-      updatedAt: new Date(),
-    })
-    .where(eq(devices.id, params.id));
-
-  await auditConfigChange(user.userId, "DEVICE", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false, status: "disabled" });
-  return { success: true, data: null };
-});
-
-adminRoutes.post(
-  "/devices/:id/status",
-  async ({ params, body, set, user }: { params: { id: string }; body: { status: string }; set: any; user: AccessTokenPayload }) => {
+adminRoutes.delete(
+  "/devices/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
     const [existing] = await db.select().from(devices).where(eq(devices.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Device not found" };
+      return fail("NOT_FOUND", "Device not found");
+    }
+
+    await db
+      .update(devices)
+      .set({
+        isActive: false,
+        deviceStatus: "disabled",
+        updatedAt: new Date(),
+      })
+      .where(eq(devices.id, params.id));
+
+    await auditConfigChange(user.userId, "DEVICE", params.id, "DEACTIVATE", existing as Record<string, unknown>, {
+      is_active: false,
+      status: "disabled",
+    });
+    return ok(null);
+  }
+);
+
+adminRoutes.post(
+  "/devices/:id/status",
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string };
+    body: { status: string };
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
+    const [existing] = await db.select().from(devices).where(eq(devices.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Device not found");
     }
 
     const nextStatus = body.status;
     if (!["active", "disabled", "maintenance"].includes(nextStatus)) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_STATUS", message: "Invalid device status" };
+      return fail("INVALID_STATUS", "Invalid device status");
     }
 
     await db
@@ -1238,58 +1343,87 @@ adminRoutes.post(
       })
       .where(eq(devices.id, params.id));
 
-    await auditConfigChange(user.userId, "DEVICE", params.id, "STATUS_CHANGE", { status: existing.deviceStatus }, { status: nextStatus });
-    return { success: true, data: { id: params.id, status: nextStatus } };
+    await auditConfigChange(
+      user.userId,
+      "DEVICE",
+      params.id,
+      "STATUS_CHANGE",
+      { status: existing.deviceStatus },
+      { status: nextStatus }
+    );
+    return ok({ id: params.id, status: nextStatus });
   },
   { body: t.Object({ status: t.String() }) }
 );
 
-adminRoutes.post("/devices/:id/regenerate-secret", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(devices).where(eq(devices.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Device not found" };
+adminRoutes.post(
+  "/devices/:id/regenerate-secret",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(devices).where(eq(devices.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Device not found");
+    }
+
+    const newSecret = randomBytes(24).toString("hex");
+    await db
+      .update(devices)
+      .set({
+        secretKey: newSecret,
+        secretRotatedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(devices.id, params.id));
+
+    await auditConfigChange(user.userId, "DEVICE", params.id, "REGENERATE_SECRET", null, {
+      secret_rotated_at: new Date().toISOString(),
+    });
+    return {
+      success: true,
+      data: {
+        id: params.id,
+        secret_key: newSecret,
+        secret_key_masked: maskSecret(newSecret),
+      },
+    };
   }
-
-  const newSecret = randomBytes(24).toString("hex");
-  await db
-    .update(devices)
-    .set({
-      secretKey: newSecret,
-      secretRotatedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(devices.id, params.id));
-
-  await auditConfigChange(user.userId, "DEVICE", params.id, "REGENERATE_SECRET", null, { secret_rotated_at: new Date().toISOString() });
-  return {
-    success: true,
-    data: {
-      id: params.id,
-      secret_key: newSecret,
-      secret_key_masked: maskSecret(newSecret),
-    },
-  };
-});
+);
 
 adminRoutes.put(
   "/devices/:id/assign-machine",
-  async ({ params, body, set, user }: { params: { id: string }; body: { machine_id: string }; set: any; user: AccessTokenPayload }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string };
+    body: { machine_id: string };
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
     const [dev] = await db.select({ id: devices.id }).from(devices).where(eq(devices.id, params.id)).limit(1);
     if (!dev) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Device not found" };
+      return fail("NOT_FOUND", "Device not found");
     }
 
-    const [machine] = await db.select({ id: machines.id, name: machines.name }).from(machines).where(eq(machines.id, body.machine_id)).limit(1);
+    const [machine] = await db
+      .select({ id: machines.id, name: machines.name })
+      .from(machines)
+      .where(eq(machines.id, body.machine_id))
+      .limit(1);
     if (!machine) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Machine not found" };
+      return fail("NOT_FOUND", "Machine not found");
     }
 
-    await db.update(devices).set({ machineId: body.machine_id, updatedAt: new Date() }).where(eq(devices.id, params.id));
+    await db
+      .update(devices)
+      .set({ machineId: body.machine_id, updatedAt: new Date() })
+      .where(eq(devices.id, params.id));
     await auditConfigChange(user.userId, "DEVICE", params.id, "ASSIGN_MACHINE", null, { machine_id: body.machine_id });
-    return { success: true, data: { device_id: params.id, machine_id: body.machine_id, machine_name: machine.name } };
+    return ok({ device_id: params.id, machine_id: body.machine_id, machine_name: machine.name });
   },
   { body: t.Object({ machine_id: t.String() }) }
 );
@@ -1311,7 +1445,8 @@ adminRoutes.get("/machines", async () => {
     success: true,
     data: rows.map((m) => ({
       ...m,
-      supported_variants: ((m.capabilities as Record<string, unknown> | null)?.supported_variants as string[] | undefined) ?? [],
+      supported_variants:
+        ((m.capabilities as Record<string, unknown> | null)?.supported_variants as string[] | undefined) ?? [],
     })),
   };
 });
@@ -1342,15 +1477,24 @@ adminRoutes.post(
         success: true,
         data: {
           ...created,
-          supported_variants: ((created.capabilities as Record<string, unknown> | null)?.supported_variants as string[] | undefined) ?? [],
+          supported_variants:
+            ((created.capabilities as Record<string, unknown> | null)?.supported_variants as string[] | undefined) ??
+            [],
         },
       };
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create machine" };
+      return fail(parseErrorCode(error), "Failed to create machine");
     }
   },
-  { body: t.Object({ name: t.String(), station_type: t.String(), line_code: t.Optional(t.String()), supported_variants: t.Optional(t.Array(t.String())) }) }
+  {
+    body: t.Object({
+      name: t.String(),
+      station_type: t.String(),
+      line_code: t.Optional(t.String()),
+      supported_variants: t.Optional(t.Array(t.String())),
+    }),
+  }
 );
 
 adminRoutes.put(
@@ -1359,7 +1503,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(machines).where(eq(machines.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Machine not found" };
+      return fail("NOT_FOUND", "Machine not found");
     }
 
     const [updated] = await db
@@ -1371,7 +1515,9 @@ adminRoutes.put(
         capabilities: {
           ...(existing.capabilities as Record<string, unknown> | null),
           supported_variants:
-            body.supported_variants ?? (((existing.capabilities as Record<string, unknown> | null)?.supported_variants as string[]) ?? []),
+            body.supported_variants ??
+            ((existing.capabilities as Record<string, unknown> | null)?.supported_variants as string[]) ??
+            [],
         },
         isActive: typeof body.is_active === "boolean" ? body.is_active : existing.isActive,
         updatedAt: new Date(),
@@ -1392,7 +1538,8 @@ adminRoutes.put(
       success: true,
       data: {
         ...updated,
-        supported_variants: ((updated.capabilities as Record<string, unknown> | null)?.supported_variants as string[] | undefined) ?? [],
+        supported_variants:
+          ((updated.capabilities as Record<string, unknown> | null)?.supported_variants as string[] | undefined) ?? [],
       },
     };
   },
@@ -1407,17 +1554,20 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/machines/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select({ id: machines.id }).from(machines).where(eq(machines.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Machine not found" };
-  }
+adminRoutes.delete(
+  "/machines/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select({ id: machines.id }).from(machines).where(eq(machines.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Machine not found");
+    }
 
-  await db.update(machines).set({ isActive: false, updatedAt: new Date() }).where(eq(machines.id, params.id));
-  await auditConfigChange(user.userId, "MACHINE", params.id, "DEACTIVATE", null, { is_active: false });
-  return { success: true, data: null };
-});
+    await db.update(machines).set({ isActive: false, updatedAt: new Date() }).where(eq(machines.id, params.id));
+    await auditConfigChange(user.userId, "MACHINE", params.id, "DEACTIVATE", null, { is_active: false });
+    return ok(null);
+  }
+);
 
 adminRoutes.get("/component-types", async () => {
   const rows = await db
@@ -1432,18 +1582,20 @@ adminRoutes.get("/component-types", async () => {
     })
     .from(componentTypes)
     .orderBy(asc(componentTypes.code));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
   "/component-types",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
     try {
-      const normalizedCode = String(body.code ?? "").trim().toUpperCase();
+      const normalizedCode = String(body.code ?? "")
+        .trim()
+        .toUpperCase();
       const normalizedName = String(body.name ?? "").trim();
       if (!normalizedCode || !normalizedName) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "code and name are required" };
+        return fail("INVALID_INPUT", "code and name are required");
       }
 
       const [created] = await db
@@ -1464,11 +1616,18 @@ adminRoutes.post(
           updated_at: componentTypes.updatedAt,
         });
 
-      await auditConfigChange(user.userId, "COMPONENT_TYPE", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      await auditConfigChange(
+        user.userId,
+        "COMPONENT_TYPE",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create component type" };
+      return fail(parseErrorCode(error), "Failed to create component type");
     }
   },
   {
@@ -1487,7 +1646,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(componentTypes).where(eq(componentTypes.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Component type not found" };
+      return fail("NOT_FOUND", "Component type not found");
     }
 
     const [updated] = await db
@@ -1510,8 +1669,15 @@ adminRoutes.put(
         updated_at: componentTypes.updatedAt,
       });
 
-    await auditConfigChange(user.userId, "COMPONENT_TYPE", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
-    return { success: true, data: updated };
+    await auditConfigChange(
+      user.userId,
+      "COMPONENT_TYPE",
+      params.id,
+      "UPDATE",
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>
+    );
+    return ok(updated);
   },
   {
     body: t.Object({
@@ -1523,17 +1689,30 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/component-types/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(componentTypes).where(eq(componentTypes.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Component type not found" };
-  }
+adminRoutes.delete(
+  "/component-types/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(componentTypes).where(eq(componentTypes.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Component type not found");
+    }
 
-  await db.update(componentTypes).set({ isActive: false, updatedAt: new Date() }).where(eq(componentTypes.id, params.id));
-  await auditConfigChange(user.userId, "COMPONENT_TYPE", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
-  return { success: true, data: null };
-});
+    await db
+      .update(componentTypes)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(componentTypes.id, params.id));
+    await auditConfigChange(
+      user.userId,
+      "COMPONENT_TYPE",
+      params.id,
+      "DEACTIVATE",
+      existing as Record<string, unknown>,
+      { is_active: false }
+    );
+    return ok(null);
+  }
+);
 
 // ── Master Routing Steps ───────────────────────────────────────────────────
 
@@ -1549,23 +1728,29 @@ adminRoutes.get("/master-routing-steps", async () => {
     })
     .from(masterRoutingSteps)
     .orderBy(asc(masterRoutingSteps.stepCode));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
   "/master-routing-steps",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
     try {
-      const normalizedCode = String(body.step_code ?? "").trim().toUpperCase();
+      const normalizedCode = String(body.step_code ?? "")
+        .trim()
+        .toUpperCase();
       if (!normalizedCode) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "step_code is required" };
+        return fail("INVALID_INPUT", "step_code is required");
       }
 
-      const [existing] = await db.select({ id: masterRoutingSteps.id }).from(masterRoutingSteps).where(eq(masterRoutingSteps.stepCode, normalizedCode)).limit(1);
+      const [existing] = await db
+        .select({ id: masterRoutingSteps.id })
+        .from(masterRoutingSteps)
+        .where(eq(masterRoutingSteps.stepCode, normalizedCode))
+        .limit(1);
       if (existing) {
         set.status = 400;
-        return { success: false, error_code: "ALREADY_EXISTS", message: "Master routing step code already exists" };
+        return fail("ALREADY_EXISTS", "Master routing step code already exists");
       }
 
       const [created] = await db
@@ -1584,11 +1769,18 @@ adminRoutes.post(
           updated_at: masterRoutingSteps.updatedAt,
         });
 
-      await auditConfigChange(user.userId, "MASTER_ROUTING_STEP", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      await auditConfigChange(
+        user.userId,
+        "MASTER_ROUTING_STEP",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create master routing step" };
+      return fail(parseErrorCode(error), "Failed to create master routing step");
     }
   },
   {
@@ -1606,7 +1798,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(masterRoutingSteps).where(eq(masterRoutingSteps.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Master routing step not found" };
+      return fail("NOT_FOUND", "Master routing step not found");
     }
 
     const [updated] = await db
@@ -1627,8 +1819,15 @@ adminRoutes.put(
         updated_at: masterRoutingSteps.updatedAt,
       });
 
-    await auditConfigChange(user.userId, "MASTER_ROUTING_STEP", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
-    return { success: true, data: updated };
+    await auditConfigChange(
+      user.userId,
+      "MASTER_ROUTING_STEP",
+      params.id,
+      "UPDATE",
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>
+    );
+    return ok(updated);
   },
   {
     body: t.Object({
@@ -1639,17 +1838,30 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/master-routing-steps/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(masterRoutingSteps).where(eq(masterRoutingSteps.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Master routing step not found" };
-  }
+adminRoutes.delete(
+  "/master-routing-steps/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(masterRoutingSteps).where(eq(masterRoutingSteps.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Master routing step not found");
+    }
 
-  await db.update(masterRoutingSteps).set({ isActive: false, updatedAt: new Date() }).where(eq(masterRoutingSteps.id, params.id));
-  await auditConfigChange(user.userId, "MASTER_ROUTING_STEP", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
-  return { success: true, data: null };
-});
+    await db
+      .update(masterRoutingSteps)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(masterRoutingSteps.id, params.id));
+    await auditConfigChange(
+      user.userId,
+      "MASTER_ROUTING_STEP",
+      params.id,
+      "DEACTIVATE",
+      existing as Record<string, unknown>,
+      { is_active: false }
+    );
+    return ok(null);
+  }
+);
 
 adminRoutes.get("/part-numbers", async () => {
   const rows = await db
@@ -1669,17 +1881,19 @@ adminRoutes.get("/part-numbers", async () => {
     .from(partNumbers)
     .leftJoin(componentTypes, eq(componentTypes.id, partNumbers.componentTypeId))
     .orderBy(asc(partNumbers.partNumber));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
   "/part-numbers",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
     try {
-      const normalizedPartNumber = String(body.part_number ?? "").trim().toUpperCase();
+      const normalizedPartNumber = String(body.part_number ?? "")
+        .trim()
+        .toUpperCase();
       if (!normalizedPartNumber) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "part_number is required" };
+        return fail("INVALID_INPUT", "part_number is required");
       }
 
       if (body.component_type_id) {
@@ -1690,7 +1904,7 @@ adminRoutes.post(
           .limit(1);
         if (!componentType) {
           set.status = 404;
-          return { success: false, error_code: "NOT_FOUND", message: "Component type not found" };
+          return fail("NOT_FOUND", "Component type not found");
         }
       }
 
@@ -1716,11 +1930,18 @@ adminRoutes.post(
           updated_at: partNumbers.updatedAt,
         });
 
-      await auditConfigChange(user.userId, "PART_NUMBER", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      await auditConfigChange(
+        user.userId,
+        "PART_NUMBER",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create part number" };
+      return fail(parseErrorCode(error), "Failed to create part number");
     }
   },
   {
@@ -1741,7 +1962,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(partNumbers).where(eq(partNumbers.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Part number not found" };
+      return fail("NOT_FOUND", "Part number not found");
     }
 
     if (body.component_type_id) {
@@ -1752,7 +1973,7 @@ adminRoutes.put(
         .limit(1);
       if (!componentType) {
         set.status = 404;
-        return { success: false, error_code: "NOT_FOUND", message: "Component type not found" };
+        return fail("NOT_FOUND", "Component type not found");
       }
     }
 
@@ -1760,7 +1981,8 @@ adminRoutes.put(
       .update(partNumbers)
       .set({
         partNumber: body.part_number ? String(body.part_number).trim().toUpperCase() : existing.partNumber,
-        componentTypeId: body.component_type_id === undefined ? existing.componentTypeId : body.component_type_id || null,
+        componentTypeId:
+          body.component_type_id === undefined ? existing.componentTypeId : body.component_type_id || null,
         description: body.description ?? existing.description,
         defaultPackSize: body.default_pack_size ?? existing.defaultPackSize,
         rmLocation: body.rm_location ?? existing.rmLocation,
@@ -1780,8 +2002,15 @@ adminRoutes.put(
         updated_at: partNumbers.updatedAt,
       });
 
-    await auditConfigChange(user.userId, "PART_NUMBER", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
-    return { success: true, data: updated };
+    await auditConfigChange(
+      user.userId,
+      "PART_NUMBER",
+      params.id,
+      "UPDATE",
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>
+    );
+    return ok(updated);
   },
   {
     body: t.Object({
@@ -1795,17 +2024,22 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/part-numbers/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(partNumbers).where(eq(partNumbers.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Part number not found" };
-  }
+adminRoutes.delete(
+  "/part-numbers/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(partNumbers).where(eq(partNumbers.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Part number not found");
+    }
 
-  await db.update(partNumbers).set({ isActive: false, updatedAt: new Date() }).where(eq(partNumbers.id, params.id));
-  await auditConfigChange(user.userId, "PART_NUMBER", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
-  return { success: true, data: null };
-});
+    await db.update(partNumbers).set({ isActive: false, updatedAt: new Date() }).where(eq(partNumbers.id, params.id));
+    await auditConfigChange(user.userId, "PART_NUMBER", params.id, "DEACTIVATE", existing as Record<string, unknown>, {
+      is_active: false,
+    });
+    return ok(null);
+  }
+);
 
 adminRoutes.get(
   "/material-requests",
@@ -1848,7 +2082,7 @@ adminRoutes.get(
       })
     );
 
-    return { success: true, data: withCounts };
+    return ok(withCounts);
   }
 );
 
@@ -1880,7 +2114,7 @@ adminRoutes.get("/material-requests/:id", async ({ params, set }: { params: { id
     .limit(1);
   if (!header) {
     set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Material request not found" };
+    return fail("NOT_FOUND", "Material request not found");
   }
 
   const items = await db
@@ -1900,7 +2134,7 @@ adminRoutes.get("/material-requests/:id", async ({ params, set }: { params: { id
     .where(eq(materialRequestItems.materialRequestId, params.id))
     .orderBy(asc(materialRequestItems.itemNo));
 
-  return { success: true, data: { ...header, items } };
+  return ok({ ...header, items });
 });
 
 adminRoutes.post(
@@ -1912,13 +2146,15 @@ adminRoutes.post(
 
     if (!items.length) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_INPUT", message: "At least one line item is required" };
+      return fail("INVALID_INPUT", "At least one line item is required");
     }
 
     const normalizedItems = items
       .map((item, idx) => ({
         item_no: Number(item.item_no ?? idx + 1),
-        part_number: String(item.part_number ?? "").trim().toUpperCase(),
+        part_number: String(item.part_number ?? "")
+          .trim()
+          .toUpperCase(),
         description: item.description ? String(item.description) : null,
         requested_qty: item.requested_qty ?? null,
         issued_qty: item.issued_qty ?? null,
@@ -1931,7 +2167,7 @@ adminRoutes.post(
 
     if (!normalizedItems.length) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_INPUT", message: "Line items must include part_number" };
+      return fail("INVALID_INPUT", "Line items must include part_number");
     }
     const invalidQtyLine = normalizedItems.find((item) => {
       const qty = Number(item.requested_qty);
@@ -1949,7 +2185,7 @@ adminRoutes.post(
     const selectedModelId = body.model_id ? String(body.model_id).trim() : null;
     if (!selectedModelId) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_INPUT", message: "model_id is required" };
+      return fail("INVALID_INPUT", "model_id is required");
     }
     const partNos = normalizedItems.map((item) => item.part_number);
 
@@ -1962,17 +2198,21 @@ adminRoutes.post(
       .from(bom)
       .innerJoin(modelRevisions, eq(bom.revisionId, modelRevisions.id))
       .innerJoin(models, eq(modelRevisions.modelId, models.id))
-      .where(and(eq(modelRevisions.status, "ACTIVE"), eq(models.isActive, true), sql`${bom.componentPartNumber} is not null`));
+      .where(
+        and(eq(modelRevisions.status, "ACTIVE"), eq(models.isActive, true), sql`${bom.componentPartNumber} is not null`)
+      );
 
     const scopedCatalog = catalogRows.filter((row) => row.model_id === selectedModelId);
     if (!scopedCatalog.length) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Model has no ACTIVE revision/BOM catalog" };
+      return fail("NOT_FOUND", "Model has no ACTIVE revision/BOM catalog");
     }
 
     const catalogByPart = new Map<string, (typeof scopedCatalog)[number]>();
     for (const row of scopedCatalog) {
-      const key = String(row.part_number ?? "").trim().toUpperCase();
+      const key = String(row.part_number ?? "")
+        .trim()
+        .toUpperCase();
       if (!key) continue;
       if (!catalogByPart.has(key)) catalogByPart.set(key, row);
     }
@@ -2035,7 +2275,14 @@ adminRoutes.post(
         return header;
       });
 
-      await auditConfigChange(user.userId, "MATERIAL_REQUEST", created.id, "CREATE", null, created as Record<string, unknown>);
+      await auditConfigChange(
+        user.userId,
+        "MATERIAL_REQUEST",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
       publishMaterialRequestUpdate({
         event_type: "CREATED",
         id: created.id,
@@ -2043,10 +2290,10 @@ adminRoutes.post(
         request_no: created.request_no,
         dmi_no: created.dmi_no,
       });
-      return { success: true, data: created };
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create material request" };
+      return fail(parseErrorCode(error), "Failed to create material request");
     }
   },
   {
@@ -2077,60 +2324,89 @@ adminRoutes.post(
   }
 );
 
-adminRoutes.post("/material-requests/:id/approve", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Material request not found" };
-  }
-  if (existing.status !== "REQUESTED") {
-    set.status = 409;
-    return { success: false, error_code: "INVALID_STATE_TRANSITION", message: "Only REQUESTED can be approved" };
-  }
-
-  await db
-    .update(materialRequests)
-    .set({
-      status: "APPROVED",
-      approvedByUserId: user.userId,
-      updatedAt: new Date(),
-    })
-    .where(eq(materialRequests.id, params.id));
-
-  await auditConfigChange(user.userId, "MATERIAL_REQUEST", params.id, "APPROVE", { status: existing.status }, { status: "APPROVED" });
-  publishMaterialRequestUpdate({
-    event_type: "APPROVED",
-    id: params.id,
-    status: "APPROVED",
-    request_no: existing.requestNo,
-    dmi_no: existing.dmiNo,
-  });
-  return { success: true, data: { id: params.id, status: "APPROVED" } };
-});
-
 adminRoutes.post(
-  "/material-requests/:id/reject",
-  async ({ params, body, set, user }: { params: { id: string }; body: { reason?: string }; set: any; user: AccessTokenPayload }) => {
+  "/material-requests/:id/approve",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
     const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Material request not found" };
+      return fail("NOT_FOUND", "Material request not found");
     }
     if (existing.status !== "REQUESTED") {
       set.status = 409;
-      return { success: false, error_code: "INVALID_STATE_TRANSITION", message: "Only REQUESTED can be rejected" };
+      return fail("INVALID_STATE_TRANSITION", "Only REQUESTED can be approved");
+    }
+
+    await db
+      .update(materialRequests)
+      .set({
+        status: "APPROVED",
+        approvedByUserId: user.userId,
+        updatedAt: new Date(),
+      })
+      .where(eq(materialRequests.id, params.id));
+
+    await auditConfigChange(
+      user.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "APPROVE",
+      { status: existing.status },
+      { status: "APPROVED" }
+    );
+    publishMaterialRequestUpdate({
+      event_type: "APPROVED",
+      id: params.id,
+      status: "APPROVED",
+      request_no: existing.requestNo,
+      dmi_no: existing.dmiNo,
+    });
+    return ok({ id: params.id, status: "APPROVED" });
+  }
+);
+
+adminRoutes.post(
+  "/material-requests/:id/reject",
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string };
+    body: { reason?: string };
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
+    const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Material request not found");
+    }
+    if (existing.status !== "REQUESTED") {
+      set.status = 409;
+      return fail("INVALID_STATE_TRANSITION", "Only REQUESTED can be rejected");
     }
 
     await db
       .update(materialRequests)
       .set({
         status: "REJECTED",
-        remarks: body.reason ? [existing.remarks, `REJECTED: ${body.reason}`].filter(Boolean).join("\n") : existing.remarks,
+        remarks: body.reason
+          ? [existing.remarks, `REJECTED: ${body.reason}`].filter(Boolean).join("\n")
+          : existing.remarks,
         updatedAt: new Date(),
       })
       .where(eq(materialRequests.id, params.id));
 
-    await auditConfigChange(user.userId, "MATERIAL_REQUEST", params.id, "REJECT", { status: existing.status }, { status: "REJECTED" });
+    await auditConfigChange(
+      user.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "REJECT",
+      { status: existing.status },
+      { status: "REJECTED" }
+    );
     publishMaterialRequestUpdate({
       event_type: "REJECTED",
       id: params.id,
@@ -2138,7 +2414,7 @@ adminRoutes.post(
       request_no: existing.requestNo,
       dmi_no: existing.dmiNo,
     });
-    return { success: true, data: { id: params.id, status: "REJECTED" } };
+    return ok({ id: params.id, status: "REJECTED" });
   },
   {
     body: t.Object({
@@ -2149,15 +2425,25 @@ adminRoutes.post(
 
 adminRoutes.post(
   "/material-requests/:id/issue",
-  async ({ params, body, set, user }: { params: { id: string }; body: { dmi_no?: string; remarks?: string }; set: any; user: AccessTokenPayload }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string };
+    body: { dmi_no?: string; remarks?: string };
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
     const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Material request not found" };
+      return fail("NOT_FOUND", "Material request not found");
     }
     if (existing.status !== "APPROVED") {
       set.status = 409;
-      return { success: false, error_code: "INVALID_STATE_TRANSITION", message: "Only APPROVED can be issued" };
+      return fail("INVALID_STATE_TRANSITION", "Only APPROVED can be issued");
     }
 
     await db
@@ -2171,7 +2457,14 @@ adminRoutes.post(
       })
       .where(eq(materialRequests.id, params.id));
 
-    await auditConfigChange(user.userId, "MATERIAL_REQUEST", params.id, "ISSUE", { status: existing.status }, { status: "ISSUED" });
+    await auditConfigChange(
+      user.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "ISSUE",
+      { status: existing.status },
+      { status: "ISSUED" }
+    );
     publishMaterialRequestUpdate({
       event_type: "ISSUED",
       id: params.id,
@@ -2179,7 +2472,7 @@ adminRoutes.post(
       request_no: existing.requestNo,
       dmi_no: body.dmi_no ?? existing.dmiNo,
     });
-    return { success: true, data: { id: params.id, status: "ISSUED" } };
+    return ok({ id: params.id, status: "ISSUED" });
   },
   {
     body: t.Object({
@@ -2215,7 +2508,7 @@ adminRoutes.get("/models", async () => {
     })
   );
 
-  return { success: true, data: result };
+  return ok(result);
 });
 
 adminRoutes.post(
@@ -2225,7 +2518,7 @@ adminRoutes.post(
       const partNumber = String(body.part_number ?? "").trim();
       if (!partNumber) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "part_number is required" };
+        return fail("INVALID_INPUT", "part_number is required");
       }
 
       const [created] = await db
@@ -2250,10 +2543,10 @@ adminRoutes.post(
         });
 
       await auditConfigChange(user.userId, "MODEL", created.id, "CREATE", null, created as any);
-      return { success: true, data: created };
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create model" };
+      return fail(parseErrorCode(error), "Failed to create model");
     }
   },
   {
@@ -2274,7 +2567,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(models).where(eq(models.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Model not found" };
+      return fail("NOT_FOUND", "Model not found");
     }
 
     try {
@@ -2302,10 +2595,10 @@ adminRoutes.put(
         });
 
       await auditConfigChange(user.userId, "MODEL", params.id, "UPDATE", existing as any, updated as any);
-      return { success: true, data: updated };
+      return ok(updated);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to update model" };
+      return fail(parseErrorCode(error), "Failed to update model");
     }
   },
   {
@@ -2320,23 +2613,26 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/models/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select({ id: models.id }).from(models).where(eq(models.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Model not found" };
-  }
+adminRoutes.delete(
+  "/models/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select({ id: models.id }).from(models).where(eq(models.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Model not found");
+    }
 
-  await db.delete(models).where(eq(models.id, params.id));
-  await auditConfigChange(user.userId, "MODEL", params.id, "DELETE", { id: params.id }, null);
-  return { success: true, data: null };
-});
+    await db.delete(models).where(eq(models.id, params.id));
+    await auditConfigChange(user.userId, "MODEL", params.id, "DELETE", { id: params.id }, null);
+    return ok(null);
+  }
+);
 
 adminRoutes.get("/models/:id/revisions", async ({ params, set }) => {
   const [exists] = await db.select({ id: models.id }).from(models).where(eq(models.id, params.id)).limit(1);
   if (!exists) {
     set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Model not found" };
+    return fail("NOT_FOUND", "Model not found");
   }
 
   const rows = await db
@@ -2353,7 +2649,7 @@ adminRoutes.get("/models/:id/revisions", async ({ params, set }) => {
     .where(eq(modelRevisions.modelId, params.id))
     .orderBy(desc(modelRevisions.createdAt));
 
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -2362,7 +2658,7 @@ adminRoutes.post(
     const [model] = await db.select({ id: models.id }).from(models).where(eq(models.id, params.id)).limit(1);
     if (!model) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Model not found" };
+      return fail("NOT_FOUND", "Model not found");
     }
 
     try {
@@ -2388,7 +2684,10 @@ adminRoutes.post(
           });
 
         if (body.clone_from_revision_id) {
-          const srcVariants = await tx.select().from(variants).where(eq(variants.revisionId, body.clone_from_revision_id));
+          const srcVariants = await tx
+            .select()
+            .from(variants)
+            .where(eq(variants.revisionId, body.clone_from_revision_id));
           const variantIdMap = new Map<string, string>();
           for (const v of srcVariants) {
             const [newVariant] = await tx
@@ -2414,7 +2713,7 @@ adminRoutes.post(
                 qtyPerBatch: b.qtyPerBatch,
                 unitType: b.unitType,
                 isOptional: b.isOptional,
-                variantId: b.variantId ? variantIdMap.get(b.variantId) ?? null : null,
+                variantId: b.variantId ? (variantIdMap.get(b.variantId) ?? null) : null,
               }))
             );
           }
@@ -2422,12 +2721,23 @@ adminRoutes.post(
           const srcRouting = await tx.select().from(routing).where(eq(routing.revisionId, body.clone_from_revision_id));
           const routingIdMap = new Map<string, string>();
           for (const r of srcRouting) {
-            const [newRouting] = await tx.insert(routing).values({ revisionId: revision.id, name: r.name }).returning({ id: routing.id });
+            const [newRouting] = await tx
+              .insert(routing)
+              .values({ revisionId: revision.id, name: r.name })
+              .returning({ id: routing.id });
             routingIdMap.set(r.id, newRouting.id);
           }
 
           const srcSteps = srcRouting.length
-            ? await tx.select().from(routingSteps).where(inArray(routingSteps.routingId, srcRouting.map((r) => r.id)))
+            ? await tx
+                .select()
+                .from(routingSteps)
+                .where(
+                  inArray(
+                    routingSteps.routingId,
+                    srcRouting.map((r) => r.id)
+                  )
+                )
             : [];
 
           if (srcSteps.length) {
@@ -2438,18 +2748,21 @@ adminRoutes.post(
                 sequence: s.sequence,
                 componentType: s.componentType,
                 consumesQty: s.consumesQty,
-                variantOnly: s.variantOnly ? variantIdMap.get(s.variantOnly) ?? null : null,
+                variantOnly: s.variantOnly ? (variantIdMap.get(s.variantOnly) ?? null) : null,
                 description: s.description,
               }))
             );
           }
 
-          const srcBindings = await tx.select().from(labelBindings).where(eq(labelBindings.modelRevisionId, body.clone_from_revision_id));
+          const srcBindings = await tx
+            .select()
+            .from(labelBindings)
+            .where(eq(labelBindings.modelRevisionId, body.clone_from_revision_id));
           if (srcBindings.length) {
             await tx.insert(labelBindings).values(
               srcBindings.map((b) => ({
                 modelRevisionId: revision.id,
-                variantId: b.variantId ? variantIdMap.get(b.variantId) ?? null : null,
+                variantId: b.variantId ? (variantIdMap.get(b.variantId) ?? null) : null,
                 unitType: b.unitType,
                 processPoint: b.processPoint,
                 labelTemplateId: b.labelTemplateId,
@@ -2461,11 +2774,18 @@ adminRoutes.post(
         return revision;
       });
 
-      await auditConfigChange(user.userId, "REVISION", created.id, body.clone_from_revision_id ? "CLONE" : "CREATE", null, created as any);
-      return { success: true, data: created };
+      await auditConfigChange(
+        user.userId,
+        "REVISION",
+        created.id,
+        body.clone_from_revision_id ? "CLONE" : "CREATE",
+        null,
+        created as any
+      );
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create revision" };
+      return fail(parseErrorCode(error), "Failed to create revision");
     }
   },
   {
@@ -2496,15 +2816,25 @@ adminRoutes.get("/models/:id/revisions/:revisionId", async ({ params, set }) => 
 
   if (!revision) {
     set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Revision not found" };
+    return fail("NOT_FOUND", "Revision not found");
   }
 
-  return { success: true, data: revision };
+  return ok(revision);
 });
 
 adminRoutes.put(
   "/models/:id/revisions/:revisionId",
-  async ({ params, body, set, user }: { params: { id: string; revisionId: string }; body: any; set: any; user: AccessTokenPayload }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string; revisionId: string };
+    body: any;
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
     const [existing] = await db
       .select()
       .from(modelRevisions)
@@ -2513,14 +2843,14 @@ adminRoutes.put(
 
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Revision not found" };
+      return fail("NOT_FOUND", "Revision not found");
     }
 
     try {
       ensureDraftRevisionOrThrow(existing.status);
     } catch (error) {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: (error as Error).message };
+      return fail("REVISION_LOCKED", (error as Error).message);
     }
 
     const [updated] = await db
@@ -2544,113 +2874,182 @@ adminRoutes.put(
       });
 
     await auditConfigChange(user.userId, "REVISION", params.revisionId, "UPDATE", existing as any, updated as any);
-    return { success: true, data: updated };
+    return ok(updated);
   },
-  { body: t.Object({ revision_code: t.Optional(t.String()), description: t.Optional(t.String()), base_part_number: t.Optional(t.String()) }) }
+  {
+    body: t.Object({
+      revision_code: t.Optional(t.String()),
+      description: t.Optional(t.String()),
+      base_part_number: t.Optional(t.String()),
+    }),
+  }
 );
 
-adminRoutes.post("/models/:id/revisions/:revisionId/activate", async ({ params, set, user }: { params: { id: string; revisionId: string }; set: any; user: AccessTokenPayload }) => {
-  const [revision] = await db
-    .select({ id: modelRevisions.id, modelId: modelRevisions.modelId, status: modelRevisions.status })
-    .from(modelRevisions)
-    .where(and(eq(modelRevisions.id, params.revisionId), eq(modelRevisions.modelId, params.id)))
-    .limit(1);
+adminRoutes.post(
+  "/models/:id/revisions/:revisionId/activate",
+  async ({ params, set, user }: { params: { id: string; revisionId: string }; set: any; user: AccessTokenPayload }) => {
+    const [revision] = await db
+      .select({ id: modelRevisions.id, modelId: modelRevisions.modelId, status: modelRevisions.status })
+      .from(modelRevisions)
+      .where(and(eq(modelRevisions.id, params.revisionId), eq(modelRevisions.modelId, params.id)))
+      .limit(1);
 
-  if (!revision) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Revision not found" };
+    if (!revision) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Revision not found");
+    }
+
+    const readiness = await runReadinessValidation(params.id, params.revisionId);
+    if (readiness.status === "FAIL" || readiness.revision_id !== params.revisionId) {
+      set.status = 409;
+      return fail("REVISION_NOT_READY", "Revision is not ready to activate", readiness);
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(modelRevisions)
+        .set({ status: "INACTIVE", updatedAt: new Date() })
+        .where(and(eq(modelRevisions.modelId, params.id), eq(modelRevisions.status, "ACTIVE")));
+
+      await tx
+        .update(modelRevisions)
+        .set({ status: "ACTIVE", updatedAt: new Date() })
+        .where(eq(modelRevisions.id, params.revisionId));
+    });
+
+    await auditConfigChange(
+      user.userId,
+      "REVISION",
+      params.revisionId,
+      "ACTIVATE",
+      { previous_status: revision.status },
+      { status: "ACTIVE" }
+    );
+    return ok({ id: params.revisionId, status: "ACTIVE" });
   }
-
-  const readiness = await runReadinessValidation(params.id, params.revisionId);
-  if (readiness.status === "FAIL" || readiness.revision_id !== params.revisionId) {
-    set.status = 409;
-    return { success: false, error_code: "REVISION_NOT_READY", message: "Revision is not ready to activate", data: readiness };
-  }
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(modelRevisions)
-      .set({ status: "INACTIVE", updatedAt: new Date() })
-      .where(and(eq(modelRevisions.modelId, params.id), eq(modelRevisions.status, "ACTIVE")));
-
-    await tx
-      .update(modelRevisions)
-      .set({ status: "ACTIVE", updatedAt: new Date() })
-      .where(eq(modelRevisions.id, params.revisionId));
-  });
-
-  await auditConfigChange(user.userId, "REVISION", params.revisionId, "ACTIVATE", { previous_status: revision.status }, { status: "ACTIVE" });
-  return { success: true, data: { id: params.revisionId, status: "ACTIVE" } };
-});
+);
 adminRoutes.get("/models/:id/revisions/:revisionId/variants", async ({ params, set }) => {
-  const [revision] = await db.select({ id: modelRevisions.id }).from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
+  const [revision] = await db
+    .select({ id: modelRevisions.id })
+    .from(modelRevisions)
+    .where(eq(modelRevisions.id, params.revisionId))
+    .limit(1);
   if (!revision) {
     set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Revision not found" };
+    return fail("NOT_FOUND", "Revision not found");
   }
 
   const rows = await db
-    .select({ id: variants.id, revision_id: variants.revisionId, code: variants.code, description: variants.description, mapped_codes: variants.mappedCodes, created_at: variants.createdAt })
+    .select({
+      id: variants.id,
+      revision_id: variants.revisionId,
+      code: variants.code,
+      description: variants.description,
+      mapped_codes: variants.mappedCodes,
+      created_at: variants.createdAt,
+    })
     .from(variants)
     .where(eq(variants.revisionId, params.revisionId))
     .orderBy(asc(variants.code));
 
-  return { success: true, data: rows.map((r) => ({ ...r, is_default: Boolean((r.mapped_codes as any)?.default) })) };
+  return ok(rows.map((r) => ({ ...r, is_default: Boolean((r.mapped_codes as any)?.default) })));
 });
 
 adminRoutes.post(
   "/models/:id/revisions/:revisionId/variants",
-  async ({ params, body, set, user }: { params: { revisionId: string }; body: any; set: any; user: AccessTokenPayload }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { revisionId: string };
+    body: any;
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
     const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
     if (!revision) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Revision not found" };
+      return fail("NOT_FOUND", "Revision not found");
     }
 
     try {
       ensureDraftRevisionOrThrow(revision.status);
     } catch (error) {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: (error as Error).message };
+      return fail("REVISION_LOCKED", (error as Error).message);
     }
 
     if (body.is_default) {
       const existing = await db.select().from(variants).where(eq(variants.revisionId, params.revisionId));
       for (const v of existing) {
-        await db.update(variants).set({ mappedCodes: { ...(v.mappedCodes as any), default: false } }).where(eq(variants.id, v.id));
+        await db
+          .update(variants)
+          .set({ mappedCodes: { ...(v.mappedCodes as any), default: false } })
+          .where(eq(variants.id, v.id));
       }
     }
 
     const [created] = await db
       .insert(variants)
-      .values({ revisionId: params.revisionId, code: body.code, description: body.description ?? null, mappedCodes: { ...(body.mapped_codes ?? {}), default: Boolean(body.is_default) } })
-      .returning({ id: variants.id, revision_id: variants.revisionId, code: variants.code, description: variants.description, mapped_codes: variants.mappedCodes, created_at: variants.createdAt });
+      .values({
+        revisionId: params.revisionId,
+        code: body.code,
+        description: body.description ?? null,
+        mappedCodes: { ...(body.mapped_codes ?? {}), default: Boolean(body.is_default) },
+      })
+      .returning({
+        id: variants.id,
+        revision_id: variants.revisionId,
+        code: variants.code,
+        description: variants.description,
+        mapped_codes: variants.mappedCodes,
+        created_at: variants.createdAt,
+      });
 
     await auditConfigChange(user.userId, "VARIANT", created.id, "CREATE", null, created as any);
-    return { success: true, data: { ...created, is_default: Boolean((created.mapped_codes as any)?.default) } };
+    return ok({ ...created, is_default: Boolean((created.mapped_codes as any)?.default) });
   },
-  { body: t.Object({ code: t.String(), description: t.Optional(t.String()), is_default: t.Optional(t.Boolean()), mapped_codes: t.Optional(t.Record(t.String(), t.String())) }) }
+  {
+    body: t.Object({
+      code: t.String(),
+      description: t.Optional(t.String()),
+      is_default: t.Optional(t.Boolean()),
+      mapped_codes: t.Optional(t.Record(t.String(), t.String())),
+    }),
+  }
 );
 
 adminRoutes.put(
   "/models/:id/revisions/:revisionId/variants/:variantId",
-  async ({ params, body, set, user }: { params: { revisionId: string; variantId: string }; body: any; set: any; user: AccessTokenPayload }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { revisionId: string; variantId: string };
+    body: any;
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
     const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
     if (!revision) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Revision not found" };
+      return fail("NOT_FOUND", "Revision not found");
     }
     try {
       ensureDraftRevisionOrThrow(revision.status);
     } catch (error) {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: (error as Error).message };
+      return fail("REVISION_LOCKED", (error as Error).message);
     }
 
     const [existing] = await db.select().from(variants).where(eq(variants.id, params.variantId)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Variant not found" };
+      return fail("NOT_FOUND", "Variant not found");
     }
 
     const [updated] = await db
@@ -2658,39 +3057,66 @@ adminRoutes.put(
       .set({
         code: body.code ?? existing.code,
         description: body.description ?? existing.description,
-        mappedCodes: { ...(existing.mappedCodes as any), ...(body.mapped_codes ?? {}), default: body.is_default ?? Boolean((existing.mappedCodes as any)?.default) },
+        mappedCodes: {
+          ...(existing.mappedCodes as any),
+          ...(body.mapped_codes ?? {}),
+          default: body.is_default ?? Boolean((existing.mappedCodes as any)?.default),
+        },
       })
       .where(eq(variants.id, params.variantId))
-      .returning({ id: variants.id, revision_id: variants.revisionId, code: variants.code, description: variants.description, mapped_codes: variants.mappedCodes, created_at: variants.createdAt });
+      .returning({
+        id: variants.id,
+        revision_id: variants.revisionId,
+        code: variants.code,
+        description: variants.description,
+        mapped_codes: variants.mappedCodes,
+        created_at: variants.createdAt,
+      });
 
     await auditConfigChange(user.userId, "VARIANT", params.variantId, "UPDATE", existing as any, updated as any);
-    return { success: true, data: { ...updated, is_default: Boolean((updated.mapped_codes as any)?.default) } };
+    return ok({ ...updated, is_default: Boolean((updated.mapped_codes as any)?.default) });
   },
-  { body: t.Object({ code: t.Optional(t.String()), description: t.Optional(t.String()), is_default: t.Optional(t.Boolean()), mapped_codes: t.Optional(t.Record(t.String(), t.String())) }) }
+  {
+    body: t.Object({
+      code: t.Optional(t.String()),
+      description: t.Optional(t.String()),
+      is_default: t.Optional(t.Boolean()),
+      mapped_codes: t.Optional(t.Record(t.String(), t.String())),
+    }),
+  }
 );
 
-adminRoutes.delete("/models/:id/revisions/:revisionId/variants/:variantId", async ({ params, user }: { params: { revisionId: string; variantId: string }; user: AccessTokenPayload }) => {
-  const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
-  if (revision && revision.status === "ACTIVE") {
-    return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+adminRoutes.delete(
+  "/models/:id/revisions/:revisionId/variants/:variantId",
+  async ({ params, user }: { params: { revisionId: string; variantId: string }; user: AccessTokenPayload }) => {
+    const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
+    if (revision && revision.status === "ACTIVE") {
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
+    }
+    await db.delete(variants).where(eq(variants.id, params.variantId));
+    await auditConfigChange(user.userId, "VARIANT", params.variantId, "DELETE", { id: params.variantId }, null);
+    return ok(null);
   }
-  await db.delete(variants).where(eq(variants.id, params.variantId));
-  await auditConfigChange(user.userId, "VARIANT", params.variantId, "DELETE", { id: params.variantId }, null);
-  return { success: true, data: null };
-});
+);
 
-adminRoutes.post("/models/:id/revisions/:revisionId/variants/:variantId/set-default", async ({ params, user }: { params: { revisionId: string; variantId: string }; user: AccessTokenPayload }) => {
-  const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
-  if (revision && revision.status === "ACTIVE") {
-    return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+adminRoutes.post(
+  "/models/:id/revisions/:revisionId/variants/:variantId/set-default",
+  async ({ params, user }: { params: { revisionId: string; variantId: string }; user: AccessTokenPayload }) => {
+    const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
+    if (revision && revision.status === "ACTIVE") {
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
+    }
+    const all = await db.select().from(variants).where(eq(variants.revisionId, params.revisionId));
+    for (const v of all) {
+      await db
+        .update(variants)
+        .set({ mappedCodes: { ...(v.mappedCodes as any), default: v.id === params.variantId } })
+        .where(eq(variants.id, v.id));
+    }
+    await auditConfigChange(user.userId, "VARIANT", params.variantId, "SET_DEFAULT", null, { is_default: true });
+    return ok({ variant_id: params.variantId, is_default: true });
   }
-  const all = await db.select().from(variants).where(eq(variants.revisionId, params.revisionId));
-  for (const v of all) {
-    await db.update(variants).set({ mappedCodes: { ...(v.mappedCodes as any), default: v.id === params.variantId } }).where(eq(variants.id, v.id));
-  }
-  await auditConfigChange(user.userId, "VARIANT", params.variantId, "SET_DEFAULT", null, { is_default: true });
-  return { success: true, data: { variant_id: params.variantId, is_default: true } };
-});
+);
 
 adminRoutes.get("/models/:id/revisions/:revisionId/bom", async ({ params }) => {
   const rows = await db
@@ -2716,16 +3142,26 @@ adminRoutes.get("/models/:id/revisions/:revisionId/bom", async ({ params }) => {
     .where(eq(bom.revisionId, params.revisionId))
     .orderBy(asc(bom.componentType));
 
-  return { success: true, data: rows.map((r) => ({ ...r, required: !r.required, variant_rule: r.variant_id })) };
+  return ok(rows.map((r) => ({ ...r, required: !r.required, variant_rule: r.variant_id })));
 });
 
 adminRoutes.post(
   "/models/:id/revisions/:revisionId/bom",
-  async ({ params, body, user, set }: { params: { revisionId: string }; body: any; user: AccessTokenPayload; set: any }) => {
+  async ({
+    params,
+    body,
+    user,
+    set,
+  }: {
+    params: { revisionId: string };
+    body: any;
+    user: AccessTokenPayload;
+    set: any;
+  }) => {
     const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
     if (revision && revision.status === "ACTIVE") {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
     }
     try {
       await validateBomReferenceOrThrow({
@@ -2740,71 +3176,83 @@ adminRoutes.post(
         message: (error as Error).message,
       };
     }
-      const [created] = await db
-        .insert(bom)
-        .values({
-          revisionId: params.revisionId,
-          componentName: body.component_name ?? body.component_unit_type,
-          componentType: body.component_unit_type,
-          componentPartNumber: body.component_part_number ? String(body.component_part_number).trim().toUpperCase() : null,
-          supplierName: body.supplier_name ?? null,
-          supplierPartNumber: body.supplier_part_number ?? null,
-          supplierPackSize: body.supplier_pack_size ?? null,
-          pack2dFormat: body.pack_2d_format ?? null,
-          qtyPerBatch: body.qty_per_assy,
-          unitType: body.unit_type ?? "ASSY_120",
-          isOptional: !body.required,
-          variantId: body.variant_id ?? null,
-        })
-        .returning({
-          id: bom.id,
-          revision_id: bom.revisionId,
-          component_name: bom.componentName,
-          component_unit_type: bom.componentType,
-          component_part_number: bom.componentPartNumber,
-          supplier_name: bom.supplierName,
-          supplier_part_number: bom.supplierPartNumber,
-          supplier_pack_size: bom.supplierPackSize,
-          pack_2d_format: bom.pack2dFormat,
-          qty_per_assy: bom.qtyPerBatch,
-          required: bom.isOptional,
-          variant_id: bom.variantId,
-          unit_type: bom.unitType,
-          created_at: bom.createdAt,
-        });
+    const [created] = await db
+      .insert(bom)
+      .values({
+        revisionId: params.revisionId,
+        componentName: body.component_name ?? body.component_unit_type,
+        componentType: body.component_unit_type,
+        componentPartNumber: body.component_part_number
+          ? String(body.component_part_number).trim().toUpperCase()
+          : null,
+        supplierName: body.supplier_name ?? null,
+        supplierPartNumber: body.supplier_part_number ?? null,
+        supplierPackSize: body.supplier_pack_size ?? null,
+        pack2dFormat: body.pack_2d_format ?? null,
+        qtyPerBatch: body.qty_per_assy,
+        unitType: body.unit_type ?? "ASSY_120",
+        isOptional: !body.required,
+        variantId: body.variant_id ?? null,
+      })
+      .returning({
+        id: bom.id,
+        revision_id: bom.revisionId,
+        component_name: bom.componentName,
+        component_unit_type: bom.componentType,
+        component_part_number: bom.componentPartNumber,
+        supplier_name: bom.supplierName,
+        supplier_part_number: bom.supplierPartNumber,
+        supplier_pack_size: bom.supplierPackSize,
+        pack_2d_format: bom.pack2dFormat,
+        qty_per_assy: bom.qtyPerBatch,
+        required: bom.isOptional,
+        variant_id: bom.variantId,
+        unit_type: bom.unitType,
+        created_at: bom.createdAt,
+      });
 
     await auditConfigChange(user.userId, "BOM", created.id, "CREATE", null, created as any);
-    return { success: true, data: { ...created, required: !created.required, variant_rule: created.variant_id } };
+    return ok({ ...created, required: !created.required, variant_rule: created.variant_id });
   },
-    {
-      body: t.Object({
-        component_name: t.Optional(t.String()),
-        component_unit_type: t.String(),
-        component_part_number: t.Optional(t.String()),
-        supplier_name: t.Optional(t.String()),
-        supplier_part_number: t.Optional(t.String()),
-        supplier_pack_size: t.Optional(t.Number()),
-        pack_2d_format: t.Optional(t.String()),
-        qty_per_assy: t.Number(),
-        required: t.Boolean(),
-        variant_id: t.Optional(t.String()),
-        unit_type: t.Optional(t.String()),
-      }),
-    }
-  );
+  {
+    body: t.Object({
+      component_name: t.Optional(t.String()),
+      component_unit_type: t.String(),
+      component_part_number: t.Optional(t.String()),
+      supplier_name: t.Optional(t.String()),
+      supplier_part_number: t.Optional(t.String()),
+      supplier_pack_size: t.Optional(t.Number()),
+      pack_2d_format: t.Optional(t.String()),
+      qty_per_assy: t.Number(),
+      required: t.Boolean(),
+      variant_id: t.Optional(t.String()),
+      unit_type: t.Optional(t.String()),
+    }),
+  }
+);
 
 adminRoutes.put(
   "/models/:id/revisions/:revisionId/bom/:bomId",
-  async ({ params, body, set, user }: { params: { revisionId: string; bomId: string }; body: any; set: any; user: AccessTokenPayload }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { revisionId: string; bomId: string };
+    body: any;
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
     const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
     if (revision && revision.status === "ACTIVE") {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
     }
     const [existing] = await db.select().from(bom).where(eq(bom.id, params.bomId)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "BOM row not found" };
+      return fail("NOT_FOUND", "BOM row not found");
     }
     const nextComponentType = body.component_unit_type ?? existing.componentType;
     const nextComponentPartNumber =
@@ -2823,77 +3271,96 @@ adminRoutes.put(
       };
     }
 
-      const [updated] = await db
-        .update(bom)
-        .set({
-          componentName: body.component_name ?? existing.componentName,
-          componentType: body.component_unit_type ?? existing.componentType,
-          componentPartNumber:
-            body.component_part_number === undefined
-              ? existing.componentPartNumber
-              : body.component_part_number
-                ? String(body.component_part_number).trim().toUpperCase()
-                : null,
-          supplierName: body.supplier_name ?? existing.supplierName,
-          supplierPartNumber: body.supplier_part_number ?? existing.supplierPartNumber,
-          supplierPackSize: body.supplier_pack_size ?? existing.supplierPackSize,
-          pack2dFormat: body.pack_2d_format ?? existing.pack2dFormat,
-          qtyPerBatch: body.qty_per_assy ?? existing.qtyPerBatch,
-          unitType: body.unit_type ?? existing.unitType,
-          isOptional: body.required !== undefined ? !body.required : existing.isOptional,
-          variantId: body.variant_id === undefined ? existing.variantId : body.variant_id,
-        })
-        .where(eq(bom.id, params.bomId))
-        .returning({
-          id: bom.id,
-          revision_id: bom.revisionId,
-          component_name: bom.componentName,
-          component_unit_type: bom.componentType,
-          component_part_number: bom.componentPartNumber,
-          supplier_name: bom.supplierName,
-          supplier_part_number: bom.supplierPartNumber,
-          supplier_pack_size: bom.supplierPackSize,
-          pack_2d_format: bom.pack2dFormat,
-          qty_per_assy: bom.qtyPerBatch,
-          required: bom.isOptional,
-          variant_id: bom.variantId,
-          unit_type: bom.unitType,
-          created_at: bom.createdAt,
-        });
+    const [updated] = await db
+      .update(bom)
+      .set({
+        componentName: body.component_name ?? existing.componentName,
+        componentType: body.component_unit_type ?? existing.componentType,
+        componentPartNumber:
+          body.component_part_number === undefined
+            ? existing.componentPartNumber
+            : body.component_part_number
+              ? String(body.component_part_number).trim().toUpperCase()
+              : null,
+        supplierName: body.supplier_name ?? existing.supplierName,
+        supplierPartNumber: body.supplier_part_number ?? existing.supplierPartNumber,
+        supplierPackSize: body.supplier_pack_size ?? existing.supplierPackSize,
+        pack2dFormat: body.pack_2d_format ?? existing.pack2dFormat,
+        qtyPerBatch: body.qty_per_assy ?? existing.qtyPerBatch,
+        unitType: body.unit_type ?? existing.unitType,
+        isOptional: body.required !== undefined ? !body.required : existing.isOptional,
+        variantId: body.variant_id === undefined ? existing.variantId : body.variant_id,
+      })
+      .where(eq(bom.id, params.bomId))
+      .returning({
+        id: bom.id,
+        revision_id: bom.revisionId,
+        component_name: bom.componentName,
+        component_unit_type: bom.componentType,
+        component_part_number: bom.componentPartNumber,
+        supplier_name: bom.supplierName,
+        supplier_part_number: bom.supplierPartNumber,
+        supplier_pack_size: bom.supplierPackSize,
+        pack_2d_format: bom.pack2dFormat,
+        qty_per_assy: bom.qtyPerBatch,
+        required: bom.isOptional,
+        variant_id: bom.variantId,
+        unit_type: bom.unitType,
+        created_at: bom.createdAt,
+      });
 
     await auditConfigChange(user.userId, "BOM", params.bomId, "UPDATE", existing as any, updated as any);
-    return { success: true, data: { ...updated, required: !updated.required, variant_rule: updated.variant_id } };
+    return ok({ ...updated, required: !updated.required, variant_rule: updated.variant_id });
   },
-    {
-      body: t.Object({
-        component_name: t.Optional(t.String()),
-        component_unit_type: t.Optional(t.String()),
-        component_part_number: t.Optional(t.String()),
-        supplier_name: t.Optional(t.String()),
-        supplier_part_number: t.Optional(t.String()),
-        supplier_pack_size: t.Optional(t.Number()),
-        pack_2d_format: t.Optional(t.String()),
-        qty_per_assy: t.Optional(t.Number()),
-        required: t.Optional(t.Boolean()),
-        variant_id: t.Optional(t.String()),
-        unit_type: t.Optional(t.String()),
-      }),
-    }
-  );
-
-adminRoutes.delete("/models/:id/revisions/:revisionId/bom/:bomId", async ({ params, user, set }: { params: { bomId: string; revisionId: string }; user: AccessTokenPayload; set: any }) => {
-  const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
-  if (revision && revision.status === "ACTIVE") {
-    set.status = 409;
-    return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+  {
+    body: t.Object({
+      component_name: t.Optional(t.String()),
+      component_unit_type: t.Optional(t.String()),
+      component_part_number: t.Optional(t.String()),
+      supplier_name: t.Optional(t.String()),
+      supplier_part_number: t.Optional(t.String()),
+      supplier_pack_size: t.Optional(t.Number()),
+      pack_2d_format: t.Optional(t.String()),
+      qty_per_assy: t.Optional(t.Number()),
+      required: t.Optional(t.Boolean()),
+      variant_id: t.Optional(t.String()),
+      unit_type: t.Optional(t.String()),
+    }),
   }
-  await db.delete(bom).where(eq(bom.id, params.bomId));
-  await auditConfigChange(user.userId, "BOM", params.bomId, "DELETE", { id: params.bomId }, null);
-  return { success: true, data: null };
-});
+);
+
+adminRoutes.delete(
+  "/models/:id/revisions/:revisionId/bom/:bomId",
+  async ({
+    params,
+    user,
+    set,
+  }: {
+    params: { bomId: string; revisionId: string };
+    user: AccessTokenPayload;
+    set: any;
+  }) => {
+    const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
+    if (revision && revision.status === "ACTIVE") {
+      set.status = 409;
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
+    }
+    await db.delete(bom).where(eq(bom.id, params.bomId));
+    await auditConfigChange(user.userId, "BOM", params.bomId, "DELETE", { id: params.bomId }, null);
+    return ok(null);
+  }
+);
 adminRoutes.get("/models/:id/revisions/:revisionId/routing", async ({ params }) => {
   const rows = await db
-    .select({ id: routingSteps.id, routing_id: routing.id, step_code: routingSteps.stepCode, sequence: routingSteps.sequence, mandatory_raw: routingSteps.consumesQty, variant_id: routingSteps.variantOnly, description: routingSteps.description })
+    .select({
+      id: routingSteps.id,
+      routing_id: routing.id,
+      step_code: routingSteps.stepCode,
+      sequence: routingSteps.sequence,
+      mandatory_raw: routingSteps.consumesQty,
+      variant_id: routingSteps.variantOnly,
+      description: routingSteps.description,
+    })
     .from(routing)
     .leftJoin(routingSteps, eq(routingSteps.routingId, routing.id))
     .where(eq(routing.revisionId, params.revisionId))
@@ -2901,77 +3368,186 @@ adminRoutes.get("/models/:id/revisions/:revisionId/routing", async ({ params }) 
 
   return {
     success: true,
-    data: rows.filter((r) => !!r.id).map((r) => ({ id: r.id, routing_id: r.routing_id, step_code: r.step_code, sequence: r.sequence, mandatory: (r.mandatory_raw ?? 1) > 0, variant_id: r.variant_id, variant_rule: r.variant_id, description: r.description })),
+    data: rows
+      .filter((r) => !!r.id)
+      .map((r) => ({
+        id: r.id,
+        routing_id: r.routing_id,
+        step_code: r.step_code,
+        sequence: r.sequence,
+        mandatory: (r.mandatory_raw ?? 1) > 0,
+        variant_id: r.variant_id,
+        variant_rule: r.variant_id,
+        description: r.description,
+      })),
   };
 });
 
 adminRoutes.post(
   "/models/:id/revisions/:revisionId/routing",
-  async ({ params, body, user, set }: { params: { revisionId: string }; body: any; user: AccessTokenPayload; set: any }) => {
+  async ({
+    params,
+    body,
+    user,
+    set,
+  }: {
+    params: { revisionId: string };
+    body: any;
+    user: AccessTokenPayload;
+    set: any;
+  }) => {
     const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
     if (revision && revision.status === "ACTIVE") {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
     }
-    const [existingRouting] = await db.select({ id: routing.id }).from(routing).where(eq(routing.revisionId, params.revisionId)).limit(1);
+    const [existingRouting] = await db
+      .select({ id: routing.id })
+      .from(routing)
+      .where(eq(routing.revisionId, params.revisionId))
+      .limit(1);
     const routingId = existingRouting
       ? existingRouting.id
-      : (await db.insert(routing).values({ revisionId: params.revisionId, name: body.routing_name ?? "Default Routing" }).returning({ id: routing.id }))[0].id;
+      : (
+          await db
+            .insert(routing)
+            .values({ revisionId: params.revisionId, name: body.routing_name ?? "Default Routing" })
+            .returning({ id: routing.id })
+        )[0].id;
 
     const [created] = await db
       .insert(routingSteps)
-      .values({ routingId, stepCode: body.step_code, sequence: body.sequence, consumesQty: body.mandatory ? 1 : 0, variantOnly: body.variant_id ?? null, description: body.description ?? null, componentType: body.component_type ?? null })
-      .returning({ id: routingSteps.id, routing_id: routingSteps.routingId, step_code: routingSteps.stepCode, sequence: routingSteps.sequence, mandatory_raw: routingSteps.consumesQty, variant_id: routingSteps.variantOnly, description: routingSteps.description });
+      .values({
+        routingId,
+        stepCode: body.step_code,
+        sequence: body.sequence,
+        consumesQty: body.mandatory ? 1 : 0,
+        variantOnly: body.variant_id ?? null,
+        description: body.description ?? null,
+        componentType: body.component_type ?? null,
+      })
+      .returning({
+        id: routingSteps.id,
+        routing_id: routingSteps.routingId,
+        step_code: routingSteps.stepCode,
+        sequence: routingSteps.sequence,
+        mandatory_raw: routingSteps.consumesQty,
+        variant_id: routingSteps.variantOnly,
+        description: routingSteps.description,
+      });
 
     await auditConfigChange(user.userId, "ROUTING_STEP", created.id, "CREATE", null, created as any);
-    return { success: true, data: { ...created, mandatory: (created.mandatory_raw ?? 1) > 0, variant_rule: created.variant_id } };
+    return ok({ ...created, mandatory: (created.mandatory_raw ?? 1) > 0, variant_rule: created.variant_id });
   },
-  { body: t.Object({ step_code: t.String(), sequence: t.Number(), mandatory: t.Boolean(), variant_id: t.Optional(t.String()), description: t.Optional(t.String()), component_type: t.Optional(t.String()), routing_name: t.Optional(t.String()) }) }
+  {
+    body: t.Object({
+      step_code: t.String(),
+      sequence: t.Number(),
+      mandatory: t.Boolean(),
+      variant_id: t.Optional(t.String()),
+      description: t.Optional(t.String()),
+      component_type: t.Optional(t.String()),
+      routing_name: t.Optional(t.String()),
+    }),
+  }
 );
 
 adminRoutes.put(
   "/models/:id/revisions/:revisionId/routing/:stepId",
-  async ({ params, body, set, user }: { params: { revisionId: string; stepId: string }; body: any; set: any; user: AccessTokenPayload }) => {
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { revisionId: string; stepId: string };
+    body: any;
+    set: any;
+    user: AccessTokenPayload;
+  }) => {
     const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
     if (revision && revision.status === "ACTIVE") {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
     }
     const [existing] = await db.select().from(routingSteps).where(eq(routingSteps.id, params.stepId)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Routing step not found" };
+      return fail("NOT_FOUND", "Routing step not found");
     }
 
     const [updated] = await db
       .update(routingSteps)
-      .set({ stepCode: body.step_code ?? existing.stepCode, sequence: body.sequence ?? existing.sequence, consumesQty: body.mandatory !== undefined ? (body.mandatory ? 1 : 0) : existing.consumesQty, variantOnly: body.variant_id === undefined ? existing.variantOnly : body.variant_id, description: body.description ?? existing.description, componentType: body.component_type ?? existing.componentType })
+      .set({
+        stepCode: body.step_code ?? existing.stepCode,
+        sequence: body.sequence ?? existing.sequence,
+        consumesQty: body.mandatory !== undefined ? (body.mandatory ? 1 : 0) : existing.consumesQty,
+        variantOnly: body.variant_id === undefined ? existing.variantOnly : body.variant_id,
+        description: body.description ?? existing.description,
+        componentType: body.component_type ?? existing.componentType,
+      })
       .where(eq(routingSteps.id, params.stepId))
-      .returning({ id: routingSteps.id, routing_id: routingSteps.routingId, step_code: routingSteps.stepCode, sequence: routingSteps.sequence, mandatory_raw: routingSteps.consumesQty, variant_id: routingSteps.variantOnly, description: routingSteps.description });
+      .returning({
+        id: routingSteps.id,
+        routing_id: routingSteps.routingId,
+        step_code: routingSteps.stepCode,
+        sequence: routingSteps.sequence,
+        mandatory_raw: routingSteps.consumesQty,
+        variant_id: routingSteps.variantOnly,
+        description: routingSteps.description,
+      });
 
     await auditConfigChange(user.userId, "ROUTING_STEP", params.stepId, "UPDATE", existing as any, updated as any);
-    return { success: true, data: { ...updated, mandatory: (updated.mandatory_raw ?? 1) > 0, variant_rule: updated.variant_id } };
+    return ok({ ...updated, mandatory: (updated.mandatory_raw ?? 1) > 0, variant_rule: updated.variant_id });
   },
-  { body: t.Object({ step_code: t.Optional(t.String()), sequence: t.Optional(t.Number()), mandatory: t.Optional(t.Boolean()), variant_id: t.Optional(t.String()), description: t.Optional(t.String()), component_type: t.Optional(t.String()) }) }
+  {
+    body: t.Object({
+      step_code: t.Optional(t.String()),
+      sequence: t.Optional(t.Number()),
+      mandatory: t.Optional(t.Boolean()),
+      variant_id: t.Optional(t.String()),
+      description: t.Optional(t.String()),
+      component_type: t.Optional(t.String()),
+    }),
+  }
 );
 
-adminRoutes.delete("/models/:id/revisions/:revisionId/routing/:stepId", async ({ params, user, set }: { params: { stepId: string; revisionId: string }; user: AccessTokenPayload; set: any }) => {
-  const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
-  if (revision && revision.status === "ACTIVE") {
-    set.status = 409;
-    return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+adminRoutes.delete(
+  "/models/:id/revisions/:revisionId/routing/:stepId",
+  async ({
+    params,
+    user,
+    set,
+  }: {
+    params: { stepId: string; revisionId: string };
+    user: AccessTokenPayload;
+    set: any;
+  }) => {
+    const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, params.revisionId)).limit(1);
+    if (revision && revision.status === "ACTIVE") {
+      set.status = 409;
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
+    }
+    await db.delete(routingSteps).where(eq(routingSteps.id, params.stepId));
+    await auditConfigChange(user.userId, "ROUTING_STEP", params.stepId, "DELETE", { id: params.stepId }, null);
+    return ok(null);
   }
-  await db.delete(routingSteps).where(eq(routingSteps.id, params.stepId));
-  await auditConfigChange(user.userId, "ROUTING_STEP", params.stepId, "DELETE", { id: params.stepId }, null);
-  return { success: true, data: null };
-});
+);
 
 adminRoutes.get("/templates", async () => {
   const rows = await db
-    .select({ id: labelTemplates.id, name: labelTemplates.name, revision_id: labelTemplates.revisionId, template_body: labelTemplates.templateBody, description: labelTemplates.description, created_at: labelTemplates.createdAt, updated_at: labelTemplates.updatedAt })
+    .select({
+      id: labelTemplates.id,
+      name: labelTemplates.name,
+      revision_id: labelTemplates.revisionId,
+      template_body: labelTemplates.templateBody,
+      description: labelTemplates.description,
+      created_at: labelTemplates.createdAt,
+      updated_at: labelTemplates.updatedAt,
+    })
     .from(labelTemplates)
     .orderBy(desc(labelTemplates.updatedAt));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -2981,18 +3557,38 @@ adminRoutes.post(
       JSON.parse(body.template_body);
     } catch {
       set.status = 400;
-      return { success: false, error_code: "INVALID_TEMPLATE_JSON", message: "template_body must be valid JSON" };
+      return fail("INVALID_TEMPLATE_JSON", "template_body must be valid JSON");
     }
 
     const [created] = await db
       .insert(labelTemplates)
-      .values({ name: body.name, templateBody: body.template_body, revisionId: body.revision_id ?? null, description: body.description ?? null })
-      .returning({ id: labelTemplates.id, name: labelTemplates.name, revision_id: labelTemplates.revisionId, template_body: labelTemplates.templateBody, description: labelTemplates.description, created_at: labelTemplates.createdAt, updated_at: labelTemplates.updatedAt });
+      .values({
+        name: body.name,
+        templateBody: body.template_body,
+        revisionId: body.revision_id ?? null,
+        description: body.description ?? null,
+      })
+      .returning({
+        id: labelTemplates.id,
+        name: labelTemplates.name,
+        revision_id: labelTemplates.revisionId,
+        template_body: labelTemplates.templateBody,
+        description: labelTemplates.description,
+        created_at: labelTemplates.createdAt,
+        updated_at: labelTemplates.updatedAt,
+      });
 
     await auditConfigChange(user.userId, "LABEL_TEMPLATE", created.id, "CREATE", null, created as any);
-    return { success: true, data: created };
+    return ok(created);
   },
-  { body: t.Object({ name: t.String(), template_body: t.String(), revision_id: t.Optional(t.String()), description: t.Optional(t.String()) }) }
+  {
+    body: t.Object({
+      name: t.String(),
+      template_body: t.String(),
+      revision_id: t.Optional(t.String()),
+      description: t.Optional(t.String()),
+    }),
+  }
 );
 
 adminRoutes.put(
@@ -3001,7 +3597,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(labelTemplates).where(eq(labelTemplates.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Template not found" };
+      return fail("NOT_FOUND", "Template not found");
     }
 
     if (body.template_body) {
@@ -3009,26 +3605,47 @@ adminRoutes.put(
         JSON.parse(body.template_body);
       } catch {
         set.status = 400;
-        return { success: false, error_code: "INVALID_TEMPLATE_JSON", message: "template_body must be valid JSON" };
+        return fail("INVALID_TEMPLATE_JSON", "template_body must be valid JSON");
       }
     }
 
     const [updated] = await db
       .update(labelTemplates)
-      .set({ name: body.name ?? existing.name, templateBody: body.template_body ?? existing.templateBody, revisionId: body.revision_id === undefined ? existing.revisionId : body.revision_id, description: body.description ?? existing.description, updatedAt: new Date() })
+      .set({
+        name: body.name ?? existing.name,
+        templateBody: body.template_body ?? existing.templateBody,
+        revisionId: body.revision_id === undefined ? existing.revisionId : body.revision_id,
+        description: body.description ?? existing.description,
+        updatedAt: new Date(),
+      })
       .where(eq(labelTemplates.id, params.id))
-      .returning({ id: labelTemplates.id, name: labelTemplates.name, revision_id: labelTemplates.revisionId, template_body: labelTemplates.templateBody, description: labelTemplates.description, created_at: labelTemplates.createdAt, updated_at: labelTemplates.updatedAt });
+      .returning({
+        id: labelTemplates.id,
+        name: labelTemplates.name,
+        revision_id: labelTemplates.revisionId,
+        template_body: labelTemplates.templateBody,
+        description: labelTemplates.description,
+        created_at: labelTemplates.createdAt,
+        updated_at: labelTemplates.updatedAt,
+      });
 
     await auditConfigChange(user.userId, "LABEL_TEMPLATE", params.id, "UPDATE", existing as any, updated as any);
-    return { success: true, data: updated };
+    return ok(updated);
   },
-  { body: t.Object({ name: t.Optional(t.String()), template_body: t.Optional(t.String()), revision_id: t.Optional(t.String()), description: t.Optional(t.String()) }) }
+  {
+    body: t.Object({
+      name: t.Optional(t.String()),
+      template_body: t.Optional(t.String()),
+      revision_id: t.Optional(t.String()),
+      description: t.Optional(t.String()),
+    }),
+  }
 );
 
 adminRoutes.delete("/templates/:id", async ({ params, user }: { params: { id: string }; user: AccessTokenPayload }) => {
   await db.delete(labelTemplates).where(eq(labelTemplates.id, params.id));
   await auditConfigChange(user.userId, "LABEL_TEMPLATE", params.id, "DELETE", { id: params.id }, null);
-  return { success: true, data: null };
+  return ok(null);
 });
 
 adminRoutes.get("/bindings", async ({ query }: { query: { revision_id?: string } }) => {
@@ -3036,36 +3653,70 @@ adminRoutes.get("/bindings", async ({ query }: { query: { revision_id?: string }
   if (query.revision_id) conditions.push(eq(labelBindings.modelRevisionId, query.revision_id));
 
   const rows = await db
-    .select({ id: labelBindings.id, model_revision_id: labelBindings.modelRevisionId, variant_id: labelBindings.variantId, unit_type: labelBindings.unitType, process_point: labelBindings.processPoint, label_template_id: labelBindings.labelTemplateId, created_at: labelBindings.createdAt })
+    .select({
+      id: labelBindings.id,
+      model_revision_id: labelBindings.modelRevisionId,
+      variant_id: labelBindings.variantId,
+      unit_type: labelBindings.unitType,
+      process_point: labelBindings.processPoint,
+      label_template_id: labelBindings.labelTemplateId,
+      created_at: labelBindings.createdAt,
+    })
     .from(labelBindings)
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(labelBindings.createdAt));
 
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
   "/bindings",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
-    const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, body.model_revision_id)).limit(1);
+    const [revision] = await db
+      .select()
+      .from(modelRevisions)
+      .where(eq(modelRevisions.id, body.model_revision_id))
+      .limit(1);
     if (revision && revision.status === "ACTIVE") {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
     }
     try {
       const [created] = await db
         .insert(labelBindings)
-        .values({ modelRevisionId: body.model_revision_id, variantId: body.variant_id ?? null, unitType: body.unit_type, processPoint: body.process_point, labelTemplateId: body.label_template_id })
-        .returning({ id: labelBindings.id, model_revision_id: labelBindings.modelRevisionId, variant_id: labelBindings.variantId, unit_type: labelBindings.unitType, process_point: labelBindings.processPoint, label_template_id: labelBindings.labelTemplateId, created_at: labelBindings.createdAt });
+        .values({
+          modelRevisionId: body.model_revision_id,
+          variantId: body.variant_id ?? null,
+          unitType: body.unit_type,
+          processPoint: body.process_point,
+          labelTemplateId: body.label_template_id,
+        })
+        .returning({
+          id: labelBindings.id,
+          model_revision_id: labelBindings.modelRevisionId,
+          variant_id: labelBindings.variantId,
+          unit_type: labelBindings.unitType,
+          process_point: labelBindings.processPoint,
+          label_template_id: labelBindings.labelTemplateId,
+          created_at: labelBindings.createdAt,
+        });
 
       await auditConfigChange(user.userId, "LABEL_BINDING", created.id, "CREATE", null, created as any);
-      return { success: true, data: created };
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create binding" };
+      return fail(parseErrorCode(error), "Failed to create binding");
     }
   },
-  { body: t.Object({ model_revision_id: t.String(), variant_id: t.Optional(t.String()), unit_type: t.String(), process_point: t.String(), label_template_id: t.String() }) }
+  {
+    body: t.Object({
+      model_revision_id: t.String(),
+      variant_id: t.Optional(t.String()),
+      unit_type: t.String(),
+      process_point: t.String(),
+      label_template_id: t.String(),
+    }),
+  }
 );
 
 adminRoutes.put(
@@ -3074,54 +3725,90 @@ adminRoutes.put(
     const [existing] = await db.select().from(labelBindings).where(eq(labelBindings.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Binding not found" };
+      return fail("NOT_FOUND", "Binding not found");
     }
 
-    const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, existing.modelRevisionId)).limit(1);
+    const [revision] = await db
+      .select()
+      .from(modelRevisions)
+      .where(eq(modelRevisions.id, existing.modelRevisionId))
+      .limit(1);
     if (revision && revision.status === "ACTIVE") {
       set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+      return fail("REVISION_LOCKED", "Active revisions are read-only");
     }
 
     try {
       const [updated] = await db
         .update(labelBindings)
-        .set({ modelRevisionId: body.model_revision_id ?? existing.modelRevisionId, variantId: body.variant_id === undefined ? existing.variantId : body.variant_id, unitType: body.unit_type ?? existing.unitType, processPoint: body.process_point ?? existing.processPoint, labelTemplateId: body.label_template_id ?? existing.labelTemplateId })
+        .set({
+          modelRevisionId: body.model_revision_id ?? existing.modelRevisionId,
+          variantId: body.variant_id === undefined ? existing.variantId : body.variant_id,
+          unitType: body.unit_type ?? existing.unitType,
+          processPoint: body.process_point ?? existing.processPoint,
+          labelTemplateId: body.label_template_id ?? existing.labelTemplateId,
+        })
         .where(eq(labelBindings.id, params.id))
-        .returning({ id: labelBindings.id, model_revision_id: labelBindings.modelRevisionId, variant_id: labelBindings.variantId, unit_type: labelBindings.unitType, process_point: labelBindings.processPoint, label_template_id: labelBindings.labelTemplateId, created_at: labelBindings.createdAt });
+        .returning({
+          id: labelBindings.id,
+          model_revision_id: labelBindings.modelRevisionId,
+          variant_id: labelBindings.variantId,
+          unit_type: labelBindings.unitType,
+          process_point: labelBindings.processPoint,
+          label_template_id: labelBindings.labelTemplateId,
+          created_at: labelBindings.createdAt,
+        });
 
       await auditConfigChange(user.userId, "LABEL_BINDING", params.id, "UPDATE", existing as any, updated as any);
-      return { success: true, data: updated };
+      return ok(updated);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to update binding" };
+      return fail(parseErrorCode(error), "Failed to update binding");
     }
   },
-  { body: t.Object({ model_revision_id: t.Optional(t.String()), variant_id: t.Optional(t.String()), unit_type: t.Optional(t.String()), process_point: t.Optional(t.String()), label_template_id: t.Optional(t.String()) }) }
+  {
+    body: t.Object({
+      model_revision_id: t.Optional(t.String()),
+      variant_id: t.Optional(t.String()),
+      unit_type: t.Optional(t.String()),
+      process_point: t.Optional(t.String()),
+      label_template_id: t.Optional(t.String()),
+    }),
+  }
 );
 
-adminRoutes.delete("/bindings/:id", async ({ params, user, set }: { params: { id: string }; user: AccessTokenPayload; set: any }) => {
-  const [existing] = await db.select().from(labelBindings).where(eq(labelBindings.id, params.id)).limit(1);
-  if (existing) {
-    const [revision] = await db.select().from(modelRevisions).where(eq(modelRevisions.id, existing.modelRevisionId)).limit(1);
-    if (revision && revision.status === "ACTIVE") {
-      set.status = 409;
-      return { success: false, error_code: "REVISION_LOCKED", message: "Active revisions are read-only" };
+adminRoutes.delete(
+  "/bindings/:id",
+  async ({ params, user, set }: { params: { id: string }; user: AccessTokenPayload; set: any }) => {
+    const [existing] = await db.select().from(labelBindings).where(eq(labelBindings.id, params.id)).limit(1);
+    if (existing) {
+      const [revision] = await db
+        .select()
+        .from(modelRevisions)
+        .where(eq(modelRevisions.id, existing.modelRevisionId))
+        .limit(1);
+      if (revision && revision.status === "ACTIVE") {
+        set.status = 409;
+        return fail("REVISION_LOCKED", "Active revisions are read-only");
+      }
     }
+    await db.delete(labelBindings).where(eq(labelBindings.id, params.id));
+    await auditConfigChange(user.userId, "LABEL_BINDING", params.id, "DELETE", { id: params.id }, null);
+    return ok(null);
   }
-  await db.delete(labelBindings).where(eq(labelBindings.id, params.id));
-  await auditConfigChange(user.userId, "LABEL_BINDING", params.id, "DELETE", { id: params.id }, null);
-  return { success: true, data: null };
-});
+);
 
-adminRoutes.get("/validate-model/:id", async ({ params, query, set }: { params: { id: string }; query: { revision_id?: string }; set: any }) => {
-  const [model] = await db.select({ id: models.id }).from(models).where(eq(models.id, params.id)).limit(1);
-  if (!model) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Model not found" };
+adminRoutes.get(
+  "/validate-model/:id",
+  async ({ params, query, set }: { params: { id: string }; query: { revision_id?: string }; set: any }) => {
+    const [model] = await db.select({ id: models.id }).from(models).where(eq(models.id, params.id)).limit(1);
+    if (!model) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Model not found");
+    }
+    return ok(await runReadinessValidation(params.id, query.revision_id));
   }
-  return { success: true, data: await runReadinessValidation(params.id, query.revision_id) };
-});
+);
 
 adminRoutes.get("/processes", async () => {
   const rows = await db
@@ -3134,7 +3821,7 @@ adminRoutes.get("/processes", async () => {
     })
     .from(processes)
     .orderBy(asc(processes.sequenceOrder), asc(processes.processCode));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -3147,19 +3834,15 @@ adminRoutes.post(
 
       if (!normalizedCode || !normalizedName || !Number.isFinite(normalizedSequence)) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "Invalid process payload" };
+        return fail("INVALID_INPUT", "Invalid process payload");
       }
 
-      const [existing] = await db
-        .select()
-        .from(processes)
-        .where(eq(processes.processCode, normalizedCode))
-        .limit(1);
+      const [existing] = await db.select().from(processes).where(eq(processes.processCode, normalizedCode)).limit(1);
 
       if (existing) {
         if (existing.isActive) {
           set.status = 409;
-          return { success: false, error_code: "DUPLICATE_PROCESS_CODE", message: "Process code already exists" };
+          return fail("DUPLICATE_PROCESS_CODE", "Process code already exists");
         }
 
         const [reactivated] = await db
@@ -3188,7 +3871,7 @@ adminRoutes.post(
           reactivated as Record<string, unknown>
         );
 
-        return { success: true, data: reactivated };
+        return ok(reactivated);
       }
 
       const [created] = await db
@@ -3207,10 +3890,10 @@ adminRoutes.post(
           active: processes.isActive,
         });
       await auditConfigChange(user.userId, "PROCESS", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create process" };
+      return fail(parseErrorCode(error), "Failed to create process");
     }
   },
   {
@@ -3229,7 +3912,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(processes).where(eq(processes.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Process not found" };
+      return fail("NOT_FOUND", "Process not found");
     }
     const [updated] = await db
       .update(processes)
@@ -3248,8 +3931,15 @@ adminRoutes.put(
         sequence_order: processes.sequenceOrder,
         active: processes.isActive,
       });
-    await auditConfigChange(user.userId, "PROCESS", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
-    return { success: true, data: updated };
+    await auditConfigChange(
+      user.userId,
+      "PROCESS",
+      params.id,
+      "UPDATE",
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>
+    );
+    return ok(updated);
   },
   {
     body: t.Object({
@@ -3261,16 +3951,21 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/processes/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(processes).where(eq(processes.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Process not found" };
+adminRoutes.delete(
+  "/processes/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(processes).where(eq(processes.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Process not found");
+    }
+    await db.update(processes).set({ isActive: false, updatedAt: new Date() }).where(eq(processes.id, params.id));
+    await auditConfigChange(user.userId, "PROCESS", params.id, "DEACTIVATE", existing as Record<string, unknown>, {
+      active: false,
+    });
+    return ok(null);
   }
-  await db.update(processes).set({ isActive: false, updatedAt: new Date() }).where(eq(processes.id, params.id));
-  await auditConfigChange(user.userId, "PROCESS", params.id, "DEACTIVATE", existing as Record<string, unknown>, { active: false });
-  return { success: true, data: null };
-});
+);
 
 adminRoutes.get("/suppliers", async () => {
   const rows = await db
@@ -3285,7 +3980,7 @@ adminRoutes.get("/suppliers", async () => {
     })
     .from(suppliers)
     .orderBy(asc(suppliers.code));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -3296,7 +3991,9 @@ adminRoutes.post(
         .insert(suppliers)
         .values({
           name: String(body.name ?? "").trim(),
-          code: String(body.code ?? "").trim().toUpperCase(),
+          code: String(body.code ?? "")
+            .trim()
+            .toUpperCase(),
           vendorId: body.vendor_id ? String(body.vendor_id).trim().toUpperCase() : null,
           isActive: body.is_active ?? true,
         })
@@ -3310,10 +4007,10 @@ adminRoutes.post(
           updated_at: suppliers.updatedAt,
         });
       await auditConfigChange(user.userId, "SUPPLIER", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create vendor" };
+      return fail(parseErrorCode(error), "Failed to create vendor");
     }
   },
   {
@@ -3332,7 +4029,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Vendor not found" };
+      return fail("NOT_FOUND", "Vendor not found");
     }
 
     const [updated] = await db
@@ -3367,7 +4064,7 @@ adminRoutes.put(
       existing as Record<string, unknown>,
       updated as Record<string, unknown>
     );
-    return { success: true, data: updated };
+    return ok(updated);
   },
   {
     body: t.Object({
@@ -3379,17 +4076,22 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/suppliers/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Vendor not found" };
-  }
+adminRoutes.delete(
+  "/suppliers/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(suppliers).where(eq(suppliers.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Vendor not found");
+    }
 
-  await db.update(suppliers).set({ isActive: false, updatedAt: new Date() }).where(eq(suppliers.id, params.id));
-  await auditConfigChange(user.userId, "SUPPLIER", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
-  return { success: true, data: null };
-});
+    await db.update(suppliers).set({ isActive: false, updatedAt: new Date() }).where(eq(suppliers.id, params.id));
+    await auditConfigChange(user.userId, "SUPPLIER", params.id, "DEACTIVATE", existing as Record<string, unknown>, {
+      is_active: false,
+    });
+    return ok(null);
+  }
+);
 
 adminRoutes.get("/supplier-part-profiles", async () => {
   const rows = await db
@@ -3415,7 +4117,7 @@ adminRoutes.get("/supplier-part-profiles", async () => {
     .innerJoin(suppliers, eq(suppliers.id, supplierPartProfiles.supplierId))
     .orderBy(asc(suppliers.code), asc(supplierPartProfiles.partNumber), asc(supplierPartProfiles.supplierPartNumber));
 
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.get("/supplier-pack-parsers", async () => {
@@ -3430,7 +4132,7 @@ adminRoutes.get("/supplier-pack-parsers", async () => {
 
 adminRoutes.get("/barcode-templates", async () => {
   const rows = await getMergedBarcodeTemplateRecords();
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -3441,11 +4143,11 @@ adminRoutes.post(
     const normalized = normalizeTemplateRecord(body);
     if (!normalized) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_INPUT", message: "Invalid barcode template payload" };
+      return fail("INVALID_INPUT", "Invalid barcode template payload");
     }
     if (allTemplates.some((item) => item.key === normalized.key)) {
       set.status = 409;
-      return { success: false, error_code: "DUPLICATE_KEY", message: "Template key already exists" };
+      return fail("DUPLICATE_KEY", "Template key already exists");
     }
 
     const nowIso = new Date().toISOString();
@@ -3465,7 +4167,7 @@ adminRoutes.post(
       null,
       created as Record<string, unknown>
     );
-    return { success: true, data: created };
+    return ok(created);
   },
   {
     body: t.Object({
@@ -3493,13 +4195,13 @@ adminRoutes.put(
     const systemRows = getSystemBarcodeTemplateRecords();
     if (systemRows.some((row) => row.id === params.id)) {
       set.status = 400;
-      return { success: false, error_code: "READONLY_TEMPLATE", message: "System template is read-only. Please clone it." };
+      return fail("READONLY_TEMPLATE", "System template is read-only. Please clone it.");
     }
     const rows = await getBarcodeTemplateMasterRecords();
     const index = rows.findIndex((row) => row.id === params.id);
     if (index < 0) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Barcode template not found" };
+      return fail("NOT_FOUND", "Barcode template not found");
     }
 
     const existing = rows[index];
@@ -3514,13 +4216,13 @@ adminRoutes.put(
     });
     if (!merged) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_INPUT", message: "Invalid barcode template payload" };
+      return fail("INVALID_INPUT", "Invalid barcode template payload");
     }
     const allTemplates = await getMergedBarcodeTemplateRecords();
     const keyConflict = allTemplates.some((row) => row.id !== params.id && row.key === merged.key);
     if (keyConflict) {
       set.status = 409;
-      return { success: false, error_code: "DUPLICATE_KEY", message: "Template key already exists" };
+      return fail("DUPLICATE_KEY", "Template key already exists");
     }
     rows[index] = merged;
     await saveBarcodeTemplateMasterRecords(rows.sort((a, b) => a.key.localeCompare(b.key)));
@@ -3532,7 +4234,7 @@ adminRoutes.put(
       existing as Record<string, unknown>,
       merged as Record<string, unknown>
     );
-    return { success: true, data: merged };
+    return ok(merged);
   },
   {
     body: t.Object({
@@ -3554,30 +4256,33 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/barcode-templates/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const systemRows = getSystemBarcodeTemplateRecords();
-  if (systemRows.some((row) => row.id === params.id)) {
-    set.status = 400;
-    return { success: false, error_code: "READONLY_TEMPLATE", message: "System template is read-only. Please clone it." };
+adminRoutes.delete(
+  "/barcode-templates/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const systemRows = getSystemBarcodeTemplateRecords();
+    if (systemRows.some((row) => row.id === params.id)) {
+      set.status = 400;
+      return fail("READONLY_TEMPLATE", "System template is read-only. Please clone it.");
+    }
+    const rows = await getBarcodeTemplateMasterRecords();
+    const existing = rows.find((row) => row.id === params.id);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Barcode template not found");
+    }
+    const next = rows.filter((row) => row.id !== params.id);
+    await saveBarcodeTemplateMasterRecords(next);
+    await auditConfigChange(
+      user.userId,
+      "BARCODE_TEMPLATE",
+      params.id,
+      "DELETE",
+      existing as Record<string, unknown>,
+      null
+    );
+    return ok(null);
   }
-  const rows = await getBarcodeTemplateMasterRecords();
-  const existing = rows.find((row) => row.id === params.id);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Barcode template not found" };
-  }
-  const next = rows.filter((row) => row.id !== params.id);
-  await saveBarcodeTemplateMasterRecords(next);
-  await auditConfigChange(
-    user.userId,
-    "BARCODE_TEMPLATE",
-    params.id,
-    "DELETE",
-    existing as Record<string, unknown>,
-    null
-  );
-  return { success: true, data: null };
-});
+);
 
 adminRoutes.post(
   "/barcode-templates/test-parse",
@@ -3588,7 +4293,7 @@ adminRoutes.post(
       const raw = String(body.pack_barcode_raw ?? "").trim();
       if (!raw) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "pack_barcode_raw is required" };
+        return fail("INVALID_INPUT", "pack_barcode_raw is required");
       }
 
       if (body.template) {
@@ -3598,20 +4303,20 @@ adminRoutes.post(
         });
         if (!normalized) {
           set.status = 400;
-          return { success: false, error_code: "INVALID_INPUT", message: "Invalid ad-hoc template payload" };
+          return fail("INVALID_INPUT", "Invalid ad-hoc template payload");
         }
         const parsed = parseSupplierPackBarcodeWithTemplate(raw, toParserTemplate(normalized));
-        return { success: true, data: { parser_key: normalized.key, parser_source: "ADHOC_TEMPLATE", parsed } };
+        return ok({ parser_key: normalized.key, parser_source: "ADHOC_TEMPLATE", parsed });
       }
 
       if (body.template_id) {
         const selected = templates.find((template) => template.id === body.template_id);
         if (!selected) {
           set.status = 404;
-          return { success: false, error_code: "NOT_FOUND", message: "Barcode template not found" };
+          return fail("NOT_FOUND", "Barcode template not found");
         }
         const parsed = parseSupplierPackBarcodeWithTemplate(raw, toParserTemplate(selected));
-        return { success: true, data: { parser_key: selected.key, parser_source: "TEMPLATE_MASTER", parsed } };
+        return ok({ parser_key: selected.key, parser_source: "TEMPLATE_MASTER", parsed });
       }
 
       const parsed = parsePackBarcodeByKey(raw, body.parser_key, templateMap);
@@ -3625,7 +4330,7 @@ adminRoutes.post(
       };
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to parse barcode" };
+      return fail(parseErrorCode(error), "Failed to parse barcode");
     }
   },
   {
@@ -3659,25 +4364,35 @@ adminRoutes.post(
   "/supplier-part-profiles",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
     const supplierId = String(body.supplier_id ?? "").trim();
-    const partNumber = String(body.part_number ?? "").trim().toUpperCase();
+    const partNumber = String(body.part_number ?? "")
+      .trim()
+      .toUpperCase();
     const supplierPartNumber = String(body.supplier_part_number ?? body.vendor_part_number ?? "")
       .trim()
       .toUpperCase();
     if (!supplierId || !partNumber) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_INPUT", message: "vendor_id and part_number are required" };
+      return fail("INVALID_INPUT", "vendor_id and part_number are required");
     }
 
-    const [supplierRow] = await db.select({ id: suppliers.id }).from(suppliers).where(eq(suppliers.id, supplierId)).limit(1);
+    const [supplierRow] = await db
+      .select({ id: suppliers.id })
+      .from(suppliers)
+      .where(eq(suppliers.id, supplierId))
+      .limit(1);
     if (!supplierRow) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Vendor not found" };
+      return fail("NOT_FOUND", "Vendor not found");
     }
 
-    const [partRow] = await db.select({ id: partNumbers.id }).from(partNumbers).where(eq(partNumbers.partNumber, partNumber)).limit(1);
+    const [partRow] = await db
+      .select({ id: partNumbers.id })
+      .from(partNumbers)
+      .where(eq(partNumbers.partNumber, partNumber))
+      .limit(1);
     if (!partRow) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Part number not found" };
+      return fail("NOT_FOUND", "Part number not found");
     }
 
     try {
@@ -3687,7 +4402,9 @@ adminRoutes.post(
           supplierId,
           partNumber,
           supplierPartNumber,
-          parserKey: String(body.parser_key ?? "GENERIC").trim().toUpperCase(),
+          parserKey: String(body.parser_key ?? "GENERIC")
+            .trim()
+            .toUpperCase(),
           defaultPackQty: body.default_pack_qty ?? null,
           isActive: body.is_active ?? true,
         })
@@ -3712,10 +4429,10 @@ adminRoutes.post(
         null,
         created as Record<string, unknown>
       );
-      return { success: true, data: created };
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create vendor part profile" };
+      return fail(parseErrorCode(error), "Failed to create vendor part profile");
     }
   },
   {
@@ -3734,23 +4451,35 @@ adminRoutes.post(
 adminRoutes.put(
   "/supplier-part-profiles/:id",
   async ({ params, body, set, user }: { params: { id: string }; body: any; set: any; user: AccessTokenPayload }) => {
-    const [existing] = await db.select().from(supplierPartProfiles).where(eq(supplierPartProfiles.id, params.id)).limit(1);
+    const [existing] = await db
+      .select()
+      .from(supplierPartProfiles)
+      .where(eq(supplierPartProfiles.id, params.id))
+      .limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Vendor part profile not found" };
+      return fail("NOT_FOUND", "Vendor part profile not found");
     }
 
     const nextPartNumber = body.part_number ? String(body.part_number).trim().toUpperCase() : existing.partNumber;
     const nextSupplierId = body.supplier_id ?? existing.supplierId;
-    const [supplierRow] = await db.select({ id: suppliers.id }).from(suppliers).where(eq(suppliers.id, nextSupplierId)).limit(1);
+    const [supplierRow] = await db
+      .select({ id: suppliers.id })
+      .from(suppliers)
+      .where(eq(suppliers.id, nextSupplierId))
+      .limit(1);
     if (!supplierRow) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Vendor not found" };
+      return fail("NOT_FOUND", "Vendor not found");
     }
-    const [partRow] = await db.select({ id: partNumbers.id }).from(partNumbers).where(eq(partNumbers.partNumber, nextPartNumber)).limit(1);
+    const [partRow] = await db
+      .select({ id: partNumbers.id })
+      .from(partNumbers)
+      .where(eq(partNumbers.partNumber, nextPartNumber))
+      .limit(1);
     if (!partRow) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Part number not found" };
+      return fail("NOT_FOUND", "Part number not found");
     }
 
     const [updated] = await db
@@ -3792,7 +4521,7 @@ adminRoutes.put(
       existing as Record<string, unknown>,
       updated as Record<string, unknown>
     );
-    return { success: true, data: updated };
+    return ok(updated);
   },
   {
     body: t.Object({
@@ -3810,15 +4539,29 @@ adminRoutes.put(
 adminRoutes.delete(
   "/supplier-part-profiles/:id",
   async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-    const [existing] = await db.select().from(supplierPartProfiles).where(eq(supplierPartProfiles.id, params.id)).limit(1);
+    const [existing] = await db
+      .select()
+      .from(supplierPartProfiles)
+      .where(eq(supplierPartProfiles.id, params.id))
+      .limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Vendor part profile not found" };
+      return fail("NOT_FOUND", "Vendor part profile not found");
     }
 
-    await db.update(supplierPartProfiles).set({ isActive: false, updatedAt: new Date() }).where(eq(supplierPartProfiles.id, params.id));
-    await auditConfigChange(user.userId, "SUPPLIER_PART_PROFILE", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
-    return { success: true, data: null };
+    await db
+      .update(supplierPartProfiles)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(supplierPartProfiles.id, params.id));
+    await auditConfigChange(
+      user.userId,
+      "SUPPLIER_PART_PROFILE",
+      params.id,
+      "DEACTIVATE",
+      existing as Record<string, unknown>,
+      { is_active: false }
+    );
+    return ok(null);
   }
 );
 
@@ -3845,7 +4588,7 @@ adminRoutes.get("/inventory-do", async () => {
     .from(inventoryDo)
     .leftJoin(suppliers, eq(suppliers.id, inventoryDo.supplierId))
     .orderBy(desc(inventoryDo.receivedAt));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -3879,11 +4622,18 @@ adminRoutes.post(
           received_date: inventoryDo.receivedDate,
           received_at: inventoryDo.receivedAt,
         });
-      await auditConfigChange(user.userId, "INVENTORY_DO", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      await auditConfigChange(
+        user.userId,
+        "INVENTORY_DO",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create DO" };
+      return fail(parseErrorCode(error), "Failed to create DO");
     }
   },
   {
@@ -3931,7 +4681,7 @@ adminRoutes.get("/supplier-packs", async () => {
     .leftJoin(suppliers, eq(suppliers.id, supplierPacks.supplierId))
     .leftJoin(inventoryDo, eq(inventoryDo.id, supplierPacks.doId))
     .orderBy(desc(supplierPacks.receivedAt));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -3942,22 +4692,24 @@ adminRoutes.post(
       const supplierId = String(body.vendor_id ?? body.supplier_id ?? "").trim();
       if (!supplierId) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "vendor_id is required" };
+        return fail("INVALID_INPUT", "vendor_id is required");
       }
 
       const [vendor] = await db.select().from(suppliers).where(eq(suppliers.id, supplierId)).limit(1);
       if (!vendor) {
         set.status = 404;
-        return { success: false, error_code: "NOT_FOUND", message: "Vendor not found" };
+        return fail("NOT_FOUND", "Vendor not found");
       }
 
       const preParsedResult = parsePackBarcodeByKey(body.pack_barcode_raw, body.parser_key, templateMap);
       const preParsed = preParsedResult.parsed;
-      const partNumber = String(body.part_number ?? preParsed.partNumber ?? "").trim().toUpperCase();
+      const partNumber = String(body.part_number ?? preParsed.partNumber ?? "")
+        .trim()
+        .toUpperCase();
 
       if (!partNumber) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "part_number is required" };
+        return fail("INVALID_INPUT", "part_number is required");
       }
 
       const [partMaster] = await db
@@ -3967,7 +4719,7 @@ adminRoutes.post(
         .limit(1);
       if (!partMaster) {
         set.status = 404;
-        return { success: false, error_code: "NOT_FOUND", message: "Part number not found in master" };
+        return fail("NOT_FOUND", "Part number not found in master");
       }
 
       const profiles = await db
@@ -3981,11 +4733,15 @@ adminRoutes.post(
           )
         );
 
-      const supplierPartNumber = String(body.vendor_part_number ?? body.supplier_part_number ?? "").trim().toUpperCase();
+      const supplierPartNumber = String(body.vendor_part_number ?? body.supplier_part_number ?? "")
+        .trim()
+        .toUpperCase();
       const profile =
         (supplierPartNumber
           ? profiles.find((p) => p.supplierPartNumber === supplierPartNumber)
-          : profiles.find((p) => p.supplierPartNumber === "")) ?? profiles[0] ?? null;
+          : profiles.find((p) => p.supplierPartNumber === "")) ??
+        profiles[0] ??
+        null;
 
       const parserKey = String(body.parser_key ?? profile?.parserKey ?? preParsedResult.parserKey ?? "GENERIC")
         .trim()
@@ -3997,7 +4753,7 @@ adminRoutes.post(
 
       if (!partNumber || !Number.isFinite(packQtyTotal) || packQtyTotal <= 0) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_INPUT", message: "part_number and pack_qty_total are required" };
+        return fail("INVALID_INPUT", "part_number and pack_qty_total are required");
       }
       const selectedVendorId =
         normalizeVendorIdToken(vendor.vendorId) ??
@@ -4049,11 +4805,11 @@ adminRoutes.post(
         if (existingDo) {
           if (existingDo.supplier_id && existingDo.supplier_id !== supplierId) {
             set.status = 400;
-            return { success: false, error_code: "INVALID_INPUT", message: "DO number belongs to another vendor" };
+            return fail("INVALID_INPUT", "DO number belongs to another vendor");
           }
           if (existingDo.part_number && existingDo.part_number !== partNumber) {
             set.status = 400;
-            return { success: false, error_code: "INVALID_INPUT", message: "DO part number mismatch" };
+            return fail("INVALID_INPUT", "DO part number mismatch");
           }
           doId = existingDo.id;
         }
@@ -4141,7 +4897,7 @@ adminRoutes.post(
       };
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to receive vendor pack" };
+      return fail(parseErrorCode(error), "Failed to receive vendor pack");
     }
   },
   {
@@ -4183,7 +4939,7 @@ adminRoutes.get("/stations", async () => {
     .leftJoin(processes, eq(processes.id, stations.processId))
     .orderBy(asc(stations.stationCode));
 
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.post(
@@ -4211,10 +4967,10 @@ adminRoutes.post(
         });
 
       await auditConfigChange(user.userId, "STATION", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create station" };
+      return fail(parseErrorCode(error), "Failed to create station");
     }
   },
   {
@@ -4235,7 +4991,7 @@ adminRoutes.put(
     const [existing] = await db.select().from(stations).where(eq(stations.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Station not found" };
+      return fail("NOT_FOUND", "Station not found");
     }
 
     const [updated] = await db
@@ -4259,8 +5015,15 @@ adminRoutes.put(
         process_id: stations.processId,
         active: stations.isActive,
       });
-    await auditConfigChange(user.userId, "STATION", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
-    return { success: true, data: updated };
+    await auditConfigChange(
+      user.userId,
+      "STATION",
+      params.id,
+      "UPDATE",
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>
+    );
+    return ok(updated);
   },
   {
     body: t.Object({
@@ -4274,16 +5037,21 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/stations/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(stations).where(eq(stations.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Station not found" };
+adminRoutes.delete(
+  "/stations/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(stations).where(eq(stations.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Station not found");
+    }
+    await db.update(stations).set({ isActive: false, updatedAt: new Date() }).where(eq(stations.id, params.id));
+    await auditConfigChange(user.userId, "STATION", params.id, "DEACTIVATE", existing as Record<string, unknown>, {
+      active: false,
+    });
+    return ok(null);
   }
-  await db.update(stations).set({ isActive: false, updatedAt: new Date() }).where(eq(stations.id, params.id));
-  await auditConfigChange(user.userId, "STATION", params.id, "DEACTIVATE", existing as Record<string, unknown>, { active: false });
-  return { success: true, data: null };
-});
+);
 
 adminRoutes.get("/workflow-approvals", async () => {
   const rows = await db
@@ -4373,7 +5141,14 @@ adminRoutes.post(
           metadata: workflowApprovalConfigs.metadata,
         });
 
-      await auditConfigChange(user.userId, "WORKFLOW_APPROVAL", created.id, "CREATE", null, created as Record<string, unknown>);
+      await auditConfigChange(
+        user.userId,
+        "WORKFLOW_APPROVAL",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
       const approverUsers = parseWorkflowApproverUsers(created.metadata);
       return {
         success: true,
@@ -4386,7 +5161,7 @@ adminRoutes.post(
       };
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create workflow approval rule" };
+      return fail(parseErrorCode(error), "Failed to create workflow approval rule");
     }
   },
   {
@@ -4406,13 +5181,20 @@ adminRoutes.post(
 adminRoutes.put(
   "/workflow-approvals/:id",
   async ({ params, body, set, user }: { params: { id: string }; body: any; set: any; user: AccessTokenPayload }) => {
-    const [existing] = await db.select().from(workflowApprovalConfigs).where(eq(workflowApprovalConfigs.id, params.id)).limit(1);
+    const [existing] = await db
+      .select()
+      .from(workflowApprovalConfigs)
+      .where(eq(workflowApprovalConfigs.id, params.id))
+      .limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Workflow approval rule not found" };
+      return fail("NOT_FOUND", "Workflow approval rule not found");
     }
 
-    const metadata = body.metadata !== undefined ? buildWorkflowMetadata(body, existing.metadata as Record<string, unknown> | null) : existing.metadata;
+    const metadata =
+      body.metadata !== undefined
+        ? buildWorkflowMetadata(body, existing.metadata as Record<string, unknown> | null)
+        : existing.metadata;
     const [updated] = await db
       .update(workflowApprovalConfigs)
       .set({
@@ -4438,7 +5220,14 @@ adminRoutes.put(
         active: workflowApprovalConfigs.isActive,
         metadata: workflowApprovalConfigs.metadata,
       });
-    await auditConfigChange(user.userId, "WORKFLOW_APPROVAL", params.id, "UPDATE", existing as Record<string, unknown>, updated as Record<string, unknown>);
+    await auditConfigChange(
+      user.userId,
+      "WORKFLOW_APPROVAL",
+      params.id,
+      "UPDATE",
+      existing as Record<string, unknown>,
+      updated as Record<string, unknown>
+    );
     const approverUsers = parseWorkflowApproverUsers(updated.metadata);
     return {
       success: true,
@@ -4464,17 +5253,31 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/workflow-approvals/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(workflowApprovalConfigs).where(eq(workflowApprovalConfigs.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Workflow approval rule not found" };
-  }
+adminRoutes.delete(
+  "/workflow-approvals/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db
+      .select()
+      .from(workflowApprovalConfigs)
+      .where(eq(workflowApprovalConfigs.id, params.id))
+      .limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Workflow approval rule not found");
+    }
 
-  await db.delete(workflowApprovalConfigs).where(eq(workflowApprovalConfigs.id, params.id));
-  await auditConfigChange(user.userId, "WORKFLOW_APPROVAL", params.id, "DELETE", existing as Record<string, unknown>, null);
-  return { success: true, data: null };
-});
+    await db.delete(workflowApprovalConfigs).where(eq(workflowApprovalConfigs.id, params.id));
+    await auditConfigChange(
+      user.userId,
+      "WORKFLOW_APPROVAL",
+      params.id,
+      "DELETE",
+      existing as Record<string, unknown>,
+      null
+    );
+    return ok(null);
+  }
+);
 
 adminRoutes.get("/workflow-transitions", async () => {
   const rows = await db
@@ -4488,19 +5291,15 @@ adminRoutes.get("/workflow-transitions", async () => {
     .from(workflowApprovalConfigs)
     .where(eq(workflowApprovalConfigs.isActive, true))
     .orderBy(asc(workflowApprovalConfigs.flowCode), asc(workflowApprovalConfigs.level));
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 adminRoutes.get("/settings/heartbeat", async () => {
-  const [row] = await db
-    .select()
-    .from(appSettings)
-    .where(eq(appSettings.key, "heartbeat"))
-    .limit(1);
+  const [row] = await db.select().from(appSettings).where(eq(appSettings.key, "heartbeat")).limit(1);
   if (!row) {
-    return { success: true, data: { online_window_minutes: 2 } };
+    return ok({ online_window_minutes: 2 });
   }
-  return { success: true, data: row.value };
+  return ok(row.value);
 });
 
 adminRoutes.put(
@@ -4520,27 +5319,40 @@ adminRoutes.put(
         set: { value, updatedAt: new Date() },
       });
     await auditConfigChange(user.userId, "SETTINGS", "heartbeat", "UPDATE", null, value);
-    return { success: true, data: value };
+    return ok(value);
   },
   { body: t.Object({ online_window_minutes: t.Number() }) }
 );
 
-adminRoutes.get("/audit-logs", async ({ query }: { query: { entity_type?: string; user_id?: string; date_from?: string; date_to?: string } }) => {
-  const conditions = [];
-  if (query.entity_type) conditions.push(eq(configAuditLogs.entityType, query.entity_type));
-  if (query.user_id) conditions.push(eq(configAuditLogs.userId, query.user_id));
-  if (query.date_from) conditions.push(gte(configAuditLogs.createdAt, new Date(query.date_from)));
-  if (query.date_to) conditions.push(lte(configAuditLogs.createdAt, new Date(query.date_to)));
+adminRoutes.get(
+  "/audit-logs",
+  async ({ query }: { query: { entity_type?: string; user_id?: string; date_from?: string; date_to?: string } }) => {
+    const conditions = [];
+    if (query.entity_type) conditions.push(eq(configAuditLogs.entityType, query.entity_type));
+    if (query.user_id) conditions.push(eq(configAuditLogs.userId, query.user_id));
+    if (query.date_from) conditions.push(gte(configAuditLogs.createdAt, new Date(query.date_from)));
+    if (query.date_to) conditions.push(lte(configAuditLogs.createdAt, new Date(query.date_to)));
 
-  const rows = await db
-    .select({ id: configAuditLogs.id, user_id: configAuditLogs.userId, username: users.username, entity_type: configAuditLogs.entityType, entity_id: configAuditLogs.entityId, action: configAuditLogs.action, before_data: configAuditLogs.beforeData, after_data: configAuditLogs.afterData, created_at: configAuditLogs.createdAt })
-    .from(configAuditLogs)
-    .leftJoin(users, eq(users.id, configAuditLogs.userId))
-    .where(conditions.length ? and(...conditions) : undefined)
-    .orderBy(desc(configAuditLogs.createdAt));
+    const rows = await db
+      .select({
+        id: configAuditLogs.id,
+        user_id: configAuditLogs.userId,
+        username: users.username,
+        entity_type: configAuditLogs.entityType,
+        entity_id: configAuditLogs.entityId,
+        action: configAuditLogs.action,
+        before_data: configAuditLogs.beforeData,
+        after_data: configAuditLogs.afterData,
+        created_at: configAuditLogs.createdAt,
+      })
+      .from(configAuditLogs)
+      .leftJoin(users, eq(users.id, configAuditLogs.userId))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(configAuditLogs.createdAt));
 
-  return { success: true, data: rows };
-});
+    return ok(rows);
+  }
+);
 
 // ─── Set Recovery Endpoints ─────────────────────────────
 
@@ -4550,15 +5362,11 @@ adminRoutes.post(
     const { set_run_id, status: targetStatus } = body;
     const finalStatus = targetStatus === "CANCELLED" ? "CANCELLED" : "COMPLETED";
 
-    const [setRun] = await db
-      .select()
-      .from(setRuns)
-      .where(eq(setRuns.id, set_run_id))
-      .limit(1);
+    const [setRun] = await db.select().from(setRuns).where(eq(setRuns.id, set_run_id)).limit(1);
 
     if (!setRun) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Set run not found" };
+      return fail("NOT_FOUND", "Set run not found");
     }
 
     if (setRun.status !== "ACTIVE" && setRun.status !== "HOLD") {
@@ -4570,10 +5378,7 @@ adminRoutes.post(
       };
     }
 
-    await db
-      .update(setRuns)
-      .set({ status: finalStatus, endedAt: new Date() })
-      .where(eq(setRuns.id, set_run_id));
+    await db.update(setRuns).set({ status: finalStatus, endedAt: new Date() }).where(eq(setRuns.id, set_run_id));
 
     await auditConfigChange(
       user.userId,
@@ -4585,7 +5390,7 @@ adminRoutes.post(
     );
 
     console.log(`[ADMIN] Force-closed set_run="${set_run_id}" → ${finalStatus} by user="${user.userId}"`);
-    return { success: true, data: { set_run_id, previous_status: setRun.status, new_status: finalStatus } };
+    return ok({ set_run_id, previous_status: setRun.status, new_status: finalStatus });
   },
   {
     body: t.Object({
@@ -4603,24 +5408,16 @@ adminRoutes.post(
     const [lastClosed] = await db
       .select()
       .from(setRuns)
-      .where(
-        and(
-          eq(setRuns.assyUnitId, assy_unit_id),
-          sql`${setRuns.status} IN ('COMPLETED', 'CANCELLED', 'HOLD')`
-        )
-      )
+      .where(and(eq(setRuns.assyUnitId, assy_unit_id), sql`${setRuns.status} IN ('COMPLETED', 'CANCELLED', 'HOLD')`))
       .orderBy(desc(setRuns.endedAt))
       .limit(1);
 
     if (!lastClosed) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "No closed set_run found for this assy" };
+      return fail("NOT_FOUND", "No closed set_run found for this assy");
     }
 
-    await db
-      .update(setRuns)
-      .set({ status: "ACTIVE", endedAt: null })
-      .where(eq(setRuns.id, lastClosed.id));
+    await db.update(setRuns).set({ status: "ACTIVE", endedAt: null }).where(eq(setRuns.id, lastClosed.id));
 
     await auditConfigChange(
       user.userId,
@@ -4632,7 +5429,7 @@ adminRoutes.post(
     );
 
     console.log(`[ADMIN] Reopened set_run="${lastClosed.id}" for assy="${assy_unit_id}" by user="${user.userId}"`);
-    return { success: true, data: { set_run_id: lastClosed.id, previous_status: lastClosed.status, new_status: "ACTIVE" } };
+    return ok({ set_run_id: lastClosed.id, previous_status: lastClosed.status, new_status: "ACTIVE" });
   },
   {
     body: t.Object({
@@ -4775,11 +5572,11 @@ adminRoutes.post(
       console.log(
         `[ADMIN] Reassigned container="${container_id}" from set="${from_set_run_id}" to set="${to_set_run_id}" reason="${trimmedReason}" by user="${user.userId}"`
       );
-      return { success: true, data: result };
+      return ok(result);
     } catch (err: any) {
       if (err?.httpStatus) {
         set.status = err.httpStatus;
-        return { success: false, error_code: err.error_code, message: err.message };
+        return fail(err.error_code, err.message);
       }
       throw err;
     }
@@ -4793,7 +5590,6 @@ adminRoutes.post(
     }),
   }
 );
-
 
 // ═══════════════════════════════════════════════════════
 //  Cost Center CRUD
@@ -4821,7 +5617,7 @@ adminRoutes.get("/cost-centers", async ({ query }: { query: { is_active?: string
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(asc(costCenters.groupCode), asc(costCenters.costCode));
 
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 const VALID_GROUP_CODES = ["DL", "IDL", "DIS", "ADM"] as const;
@@ -4829,10 +5625,12 @@ const VALID_GROUP_CODES = ["DL", "IDL", "DIS", "ADM"] as const;
 adminRoutes.post(
   "/cost-centers",
   async ({ body, set, user }: { body: any; set: any; user: AccessTokenPayload }) => {
-    const groupCode = String(body.group_code ?? "").trim().toUpperCase();
+    const groupCode = String(body.group_code ?? "")
+      .trim()
+      .toUpperCase();
     if (!VALID_GROUP_CODES.includes(groupCode as any)) {
       set.status = 400;
-      return { success: false, error_code: "INVALID_GROUP_CODE", message: `group_code must be one of: ${VALID_GROUP_CODES.join(", ")}` };
+      return fail("INVALID_GROUP_CODE", `group_code must be one of: ${VALID_GROUP_CODES.join(", ")}`);
     }
 
     try {
@@ -4844,7 +5642,9 @@ adminRoutes.post(
           .insert(costCenters)
           .values({
             groupCode,
-            costCode: String(body.cost_code ?? "").trim().toUpperCase(),
+            costCode: String(body.cost_code ?? "")
+              .trim()
+              .toUpperCase(),
             shortText: String(body.short_text ?? "").trim(),
             sectionId: body.section_id || null,
             isDefault: body.is_default ?? false,
@@ -4855,11 +5655,18 @@ adminRoutes.post(
         return inserted;
       });
 
-      await auditConfigChange(user.userId, "COST_CENTER", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      await auditConfigChange(
+        user.userId,
+        "COST_CENTER",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create cost center" };
+      return fail(parseErrorCode(error), "Failed to create cost center");
     }
   },
   {
@@ -4880,20 +5687,20 @@ adminRoutes.put(
     const [existing] = await db.select().from(costCenters).where(eq(costCenters.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Cost center not found" };
+      return fail("NOT_FOUND", "Cost center not found");
     }
 
     if (body.group_code !== undefined) {
       const gc = String(body.group_code).trim().toUpperCase();
       if (!VALID_GROUP_CODES.includes(gc as any)) {
         set.status = 400;
-        return { success: false, error_code: "INVALID_GROUP_CODE", message: `group_code must be one of: ${VALID_GROUP_CODES.join(", ")}` };
+        return fail("INVALID_GROUP_CODE", `group_code must be one of: ${VALID_GROUP_CODES.join(", ")}`);
       }
     }
 
     try {
       const updated = await db.transaction(async (tx) => {
-        const nextSectionId = body.section_id !== undefined ? (body.section_id || null) : existing.sectionId;
+        const nextSectionId = body.section_id !== undefined ? body.section_id || null : existing.sectionId;
         const nextIsDefault = body.is_default !== undefined ? body.is_default : existing.isDefault;
         if (nextSectionId && nextIsDefault && (nextSectionId !== existing.sectionId || !existing.isDefault)) {
           await tx.update(costCenters).set({ isDefault: false }).where(eq(costCenters.sectionId, nextSectionId));
@@ -4902,7 +5709,8 @@ adminRoutes.put(
         const [modified] = await tx
           .update(costCenters)
           .set({
-            groupCode: body.group_code !== undefined ? String(body.group_code).trim().toUpperCase() : existing.groupCode,
+            groupCode:
+              body.group_code !== undefined ? String(body.group_code).trim().toUpperCase() : existing.groupCode,
             costCode: body.cost_code !== undefined ? String(body.cost_code).trim().toUpperCase() : existing.costCode,
             shortText: body.short_text !== undefined ? String(body.short_text).trim() : existing.shortText,
             sectionId: nextSectionId,
@@ -4916,10 +5724,10 @@ adminRoutes.put(
       });
 
       await auditConfigChange(user.userId, "COST_CENTER", params.id, "UPDATE", existing as any, updated as any);
-      return { success: true, data: updated };
+      return ok(updated);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to update cost center" };
+      return fail(parseErrorCode(error), "Failed to update cost center");
     }
   },
   {
@@ -4934,17 +5742,22 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/cost-centers/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(costCenters).where(eq(costCenters.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Cost center not found" };
-  }
+adminRoutes.delete(
+  "/cost-centers/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(costCenters).where(eq(costCenters.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Cost center not found");
+    }
 
-  await db.update(costCenters).set({ isActive: false, updatedAt: new Date() }).where(eq(costCenters.id, params.id));
-  await auditConfigChange(user.userId, "COST_CENTER", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
-  return { success: true, data: null };
-});
+    await db.update(costCenters).set({ isActive: false, updatedAt: new Date() }).where(eq(costCenters.id, params.id));
+    await auditConfigChange(user.userId, "COST_CENTER", params.id, "DEACTIVATE", existing as Record<string, unknown>, {
+      is_active: false,
+    });
+    return ok(null);
+  }
+);
 
 // ═══════════════════════════════════════════════════════
 //  Section CRUD
@@ -4984,7 +5797,7 @@ adminRoutes.get("/sections", async () => {
     })
   );
 
-  return { success: true, data: enriched };
+  return ok(enriched);
 });
 
 adminRoutes.post(
@@ -4994,17 +5807,19 @@ adminRoutes.post(
       const [created] = await db
         .insert(sections)
         .values({
-          sectionCode: String(body.section_code ?? "").trim().toUpperCase(),
+          sectionCode: String(body.section_code ?? "")
+            .trim()
+            .toUpperCase(),
           sectionName: String(body.section_name ?? "").trim(),
           isActive: body.is_active ?? true,
         })
         .returning();
 
       await auditConfigChange(user.userId, "SECTION", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to create section" };
+      return fail(parseErrorCode(error), "Failed to create section");
     }
   },
   {
@@ -5022,14 +5837,15 @@ adminRoutes.put(
     const [existing] = await db.select().from(sections).where(eq(sections.id, params.id)).limit(1);
     if (!existing) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Section not found" };
+      return fail("NOT_FOUND", "Section not found");
     }
 
     try {
       const [updated] = await db
         .update(sections)
         .set({
-          sectionCode: body.section_code !== undefined ? String(body.section_code).trim().toUpperCase() : existing.sectionCode,
+          sectionCode:
+            body.section_code !== undefined ? String(body.section_code).trim().toUpperCase() : existing.sectionCode,
           sectionName: body.section_name !== undefined ? String(body.section_name).trim() : existing.sectionName,
           isActive: body.is_active ?? existing.isActive,
           updatedAt: new Date(),
@@ -5038,10 +5854,10 @@ adminRoutes.put(
         .returning();
 
       await auditConfigChange(user.userId, "SECTION", params.id, "UPDATE", existing as any, updated as any);
-      return { success: true, data: updated };
+      return ok(updated);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to update section" };
+      return fail(parseErrorCode(error), "Failed to update section");
     }
   },
   {
@@ -5053,17 +5869,22 @@ adminRoutes.put(
   }
 );
 
-adminRoutes.delete("/sections/:id", async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
-  const [existing] = await db.select().from(sections).where(eq(sections.id, params.id)).limit(1);
-  if (!existing) {
-    set.status = 404;
-    return { success: false, error_code: "NOT_FOUND", message: "Section not found" };
-  }
+adminRoutes.delete(
+  "/sections/:id",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload }) => {
+    const [existing] = await db.select().from(sections).where(eq(sections.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return fail("NOT_FOUND", "Section not found");
+    }
 
-  await db.update(sections).set({ isActive: false, updatedAt: new Date() }).where(eq(sections.id, params.id));
-  await auditConfigChange(user.userId, "SECTION", params.id, "DEACTIVATE", existing as Record<string, unknown>, { is_active: false });
-  return { success: true, data: null };
-});
+    await db.update(sections).set({ isActive: false, updatedAt: new Date() }).where(eq(sections.id, params.id));
+    await auditConfigChange(user.userId, "SECTION", params.id, "DEACTIVATE", existing as Record<string, unknown>, {
+      is_active: false,
+    });
+    return ok(null);
+  }
+);
 
 // ═══════════════════════════════════════════════════════
 //  Section ↔ Cost Center mapping
@@ -5077,14 +5898,18 @@ adminRoutes.post(
     const [sec] = await db.select({ id: sections.id }).from(sections).where(eq(sections.id, params.id)).limit(1);
     if (!sec) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Section not found" };
+      return fail("NOT_FOUND", "Section not found");
     }
 
     // Verify cost center exists
-    const [cc] = await db.select({ id: costCenters.id }).from(costCenters).where(eq(costCenters.id, body.cost_center_id)).limit(1);
+    const [cc] = await db
+      .select({ id: costCenters.id })
+      .from(costCenters)
+      .where(eq(costCenters.id, body.cost_center_id))
+      .limit(1);
     if (!cc) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Cost center not found" };
+      return fail("NOT_FOUND", "Cost center not found");
     }
 
     try {
@@ -5107,11 +5932,18 @@ adminRoutes.post(
           .returning();
       });
 
-      await auditConfigChange(user.userId, "SECTION_COST_CENTER", created.id, "CREATE", null, created as Record<string, unknown>);
-      return { success: true, data: created };
+      await auditConfigChange(
+        user.userId,
+        "SECTION_COST_CENTER",
+        created.id,
+        "CREATE",
+        null,
+        created as Record<string, unknown>
+      );
+      return ok(created);
     } catch (error) {
       set.status = 400;
-      return { success: false, error_code: parseErrorCode(error), message: "Failed to add cost center mapping" };
+      return fail(parseErrorCode(error), "Failed to add cost center mapping");
     }
   },
   {
@@ -5136,21 +5968,23 @@ adminRoutes.delete(
   }) => {
     const [deleted] = await db
       .delete(sectionCostCenters)
-      .where(
-        and(
-          eq(sectionCostCenters.sectionId, params.id),
-          eq(sectionCostCenters.costCenterId, params.costCenterId)
-        )
-      )
+      .where(and(eq(sectionCostCenters.sectionId, params.id), eq(sectionCostCenters.costCenterId, params.costCenterId)))
       .returning({ id: sectionCostCenters.id });
 
     if (!deleted) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "Mapping not found" };
+      return fail("NOT_FOUND", "Mapping not found");
     }
 
-    await auditConfigChange(user.userId, "SECTION_COST_CENTER", deleted.id, "DELETE", { section_id: params.id, cost_center_id: params.costCenterId }, null);
-    return { success: true, data: null };
+    await auditConfigChange(
+      user.userId,
+      "SECTION_COST_CENTER",
+      deleted.id,
+      "DELETE",
+      { section_id: params.id, cost_center_id: params.costCenterId },
+      null
+    );
+    return ok(null);
   }
 );
 
@@ -5164,10 +5998,7 @@ adminRoutes.patch(
         .select({ id: sectionCostCenters.id })
         .from(sectionCostCenters)
         .where(
-          and(
-            eq(sectionCostCenters.sectionId, params.id),
-            eq(sectionCostCenters.costCenterId, body.cost_center_id)
-          )
+          and(eq(sectionCostCenters.sectionId, params.id), eq(sectionCostCenters.costCenterId, body.cost_center_id))
         )
         .limit(1);
 
@@ -5178,10 +6009,7 @@ adminRoutes.patch(
         .set({ isDefault: false })
         .where(and(eq(sectionCostCenters.sectionId, params.id), eq(sectionCostCenters.isDefault, true)));
 
-      await tx
-        .update(sectionCostCenters)
-        .set({ isDefault: true })
-        .where(eq(sectionCostCenters.id, found.id));
+      await tx.update(sectionCostCenters).set({ isDefault: true }).where(eq(sectionCostCenters.id, found.id));
 
       return found;
     });
@@ -5200,7 +6028,7 @@ adminRoutes.patch(
       cost_center_id: body.cost_center_id,
     });
 
-    return { success: true, data: { id: mapping.id, is_default: true } };
+    return ok({ id: mapping.id, is_default: true });
   },
   {
     body: t.Object({
@@ -5254,7 +6082,7 @@ adminRoutes.get("/user-sections", async ({ query }: { query: { q?: string } }) =
     .orderBy(asc(users.displayName))
     .limit(100);
 
-  return { success: true, data: rows };
+  return ok(rows);
 });
 
 // PUT /admin/user-sections/:userId – upsert assign
@@ -5279,7 +6107,7 @@ adminRoutes.put(
       .limit(1);
     if (!targetUser) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "User not found" };
+      return fail("NOT_FOUND", "User not found");
     }
 
     // Validate section exists and is active
@@ -5307,16 +6135,13 @@ adminRoutes.put(
       })
       .returning();
 
-    await auditConfigChange(
-      user.userId,
-      "USER_SECTION",
-      params.userId,
-      "UPSERT",
-      null,
-      { user_id: params.userId, section_id: body.section_id, section_code: sec.section_code }
-    );
+    await auditConfigChange(user.userId, "USER_SECTION", params.userId, "UPSERT", null, {
+      user_id: params.userId,
+      section_id: body.section_id,
+      section_code: sec.section_code,
+    });
 
-    return { success: true, data: result };
+    return ok(result);
   },
   {
     body: t.Object({
@@ -5328,15 +6153,7 @@ adminRoutes.put(
 // DELETE /admin/user-sections/:userId – unassign
 adminRoutes.delete(
   "/user-sections/:userId",
-  async ({
-    params,
-    set,
-    user,
-  }: {
-    params: { userId: string };
-    set: any;
-    user: AccessTokenPayload;
-  }) => {
+  async ({ params, set, user }: { params: { userId: string }; set: any; user: AccessTokenPayload }) => {
     const [deleted] = await db
       .delete(userSections)
       .where(eq(userSections.userId, params.userId))
@@ -5344,7 +6161,7 @@ adminRoutes.delete(
 
     if (!deleted) {
       set.status = 404;
-      return { success: false, error_code: "NOT_FOUND", message: "User has no section assignment" };
+      return fail("NOT_FOUND", "User has no section assignment");
     }
 
     await auditConfigChange(
@@ -5356,6 +6173,6 @@ adminRoutes.delete(
       null
     );
 
-    return { success: true, data: null };
+    return ok(null);
   }
 );

@@ -20,7 +20,7 @@ import {
   normalizeRequestDetail,
 } from "./materialRequests.normalizers";
 
-const sdk = createSdk(import.meta.env.VITE_API_BASE_URL);
+const sdk = createSdk(String(import.meta.env.VITE_API_BASE_URL ?? ""));
 
 export async function getMaterialRequestNextNumbers(): Promise<NextNumbersResponse> {
   const data = await sdk.material.getNextNumbers();

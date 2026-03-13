@@ -1,0 +1,112 @@
+# Traceability System — Cursor rules
+
+Production-grade manufacturing traceability platform. Follow these rules for all edits and new code.
+
+---
+
+## 1. Tech stack (do not change without alignment)
+
+- **Runtime / package manager:** Bun (workspaces: backend, web, web/apps/*, web/packages/*)
+- **Backend:** Elysia + TypeScript, PostgreSQL + Drizzle ORM
+- **Frontend:** React 19 + Vite 6, UI5 Web Components for React 2.20 (theme: **sap_horizon**), TanStack React Query, Eden Treaty
+- **API client:** `@elysiajs/eden` + typed SDK in `web/packages/sdk`
+- **Validation:** Backend = TypeBox (`t.*`), Frontend forms = Zod + react-hook-form
+- **Offline (station):** Dexie (IndexedDB); idempotency via `event_id` (UUID)
+- **Timezone / shift-day:** Asia/Bangkok (UTC+7), boundary 08:00
+- **No Docker** for dev on Windows 11 (PostgreSQL local)
+
+---
+
+## 2. Repository structure
+
+```
+backend/                 # Elysia API, DB schema, migrations, business logic
+  src/
+    routes/              # Route modules (auth, admin, device, events, trace, material-requests, inventory, handover, email-settings, realtime)
+    db/                  # schema/, migrations, connection, migrate, seed
+    lib/                 # http (ok/fail), jwt, password, validators, etc.
+web/
+  apps/
+    admin/               # Admin + Station UIs (single app: /admin, /station)
+    kiosk-pi5/           # Kiosk entry
+    station-assembly/    # Station app (assembly)
+    station-packing/     # Station app (packing)
+    station-label/       # Station app (label)
+    station-fg/          # Station app (fg)
+  packages/
+    sdk/                 # Typed API client and shared types (export from here)
+    ui/                  # Shared UI components
+    offline-queue/      # Dexie offline queue
+    material/            # Material domain (queryKeys, etc.)
+    material-ui/         # Material request UI components
+docs/                    # All documentation (architecture/, project/, ui/, specs/, operations/, process/)
+```
+
+- Admin and Station UIs live in **one app** (`web/apps/admin`) with routes under `/admin` and `/station`.
+- Types for API must be exported from `web/packages/sdk`; use Eden Treaty + SDK for type-safe calls.
+
+---
+
+## 3. Backend rules
+
+- **Routes:** Elysia with `prefix`; use `authDerive` or equivalent for protected routes. Export route instance (e.g. `export const adminRoutes = new Elysia({ prefix: "/admin" })...`).
+- **Validation:** Use TypeBox (`t.*`) on all route bodies/params. See `backend/src/routes/*.ts`.
+- **Responses:** Use `ok(data)` and `fail(error_code, message, details?)` from `backend/src/lib/http.ts`. Do not invent ad-hoc response shapes.
+- **Errors:** Set `set.status` (401, 400, 404, 500) as appropriate; global handler in `app.ts` maps to `fail()`.
+- **Database:** Schema changes **only** via Drizzle migrations (`db:generate`, `db:migrate`). Serial allocation uses `SELECT … FOR UPDATE` on `serial_counters`. Do not edit migration files by hand after generation.
+- **Auth:** JWT access + refresh; permissions and roles in `db/schema/auth`. Audit login/logout and sensitive actions via `config_audit_logs`.
+
+---
+
+## 4. Frontend rules
+
+- **Theme:** Use `sap_horizon`; set via `setTheme("sap_horizon")` and wrap app with `ThemeProvider` from `@ui5/webcomponents-react`. Use `::part()` and CSS variables for overrides.
+- **State:** Server state = TanStack React Query; UI state = useState/Context. Use SDK (Eden) for all API calls.
+- **Forms:** Zod + react-hook-form in admin app; keep types in sync with API where possible.
+- **UI components:** Prefer `@ui5/webcomponents-react` and shared `@traceability/ui`; icons from `@ui5/webcomponents-icons/dist/<name>.js` (import per icon).
+- **Paths:** In `web` use `@traceability/sdk`, `@traceability/ui`, `@traceability/offline-queue`, `@traceability/material`, `@traceability/material-ui` (see `web/tsconfig.json` / app tsconfig).
+
+---
+
+## 5. API and routes reference
+
+- **Backend:** `GET /health`; `/auth` (login, refresh, logout); `/admin/*` (CRUD users, roles, models, revisions, variants, BOM, routing, devices, stations, barcode templates, material requests, audit, etc.); `/device` (register, activate, heartbeat, operator); `/events`, `/labels`; `/trace`; `/material-requests`; `/inventory`; `/handover-batches`, `/scan-sessions`; `/admin/email-settings`; `/realtime`.
+- **Frontend:** `/login`, `/test-ui5` (no auth); `/admin/*` (RoleGuard: ADMIN); `/station/*` (RoleGuard: OPERATOR). See `web/apps/admin/src/app/AppRoutes.tsx` and `docs/architecture/api-and-routes.md`.
+
+---
+
+## 6. Quality and tooling
+
+- **Checks:** From repo root: `bun run check` (backend typecheck + test + rules:validate, web check). Go-live gate: `bun run check:go-live` (adds `db:health`).
+- **Format:** Prettier; staged files formatted via `lint-staged` (Husky pre-commit). Run `bun run format:check` to verify.
+- **Scripts:** `dev:backend`, `dev:admin`, `dev:kiosk`; `build:admin`, `build:kiosk`; `check:backend`, `check:web`.
+
+---
+
+## 7. Documentation (source of truth)
+
+- **Architecture (aligned with code):** `docs/architecture/tech-stack.md`, `docs/architecture/database.md`, `docs/architecture/api-and-routes.md`
+- **Domain and rules:** `docs/specs/README.md` and numbered specs (01–19) — non-negotiable
+- **Project:** `docs/project/roadmap.md`, `docs/project/checklist.md`
+- **UI:** `docs/ui/` (guidelines, ui5-guide, patterns, fcl-standards) when present
+- **Entry:** `docs/README.md`, `docs/INDEX.md`
+
+When adding features or changing behavior, update the relevant docs and keep `docs/architecture/*` in sync with the codebase.
+
+---
+
+## 8. Naming and files
+
+- **Docs:** Lowercase with hyphens (kebab-case).
+- **Code:** TypeScript/TSX; consistent naming (e.g. API routes and SDK services match). Use existing patterns in `backend/src/routes/` and `web/apps/admin/src/` for new files.
+
+---
+
+## 9. Offline and shift-day
+
+- **Offline:** Events stored in Dexie, replayed in order by `created_at_device`; idempotency via `event_id` (UUID).
+- **Shift-day:** If time &lt; 08:00 Asia/Bangkok, treat as previous day’s shift_day; server is source of truth.
+
+---
+
+When in doubt, prefer the implementation in the current codebase and the specs in `docs/specs/` over introducing new patterns.
