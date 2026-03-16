@@ -127,8 +127,7 @@ export function SectionsPage() {
   });
 
   const removeMappingMut = useMutation({
-    mutationFn: ({ sectionId, ccId }: { sectionId: string; ccId: string }) =>
-      removeSectionCostCenter(sectionId, ccId),
+    mutationFn: ({ sectionId, ccId }: { sectionId: string; ccId: string }) => removeSectionCostCenter(sectionId, ccId),
     onSuccess: () => {
       invalidate();
       showToast("Mapping removed");
@@ -136,8 +135,7 @@ export function SectionsPage() {
   });
 
   const setDefaultMut = useMutation({
-    mutationFn: ({ sectionId, ccId }: { sectionId: string; ccId: string }) =>
-      setSectionDefaultCC(sectionId, ccId),
+    mutationFn: ({ sectionId, ccId }: { sectionId: string; ccId: string }) => setSectionDefaultCC(sectionId, ccId),
     onSuccess: () => {
       invalidate();
       showToast("Default cost center updated");
@@ -145,9 +143,7 @@ export function SectionsPage() {
   });
 
   // Refresh mappingTarget data when sections reload
-  const liveMappingTarget = mappingTarget
-    ? rows.find((r) => r.id === mappingTarget.id) ?? mappingTarget
-    : null;
+  const liveMappingTarget = mappingTarget ? (rows.find((r) => r.id === mappingTarget.id) ?? mappingTarget) : null;
 
   const mappedCCIds = new Set(liveMappingTarget?.cost_centers?.map((m) => m.cost_center_id) ?? []);
   const availableCCs = allCostCenters.filter((cc) => cc.is_active && !mappedCCIds.has(cc.id));
@@ -164,7 +160,7 @@ export function SectionsPage() {
           const def = row.original.cost_centers?.find((m) => m.is_default);
           return (
             <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-            <Badge variant="secondary">{count}</Badge>
+              <Badge variant="secondary">{count}</Badge>
               {def ? <Text style={{ fontSize: "0.75rem", opacity: 0.7 }}>default: {def.cost_code}</Text> : null}
             </FlexBox>
           );
@@ -269,7 +265,11 @@ export function SectionsPage() {
       {/* Create/Edit Section Dialog */}
       <FormDialog
         open={open}
-        onClose={() => { setOpen(false); createMut.reset(); updateMut.reset(); }}
+        onClose={() => {
+          setOpen(false);
+          createMut.reset();
+          updateMut.reset();
+        }}
         title={editing ? "Edit Section" : "Create Section"}
         onSubmit={form.handleSubmit((p) => (editing ? updateMut.mutate(p) : createMut.mutate(p)))}
         submitting={createMut.isPending || updateMut.isPending}
@@ -284,12 +284,24 @@ export function SectionsPage() {
             <Input
               value={form.watch("section_code")}
               onInput={(e: any) => form.setValue("section_code", e.target.value)}
+              valueState={form.formState.errors.section_code ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.section_code ? (
+                  <span>{form.formState.errors.section_code.message}</span>
+                ) : undefined
+              }
             />
           </FormItem>
           <FormItem labelContent={<Label required>Section Name</Label>}>
             <Input
               value={form.watch("section_name")}
               onInput={(e: any) => form.setValue("section_name", e.target.value)}
+              valueState={form.formState.errors.section_name ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.section_name ? (
+                  <span>{form.formState.errors.section_name.message}</span>
+                ) : undefined
+              }
             />
           </FormItem>
           <FormItem labelContent={<Label>Status</Label>}>
@@ -297,11 +309,7 @@ export function SectionsPage() {
               name="is_active"
               control={form.control}
               render={({ field }) => (
-                <CheckBox
-                  text="Active"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                />
+                <CheckBox text="Active" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
               )}
             />
           </FormItem>
@@ -314,16 +322,26 @@ export function SectionsPage() {
         onClose={() => setMappingTarget(null)}
         headerText={`Cost Centers — ${liveMappingTarget?.section_name ?? ""}`}
         footer={
-          <Bar endContent={<Button design="Transparent" onClick={() => setMappingTarget(null)}>Close</Button>} />
+          <Bar
+            endContent={
+              <Button design="Transparent" onClick={() => setMappingTarget(null)}>
+                Close
+              </Button>
+            }
+          />
         }
         style={{ width: "min(640px, 90vw)" }}
       >
         <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
           {addMappingMut.error ? (
-            <MessageStrip design="Negative" hideCloseButton>{formatApiError(addMappingMut.error)}</MessageStrip>
+            <MessageStrip design="Negative" hideCloseButton>
+              {formatApiError(addMappingMut.error)}
+            </MessageStrip>
           ) : null}
           {removeMappingMut.error ? (
-            <MessageStrip design="Negative" hideCloseButton>{formatApiError(removeMappingMut.error)}</MessageStrip>
+            <MessageStrip design="Negative" hideCloseButton>
+              {formatApiError(removeMappingMut.error)}
+            </MessageStrip>
           ) : null}
 
           {/* Add mapping row */}
@@ -367,19 +385,35 @@ export function SectionsPage() {
             <Table
               headerRow={
                 <TableHeaderRow>
-                  <TableHeaderCell width="80px"><Label style={{ fontWeight: "bold" }}>Group</Label></TableHeaderCell>
-                  <TableHeaderCell width="130px"><Label style={{ fontWeight: "bold" }}>Code</Label></TableHeaderCell>
-                  <TableHeaderCell><Label style={{ fontWeight: "bold" }}>Short Text</Label></TableHeaderCell>
-                  <TableHeaderCell width="90px"><Label style={{ fontWeight: "bold" }}>Default</Label></TableHeaderCell>
-                  <TableHeaderCell width="100px"><Label style={{ fontWeight: "bold" }}>Actions</Label></TableHeaderCell>
+                  <TableHeaderCell width="80px">
+                    <Label style={{ fontWeight: "bold" }}>Group</Label>
+                  </TableHeaderCell>
+                  <TableHeaderCell width="130px">
+                    <Label style={{ fontWeight: "bold" }}>Code</Label>
+                  </TableHeaderCell>
+                  <TableHeaderCell>
+                    <Label style={{ fontWeight: "bold" }}>Short Text</Label>
+                  </TableHeaderCell>
+                  <TableHeaderCell width="90px">
+                    <Label style={{ fontWeight: "bold" }}>Default</Label>
+                  </TableHeaderCell>
+                  <TableHeaderCell width="100px">
+                    <Label style={{ fontWeight: "bold" }}>Actions</Label>
+                  </TableHeaderCell>
                 </TableHeaderRow>
               }
             >
               {(liveMappingTarget?.cost_centers ?? []).map((m: SectionCostCenterMapping) => (
                 <TableRow key={m.cost_center_id}>
-                  <TableCell><Text>{m.group_code}</Text></TableCell>
-                  <TableCell><Text>{m.cost_code}</Text></TableCell>
-                  <TableCell><Text>{m.short_text}</Text></TableCell>
+                  <TableCell>
+                    <Text>{m.group_code}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text>{m.cost_code}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text>{m.short_text}</Text>
+                  </TableCell>
                   <TableCell>
                     {m.is_default ? (
                       <Badge variant="success">Default</Badge>

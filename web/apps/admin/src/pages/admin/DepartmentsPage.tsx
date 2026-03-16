@@ -25,7 +25,7 @@ import {
   Select,
   Option,
   FlexBox,
-  FlexBoxAlignItems
+  FlexBoxAlignItems,
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -96,7 +96,10 @@ export function DepartmentsPage() {
       { header: "Code", accessorKey: "code" },
       { header: "Name", accessorKey: "name" },
       { header: "Sort", accessorKey: "sort_order" },
-      { header: "Section", cell: ({ row }) => sections.find((s: any) => s.id === (row.original as any).section_id)?.section_name ?? "-" },
+      {
+        header: "Section",
+        cell: ({ row }) => sections.find((s: any) => s.id === (row.original as any).section_id)?.section_name ?? "-",
+      },
       { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
       {
         header: "Actions",
@@ -159,25 +162,25 @@ export function DepartmentsPage() {
                   : undefined
           }
         />
-        <DataTable 
-            data={rows} 
-            columns={columns} 
-            loading={isLoading}
-            filterPlaceholder="Search department..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  className="button-hover-scale"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ code: "", name: "", sort_order: 100, section_id: undefined, is_active: true });
-                    setOpen(true);
-                  }}
-                >
-                  Add Department
-                </Button>
-            }
+        <DataTable
+          data={rows}
+          columns={columns}
+          loading={isLoading}
+          filterPlaceholder="Search department..."
+          actions={
+            <Button
+              icon="add"
+              design="Emphasized"
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({ code: "", name: "", sort_order: 100, section_id: undefined, is_active: true });
+                setOpen(true);
+              }}
+            >
+              Add Department
+            </Button>
+          }
         />
       </div>
 
@@ -185,15 +188,29 @@ export function DepartmentsPage() {
         open={open}
         onClose={() => setOpen(false)}
         title={editing ? "Edit Department" : "Create Department"}
-        onSubmit={form.handleSubmit((payload) => (editing ? updateMutation.mutate(payload) : createMutation.mutate(payload)))}
+        onSubmit={form.handleSubmit((payload) =>
+          editing ? updateMutation.mutate(payload) : createMutation.mutate(payload)
+        )}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
         <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>Code</Label>}>
-            <Input {...form.register("code")} />
+          <FormItem labelContent={<Label required>Code</Label>}>
+            <Input
+              {...form.register("code")}
+              valueState={form.formState.errors.code ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.code ? <span>{form.formState.errors.code.message}</span> : undefined
+              }
+            />
           </FormItem>
-          <FormItem labelContent={<Label>Name</Label>}>
-            <Input {...form.register("name")} />
+          <FormItem labelContent={<Label required>Name</Label>}>
+            <Input
+              {...form.register("name")}
+              valueState={form.formState.errors.name ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.name ? <span>{form.formState.errors.name.message}</span> : undefined
+              }
+            />
           </FormItem>
           <FormItem labelContent={<Label>Sort Order</Label>}>
             <Input
@@ -210,7 +227,9 @@ export function DepartmentsPage() {
                 <Select
                   onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
                 >
-                  <Option data-value="" selected={!field.value}>None</Option>
+                  <Option data-value="" selected={!field.value}>
+                    None
+                  </Option>
                   {sections.map((s: any) => (
                     <Option key={s.id} data-value={s.id} selected={field.value === s.id}>
                       {s.section_name}
@@ -221,17 +240,13 @@ export function DepartmentsPage() {
             />
           </FormItem>
           <FormItem labelContent={<Label>Status</Label>}>
-              <Controller
-                  name="is_active"
-                  control={form.control}
-                  render={({ field }) => (
-                      <CheckBox
-                          text="Active"
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                      />
-                  )}
-              />
+            <Controller
+              name="is_active"
+              control={form.control}
+              render={({ field }) => (
+                <CheckBox text="Active" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+              )}
+            />
           </FormItem>
         </Form>
       </FormDialog>

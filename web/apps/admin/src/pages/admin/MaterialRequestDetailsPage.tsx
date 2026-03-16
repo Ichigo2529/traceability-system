@@ -55,9 +55,7 @@ export function MaterialRequestDetailsPage() {
   const issueOptionsQuery = useQuery<MaterialRequestIssueOptionsResponse>({
     queryKey: keys.issueOptions(id),
     queryFn: () => getMaterialIssueOptions(id!),
-    enabled:
-      Boolean(id) &&
-      (detailsQuery.data?.status === "REQUESTED" || detailsQuery.data?.status === "APPROVED"),
+    enabled: Boolean(id) && (detailsQuery.data?.status === "REQUESTED" || detailsQuery.data?.status === "APPROVED"),
   });
 
   const workbench = useIssueAllocationWorkbench(issueOptionsQuery.data);
@@ -72,7 +70,8 @@ export function MaterialRequestDetailsPage() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: ({ requestId, reason }: { requestId: string; reason?: string }) => rejectMaterialRequest(requestId, reason),
+    mutationFn: ({ requestId, reason }: { requestId: string; reason?: string }) =>
+      rejectMaterialRequest(requestId, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: keys.requests() });
       queryClient.invalidateQueries({ queryKey: keys.request(id) });
@@ -111,7 +110,12 @@ export function MaterialRequestDetailsPage() {
     },
   });
 
-  const anyError = detailsQuery.error ?? issueOptionsQuery.error ?? approveMutation.error ?? rejectMutation.error ?? issueMutation.error;
+  const anyError =
+    detailsQuery.error ??
+    issueOptionsQuery.error ??
+    approveMutation.error ??
+    rejectMutation.error ??
+    issueMutation.error;
 
   const showActionButtons =
     detailsQuery.data && (detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED");
@@ -133,30 +137,42 @@ export function MaterialRequestDetailsPage() {
         detailsQuery.data ? (
           <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
             {detailsQuery.data.status === "ISSUED" && (
-              <Button icon="print" design="Transparent" onClick={() => window.print()} tooltip="Print Voucher">
-                Print
+              <Button icon="print" design="Emphasized" onClick={() => window.print()} tooltip="Print Voucher">
+                Print Voucher
               </Button>
             )}
             {showActionButtons && detailsQuery.data.status === "REQUESTED" && (
               <Button
                 icon="decline"
                 design="Negative"
-                onClick={() => { setRejectReason(""); setConfirmRejectOpen(true); }}
+                onClick={() => {
+                  setRejectReason("");
+                  setConfirmRejectOpen(true);
+                }}
                 disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
               >
                 Reject
               </Button>
             )}
-            {showActionButtons && (detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
-              <Button
-                icon="accept"
-                design="Emphasized"
-                onClick={() => { if (!workbench.issueValidationError) setConfirmIssueOpen(true); }}
-                disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending)}
-              >
-                {detailsQuery.data.status === "REQUESTED" ? "Approve & Issue" : "Issue"}
-              </Button>
-            )}
+            {showActionButtons &&
+              (detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
+                <Button
+                  icon="accept"
+                  design="Emphasized"
+                  onClick={() => {
+                    if (!workbench.issueValidationError) setConfirmIssueOpen(true);
+                  }}
+                  disabled={Boolean(
+                    workbench.issueValidationError ||
+                    issueOptionsQuery.isLoading ||
+                    approveMutation.isPending ||
+                    rejectMutation.isPending ||
+                    issueMutation.isPending
+                  )}
+                >
+                  {detailsQuery.data.status === "REQUESTED" ? "Approve & Issue" : "Issue"}
+                </Button>
+              )}
           </FlexBox>
         ) : undefined
       }
@@ -168,12 +184,12 @@ export function MaterialRequestDetailsPage() {
           <BusyIndicator active text="Loading details..." style={{ marginTop: "1rem" }} />
         ) : detailsQuery.data ? (
           <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1.25rem", paddingBottom: "1rem" }}>
-            <MaterialRequestVoucherView 
-                detail={detailsQuery.data} 
-                onBack={() => navigate("/admin/material-requests")}
-                workbench={workbench}
-                showIssueOptions={detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED"}
-                hideTopBarActions
+            <MaterialRequestVoucherView
+              detail={detailsQuery.data}
+              onBack={() => navigate("/admin/material-requests")}
+              workbench={workbench}
+              showIssueOptions={detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED"}
+              hideTopBarActions
             />
 
             {/* Hint: when data is complete, scroll up to approve */}
@@ -181,10 +197,25 @@ export function MaterialRequestDetailsPage() {
               <MessageStrip design="Information" hideCloseButton style={{ width: "100%", boxSizing: "border-box" }}>
                 <Text style={{ fontSize: "0.8125rem", lineHeight: 1.5 }}>
                   {detailsQuery.data.status === "REQUESTED" ? (
-                    <>Reject: use when the request is invalid (reason required). When you have added all DO lines and issued totals match requested, scroll up and click <strong>Approve &amp; Issue</strong> in the toolbar.</>
+                    <>
+                      Reject: use when the request is invalid (reason required). When you have added all DO lines and
+                      issued totals match requested, scroll up and click <strong>Approve &amp; Issue</strong> in the
+                      toolbar.
+                    </>
                   ) : (
-                    <>When you have added all DO lines and issued totals match requested, scroll up and click <strong>Issue</strong> in the toolbar.</>
+                    <>
+                      When you have added all DO lines and issued totals match requested, scroll up and click{" "}
+                      <strong>Issue</strong> in the toolbar.
+                    </>
                   )}
+                </Text>
+              </MessageStrip>
+            )}
+            {detailsQuery.data.status === "ISSUED" && (
+              <MessageStrip design="Positive" hideCloseButton style={{ width: "100%", boxSizing: "border-box" }}>
+                <Text style={{ fontSize: "0.8125rem", lineHeight: 1.5 }}>
+                  Voucher ready. Use <strong>Print Voucher</strong> above. For receive / 2D scan: go to{" "}
+                  <strong>Forklift Intake</strong> or <strong>Station → Store Approvals</strong>.
                 </Text>
               </MessageStrip>
             )}
@@ -210,13 +241,16 @@ export function MaterialRequestDetailsPage() {
         onCancel={() => setConfirmIssueOpen(false)}
         onConfirm={() => {
           if (detailsQuery.data) {
-            issueMutation.mutate({
-              requestId: detailsQuery.data.id,
-              remarks: workbench.issueRemarks || undefined,
-              allocations: workbench.buildAllocationsPayload(),
-            }, {
-              onSuccess: () => setConfirmIssueOpen(false)
-            });
+            issueMutation.mutate(
+              {
+                requestId: detailsQuery.data.id,
+                remarks: workbench.issueRemarks || undefined,
+                allocations: workbench.buildAllocationsPayload(),
+              },
+              {
+                onSuccess: () => setConfirmIssueOpen(false),
+              }
+            );
           }
         }}
       />
@@ -234,12 +268,15 @@ export function MaterialRequestDetailsPage() {
         }}
         onConfirm={() => {
           if (!detailsQuery.data) return;
-          rejectMutation.mutate({ requestId: detailsQuery.data.id, reason: rejectReason.trim() || undefined }, {
-            onSuccess: () => {
-              setConfirmRejectOpen(false);
-              setRejectReason("");
+          rejectMutation.mutate(
+            { requestId: detailsQuery.data.id, reason: rejectReason.trim() || undefined },
+            {
+              onSuccess: () => {
+                setConfirmRejectOpen(false);
+                setRejectReason("");
+              },
             }
-          });
+          );
         }}
       >
         <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem", padding: "0.5rem 0" }}>
