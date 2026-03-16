@@ -24,15 +24,17 @@ import {
   TextArea,
   Card,
   CardHeader,
+  MessageStrip,
   FlexBox,
   FlexBoxDirection,
-  FlexBoxAlignItems
+  FlexBoxAlignItems,
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
 import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/bar-code.js";
 import "@ui5/webcomponents-icons/dist/simulate.js";
+import "@ui5/webcomponents-icons/dist/copy.js";
 
 const schema = z.object({
   key: z.string().min(1),
@@ -66,6 +68,11 @@ function listToCsv(value?: string[] | null) {
   return (value ?? []).join(",");
 }
 
+function toCloneKey(key: string) {
+  const base = `${key.trim().toUpperCase()}_CUSTOM`;
+  return base.length <= 80 ? base : base.slice(0, 80);
+}
+
 export function BarcodeTemplatesPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -78,6 +85,23 @@ export function BarcodeTemplatesPage() {
     queryKey: ["barcode-templates"],
     queryFn: () => sdk.admin.getBarcodeTemplates(),
   });
+
+  const openCloneDialog = (item: BarcodeTemplate) => {
+    setEditing(null);
+    form.reset({
+      key: toCloneKey(item.key),
+      name: `${item.name} (Custom)`,
+      identifiers: listToCsv(item.identifiers),
+      lot_identifiers: listToCsv(item.lot_identifiers),
+      quantity_identifiers: listToCsv(item.quantity_identifiers),
+      part_identifiers: listToCsv(item.part_identifiers),
+      vendor_identifiers: listToCsv(item.vendor_identifiers),
+      production_date_identifiers: listToCsv(item.production_date_identifiers),
+      notes: item.notes ?? "",
+      is_active: true,
+    });
+    setOpen(true);
+  };
 
   const form = useForm<TemplateForm>({
     resolver: zodResolver(schema),
@@ -122,16 +146,16 @@ export function BarcodeTemplatesPage() {
       queryClient.invalidateQueries({ queryKey: ["vendor-pack-parsers"] });
       setOpen(false);
       form.reset({
-          key: "",
-          name: "",
-          identifiers: "P,Q,V,PD,PT,PL,D,R",
-          lot_identifiers: "LOT,PT,PL",
-          quantity_identifiers: "Q",
-          part_identifiers: "P",
-          vendor_identifiers: "V",
-          production_date_identifiers: "PD,D,TD,MD",
-          notes: "",
-          is_active: true,
+        key: "",
+        name: "",
+        identifiers: "P,Q,V,PD,PT,PL,D,R",
+        lot_identifiers: "LOT,PT,PL",
+        quantity_identifiers: "Q",
+        part_identifiers: "P",
+        vendor_identifiers: "V",
+        production_date_identifiers: "PD,D,TD,MD",
+        notes: "",
+        is_active: true,
       });
       showToast("Template created successfully");
     },
@@ -181,16 +205,15 @@ export function BarcodeTemplatesPage() {
     },
   });
 
-  const errorMessage =
-    createMutation.error
-      ? formatApiError(createMutation.error)
-      : updateMutation.error
-        ? formatApiError(updateMutation.error)
-        : deleteMutation.error
-          ? formatApiError(deleteMutation.error)
-          : testParseMutation.error
-            ? formatApiError(testParseMutation.error)
-            : undefined;
+  const errorMessage = createMutation.error
+    ? formatApiError(createMutation.error)
+    : updateMutation.error
+      ? formatApiError(updateMutation.error)
+      : deleteMutation.error
+        ? formatApiError(deleteMutation.error)
+        : testParseMutation.error
+          ? formatApiError(testParseMutation.error)
+          : undefined;
 
   const columns = useMemo<ColumnDef<BarcodeTemplate>[]>(
     () => [
@@ -206,36 +229,48 @@ export function BarcodeTemplatesPage() {
         header: "Actions",
         cell: ({ row }) => (
           <div style={{ display: "flex", gap: "0.5rem" }}>
-            <Button
-              icon="edit"
-              design="Transparent"
-              onClick={() => {
-                const item = row.original;
-                setEditing(item);
-                form.reset({
-                  key: item.key,
-                  name: item.name,
-                  identifiers: listToCsv(item.identifiers),
-                  lot_identifiers: listToCsv(item.lot_identifiers),
-                  quantity_identifiers: listToCsv(item.quantity_identifiers),
-                  part_identifiers: listToCsv(item.part_identifiers),
-                  vendor_identifiers: listToCsv(item.vendor_identifiers),
-                  production_date_identifiers: listToCsv(item.production_date_identifiers),
-                  notes: item.notes ?? "",
-                  is_active: item.is_active,
-                });
-                setOpen(true);
-              }}
-              tooltip="Edit Template"
-              aria-label="Edit Template"
-            />
-            <Button 
-                icon="delete" 
-                design="Transparent" 
-                onClick={() => setDeleteTarget(row.original)} 
-                tooltip="Delete Template"
-                aria-label="Delete Template"
-            />
+            {row.original.is_system || row.original.source === "SYSTEM" ? (
+              <Button
+                icon="copy"
+                design="Transparent"
+                onClick={() => openCloneDialog(row.original)}
+                tooltip="Clone as Custom Template"
+                aria-label="Clone as Custom Template"
+              />
+            ) : (
+              <>
+                <Button
+                  icon="edit"
+                  design="Transparent"
+                  onClick={() => {
+                    const item = row.original;
+                    setEditing(item);
+                    form.reset({
+                      key: item.key,
+                      name: item.name,
+                      identifiers: listToCsv(item.identifiers),
+                      lot_identifiers: listToCsv(item.lot_identifiers),
+                      quantity_identifiers: listToCsv(item.quantity_identifiers),
+                      part_identifiers: listToCsv(item.part_identifiers),
+                      vendor_identifiers: listToCsv(item.vendor_identifiers),
+                      production_date_identifiers: listToCsv(item.production_date_identifiers),
+                      notes: item.notes ?? "",
+                      is_active: item.is_active,
+                    });
+                    setOpen(true);
+                  }}
+                  tooltip="Edit Template"
+                  aria-label="Edit Template"
+                />
+                <Button
+                  icon="delete"
+                  design="Transparent"
+                  onClick={() => setDeleteTarget(row.original)}
+                  tooltip="Delete Template"
+                  aria-label="Delete Template"
+                />
+              </>
+            )}
           </div>
         ),
       },
@@ -248,8 +283,8 @@ export function BarcodeTemplatesPage() {
       title="Barcode Templates"
       subtitle={
         <FlexBox alignItems={FlexBoxAlignItems.Center}>
-            <span className="indicator-live" />
-            <span>GS1-128 and 2D barcode parsing rules</span>
+          <span className="indicator-live" />
+          <span>GS1-128 and 2D barcode parsing rules</span>
         </FlexBox>
       }
       icon="bar-code"
@@ -257,76 +292,99 @@ export function BarcodeTemplatesPage() {
     >
       <div className="page-container">
         <ApiErrorBanner message={errorMessage} />
+        {rows.length === 0 && !isLoading && (
+          <MessageStrip design="Information" hideCloseButton style={{ marginBottom: "0.75rem" }}>
+            No custom barcode templates yet. You can add one, or use built-in parser keys in the Parse Tester.
+          </MessageStrip>
+        )}
 
-        <DataTable 
-            data={rows} 
-            columns={columns} 
-            loading={isLoading}
-            filterPlaceholder="Search template..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  className="button-hover-scale"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({
-                      key: "",
-                      name: "",
-                      identifiers: "P,Q,V,PD,PT,PL,D,R",
-                      lot_identifiers: "LOT,PT,PL",
-                      quantity_identifiers: "Q",
-                      part_identifiers: "P",
-                      vendor_identifiers: "V",
-                      production_date_identifiers: "PD,D,TD,MD",
-                      notes: "",
-                      is_active: true,
-                    });
-                    setOpen(true);
-                  }}
-                >
-                  Add Template
-                </Button>
-            }
+        <DataTable
+          data={rows}
+          columns={columns}
+          loading={isLoading}
+          filterPlaceholder="Search template..."
+          actions={
+            <Button
+              icon="add"
+              design="Emphasized"
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({
+                  key: "",
+                  name: "",
+                  identifiers: "P,Q,V,PD,PT,PL,D,R",
+                  lot_identifiers: "LOT,PT,PL",
+                  quantity_identifiers: "Q",
+                  part_identifiers: "P",
+                  vendor_identifiers: "V",
+                  production_date_identifiers: "PD,D,TD,MD",
+                  notes: "",
+                  is_active: true,
+                });
+                setOpen(true);
+              }}
+            >
+              Add Template
+            </Button>
+          }
         />
 
-        <Card 
+        <Card
           style={{ marginTop: "2rem" }}
           header={<CardHeader titleText="Parse Tester" subtitleText="Test your barcode templates in real-time" />}
         >
           <div style={{ padding: "1rem" }}>
-              <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: "1rem", alignItems: "end" }}>
-                   <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                        <Label>Parser Key</Label>
-                        <Input placeholder="MARLIN_PLATE_V1" {...parserForm.register("parser_key")} />
-                   </div>
-                   <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                        <Label>Raw Barcode</Label>
-                        <Input placeholder="Raw 2D barcode text" {...parserForm.register("pack_barcode_raw")} />
-                   </div>
-                   <Button 
-                      icon="simulate" 
-                      className="button-hover-scale"
-                      onClick={(e) => parserForm.handleSubmit((values) => testParseMutation.mutate(values))(e as any)} 
-                      disabled={testParseMutation.isPending}
-                    >
-                      Test Parse
-                    </Button>
+            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: "1rem", alignItems: "end" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <Label required>Parser Key</Label>
+                  <Input
+                    placeholder="MARLIN_PLATE_V1"
+                    {...parserForm.register("parser_key")}
+                    valueState={parserForm.formState.errors.parser_key ? "Negative" : undefined}
+                    valueStateMessage={
+                      parserForm.formState.errors.parser_key ? (
+                        <span>{parserForm.formState.errors.parser_key.message}</span>
+                      ) : undefined
+                    }
+                  />
                 </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <Label required>Raw Barcode</Label>
+                  <Input
+                    placeholder="Raw 2D barcode text"
+                    {...parserForm.register("pack_barcode_raw")}
+                    valueState={parserForm.formState.errors.pack_barcode_raw ? "Negative" : undefined}
+                    valueStateMessage={
+                      parserForm.formState.errors.pack_barcode_raw ? (
+                        <span>{parserForm.formState.errors.pack_barcode_raw.message}</span>
+                      ) : undefined
+                    }
+                  />
+                </div>
+                <Button
+                  icon="simulate"
+                  className="button-hover-scale"
+                  onClick={(e) => parserForm.handleSubmit((values) => testParseMutation.mutate(values))(e as any)}
+                  disabled={testParseMutation.isPending}
+                >
+                  Test Parse
+                </Button>
+              </div>
 
-                {parseResult && (
-                    <div style={{ marginTop: "1rem" }}>
-                        <Label style={{ marginBottom: "0.5rem", display: "block" }}>Result</Label>
-                        <TextArea 
-                            rows={10} 
-                            readonly 
-                            value={JSON.stringify(parseResult, null, 2)} 
-                            style={{ width: "100%", fontFamily: "monospace" }} 
-                        />
-                    </div>
-                )}
-              </FlexBox>
+              {parseResult && (
+                <div style={{ marginTop: "1rem" }}>
+                  <Label style={{ marginBottom: "0.5rem", display: "block" }}>Result</Label>
+                  <TextArea
+                    rows={10}
+                    readonly
+                    value={JSON.stringify(parseResult, null, 2)}
+                    style={{ width: "100%", fontFamily: "monospace" }}
+                  />
+                </div>
+              )}
+            </FlexBox>
           </div>
         </Card>
       </div>
@@ -335,7 +393,9 @@ export function BarcodeTemplatesPage() {
         open={open}
         onClose={() => setOpen(false)}
         title={editing ? "Edit Barcode Template" : "Create Barcode Template"}
-        onSubmit={form.handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
+        onSubmit={form.handleSubmit((values) =>
+          editing ? updateMutation.mutate(values) : createMutation.mutate(values)
+        )}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
         <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
@@ -367,17 +427,13 @@ export function BarcodeTemplatesPage() {
             <TextArea rows={3} {...form.register("notes")} />
           </FormItem>
           <FormItem labelContent={<Label>Status</Label>}>
-              <Controller
-                  name="is_active"
-                  control={form.control}
-                  render={({ field }) => (
-                      <CheckBox
-                          text="Active"
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                      />
-                  )}
-              />
+            <Controller
+              name="is_active"
+              control={form.control}
+              render={({ field }) => (
+                <CheckBox text="Active" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+              )}
+            />
           </FormItem>
         </Form>
       </FormDialog>
@@ -401,4 +457,3 @@ export function BarcodeTemplatesPage() {
     </PageLayout>
   );
 }
-

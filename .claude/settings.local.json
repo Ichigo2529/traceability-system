@@ -3,7 +3,8 @@
     "allow": [
       "Bash(node_modules/.bin/tsc:*)",
       "Bash(./node_modules/.bin/tsc:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebFetch(domain:www.sap.com)"
     ],
     "additionalDirectories": [
       "\\tmp"

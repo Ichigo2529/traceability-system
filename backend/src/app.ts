@@ -11,6 +11,11 @@ import { traceRoutes } from "./routes/trace";
 import { materialRequestRoutes } from "./routes/material-requests";
 import { realtimeRoutes } from "./routes/realtime";
 import { inventoryRoutes } from "./routes/inventory";
+import { handoverRoutes, scanSessionRoutes } from "./routes/handover";
+import { emailSettingsRoutes } from "./routes/email-settings";
+import { initAlertTemplates } from "./lib/alert-templates";
+
+initAlertTemplates();
 
 export const app = new Elysia()
   .use(cors())
@@ -53,7 +58,10 @@ export const app = new Elysia()
   .use(labelRoutes)
   .use(traceRoutes)
   .use(materialRequestRoutes)
+  .use(emailSettingsRoutes)
   .use(inventoryRoutes)
+  .use(handoverRoutes)
+  .use(scanSessionRoutes)
   .use(realtimeRoutes);
 
 export type App = typeof app;

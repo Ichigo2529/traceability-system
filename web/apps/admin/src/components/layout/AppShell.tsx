@@ -70,6 +70,7 @@ import "@ui5/webcomponents-icons/dist/grid.js"; // Master Data
 import "@ui5/webcomponents-icons/dist/table-view.js"; // Alternative for grid/database
 import "@ui5/webcomponents-icons/dist/attachment.js";
 import "@ui5/webcomponents-icons/dist/add.js";
+import "@ui5/webcomponents-icons/dist/email.js";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 
@@ -104,10 +105,12 @@ const adminNav: NavItem[] = [
   { to: "/admin/inventory-do", label: "Delivery Orders (DO)", icon: "document", group: "operations", roles: ["ADMIN", "STORE"] },
   { to: "/admin/vendor-pack-detail", label: "Vendor Pack Detail", icon: "customer-and-contacts", group: "operations", roles: ["ADMIN", "STORE"] },
   { to: "/admin/inbound-packs", label: "Inbound Vendor Packs", icon: "shipping-status", group: "operations", roles: ["ADMIN", "STORE"] },
+  { to: "/admin/forklift-intake", label: "Forklift Intake", icon: "shipping-status", group: "operations", roles: ["ADMIN", "STORE", "FORKLIFT"] },
   { to: "/admin/machines", label: "Machines", icon: "machine", group: "operations", roles: ["ADMIN", "PROCESS_ENGINEER"] },
   { to: "/admin/devices", label: "Devices", icon: "laptop", group: "operations", roles: ["ADMIN"] },
   { to: "/admin/recovery", label: "Set Recovery", icon: "wrench", group: "operations", roles: ["ADMIN"] },
   { to: "/admin/approvals", label: "Workflow Approvals", icon: "approvals", group: "governance", roles: ["ADMIN"] },
+  { to: "/admin/email-settings", label: "Email Settings", icon: "email", group: "governance", roles: ["ADMIN"] },
   { to: "/admin/heartbeat", label: "Device Heartbeat", icon: "heart", group: "governance", roles: ["ADMIN"] },
   { to: "/admin/system-health", label: "System Health", icon: "sys-monitor", group: "governance", roles: ["ADMIN"] },
   { to: "/admin/audit-logs", label: "Audit Logs", icon: "history", group: "governance", roles: ["ADMIN"] },
@@ -273,27 +276,24 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
           />
         }
         profile={
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Button
-              icon={theme === "sap_horizon" ? "dark-mode" : "light-mode"}
-              design="Transparent"
-              onClick={toggleTheme}
-              title={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
-              aria-label={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
-            />
-            <Avatar
-              id="shellbar-avatar"
-              initials={user?.display_name?.[0] ?? "U"}
-              colorScheme="Accent6"
-              aria-label={`User profile: ${user?.display_name}`}
-              style={{ cursor: "pointer" }}
-              onClick={() => setProfileOpen(true)}
-            />
-          </div>
+          <Avatar
+            id="shellbar-avatar"
+            initials={user?.display_name?.[0] ?? "U"}
+            colorScheme="Accent6"
+            aria-label={`User profile: ${user?.display_name}`}
+            style={{ cursor: "pointer" }}
+            onClick={() => setProfileOpen(true)}
+          />
         }
         onProfileClick={() => setProfileOpen(true)}
       >
         <ShellBarSpacer />
+        <ShellBarItem
+          icon={theme === "sap_horizon" ? "dark-mode" : "light-mode"}
+          text={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+          onClick={toggleTheme}
+          aria-label={theme === "sap_horizon" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+        />
         <ShellBarItem
           id="shellbar-notifications"
           icon="bell"

@@ -1,16 +1,12 @@
 import Elysia, { t } from "elysia";
 import { db } from "../db/connection";
+import { ok, fail } from "../lib/http";
 import { events, units, unitLinks } from "../db/schema/production";
 import { machines, devices } from "../db/schema/devices";
 import { computeShiftDay } from "../lib/shift-day";
 import { validateTransition } from "../lib/state-machine";
 import { EVENT_HANDLERS, DomainError, type HandlerResult } from "../lib/event-handlers";
-import {
-  verifyAccessToken,
-  verifyDeviceToken,
-  type AccessTokenPayload,
-  type DeviceTokenPayload,
-} from "../lib/jwt";
+import { verifyAccessToken, verifyDeviceToken, type AccessTokenPayload, type DeviceTokenPayload } from "../lib/jwt";
 import { eq, and, isNull } from "drizzle-orm";
 import { deviceOperatorSessions } from "../db/schema/devices";
 import { createHmac, timingSafeEqual } from "crypto";
@@ -80,12 +76,7 @@ async function resolveAuth(request: Request): Promise<ResolvedAuth | string> {
     const [session] = await db
       .select({ userId: deviceOperatorSessions.userId })
       .from(deviceOperatorSessions)
-      .where(
-        and(
-          eq(deviceOperatorSessions.deviceId, dev.id),
-          isNull(deviceOperatorSessions.endedAt)
-        )
-      )
+      .where(and(eq(deviceOperatorSessions.deviceId, dev.id), isNull(deviceOperatorSessions.endedAt)))
       .limit(1);
 
     if (!session) return "NO_OPERATOR_SESSION";
@@ -134,12 +125,7 @@ async function resolveAuth(request: Request): Promise<ResolvedAuth | string> {
     const [session] = await db
       .select({ userId: deviceOperatorSessions.userId })
       .from(deviceOperatorSessions)
-      .where(
-        and(
-          eq(deviceOperatorSessions.deviceId, dev.id),
-          isNull(deviceOperatorSessions.endedAt)
-        )
-      )
+      .where(and(eq(deviceOperatorSessions.deviceId, dev.id), isNull(deviceOperatorSessions.endedAt)))
       .limit(1);
 
     if (!session) return "NO_OPERATOR_SESSION";
@@ -178,25 +164,15 @@ export const eventRoutes = new Elysia({ prefix: "/events" })
       if (typeof auth === "string") {
         const isNoOperator = auth === "NO_OPERATOR_SESSION";
         set.status = isNoOperator ? 403 : 401;
-        return {
-          success: false,
-          error_code: auth,
-          message:
-            auth === "NO_OPERATOR_SESSION"
-              ? "An operator must be logged in on this device to submit events"
-              : "Valid JWT or Device-Token required",
-        };
+        return fail(
+          auth,
+          auth === "NO_OPERATOR_SESSION"
+            ? "An operator must be logged in on this device to submit events"
+            : "Valid JWT or Device-Token required"
+        );
       }
 
-      const {
-        event_id,
-        event_type,
-        unit_id,
-        machine_id,
-        payload,
-        created_at_device,
-        target_state,
-      } = body;
+      const { event_id, event_type, unit_id, machine_id, payload, created_at_device, target_state } = body;
 
       // ── Domain handler dispatch ───────────────────────
       let handlerResult: HandlerResult | null = null;
@@ -213,11 +189,7 @@ export const eventRoutes = new Elysia({ prefix: "/events" })
         } catch (err) {
           if (err instanceof DomainError) {
             set.status = err.status;
-            return {
-              success: false,
-              error_code: err.code,
-              message: err.message,
-            };
+            return fail(err.code, err.message);
           }
           throw err; // re-throw unexpected errors
         }
@@ -237,37 +209,21 @@ export const eventRoutes = new Elysia({ prefix: "/events" })
 
         if (!unit) {
           set.status = 404;
-          return {
-            success: false,
-            error_code: "UNIT_NOT_FOUND",
-            message: `Unit "${unit_id}" not found`,
-          };
+          return fail("UNIT_NOT_FOUND", `Unit "${unit_id}" not found`);
         }
 
-        const transition = validateTransition(
-          unit.unitType,
-          unit.status,
-          target_state
-        );
+        const transition = validateTransition(unit.unitType, unit.status, target_state);
 
         if (!transition.valid) {
           set.status = 409;
-          return {
-            success: false,
-            error_code: "INVALID_STATE_TRANSITION",
-            message: transition.error,
-            data: {
-              unit_type: unit.unitType,
-              current_state: transition.currentState,
-              target_state: transition.targetState,
-            },
-          };
+          return fail("INVALID_STATE_TRANSITION", transition.error ?? "Invalid state transition", {
+            unit_type: unit.unitType,
+            current_state: transition.currentState,
+            target_state: transition.targetState,
+          });
         }
 
-        await db
-          .update(units)
-          .set({ status: target_state, updatedAt: new Date() })
-          .where(eq(units.id, unit_id));
+        await db.update(units).set({ status: target_state, updatedAt: new Date() }).where(eq(units.id, unit_id));
       }
 
       // ── Persist event (idempotent) ──────────────────
@@ -293,17 +249,14 @@ export const eventRoutes = new Elysia({ prefix: "/events" })
 
       const isDuplicate = result.length === 0;
 
-      return {
-        success: true,
-        data: {
-          event_id,
-          accepted: true,
-          duplicate: isDuplicate,
-          shift_day: shiftDay,
-          received_at: new Date().toISOString(),
-          ...(handlerResult?.extra ?? {}),
-        },
-      };
+      return ok({
+        event_id,
+        accepted: true,
+        duplicate: isDuplicate,
+        shift_day: shiftDay,
+        received_at: new Date().toISOString(),
+        ...(handlerResult?.extra ?? {}),
+      });
     },
     {
       body: t.Object({
@@ -323,7 +276,7 @@ export const eventRoutes = new Elysia({ prefix: "/events" })
     ({ body }) => {
       const { unit_type, current_state, target_state } = body;
       const result = validateTransition(unit_type, current_state, target_state);
-      return { success: result.valid, data: result };
+      return ok(result);
     },
     {
       body: t.Object({
@@ -339,212 +292,184 @@ export const eventRoutes = new Elysia({ prefix: "/events" })
 // Allocates serials, creates label records, links to trays.
 // Returns 92-byte payloads for printing.
 
-export const labelRoutes = new Elysia({ prefix: "/labels" })
-  .post(
-    "/generate",
-    async ({ body, request, set }) => {
-      // 1. Auth check
-      const auth = await resolveAuth(request);
-      if (typeof auth === "string") {
-        set.status = 401;
-        return { success: false, error_code: auth, message: "Valid JWT or Device-Token required" };
-      }
-
-      const { assy_id } = body;
-
-      // 2. Validate ASSY state
-      const [assy] = await db
-        .select({
-          id: units.id,
-          status: units.status,
-          variantId: units.variantId,
-          revisionId: units.modelRevisionId,
-          lineCode: units.lineCode,
-        })
-        .from(units)
-        .where(eq(units.id, assy_id))
-        .limit(1);
-
-      if (!assy) {
-        set.status = 404;
-        return { success: false, error_code: "UNIT_NOT_FOUND", message: `ASSY "${assy_id}" not found` };
-      }
-      if (assy.status !== "ASSEMBLY_COMPLETED") {
-        set.status = 409;
-        return {
-          success: false,
-          error_code: "INVALID_STATE_TRANSITION",
-          message: `ASSY is ${assy.status}, expected ASSEMBLY_COMPLETED`,
-        };
-      }
-
-      // 3. Get Trays
-      const linkedTrays = await db
-        .select({ id: unitLinks.childUnitId })
-        .from(unitLinks)
-        .where(and(eq(unitLinks.parentUnitId, assy_id), eq(unitLinks.linkType, "SPLIT_INTO_TRAY")));
-      
-      if (linkedTrays.length !== 6) {
-        set.status = 422;
-        return {
-          success: false,
-          error_code: "INVALID_STATE_TRANSITION",
-          message: `Expected 6 trays, found ${linkedTrays.length}`,
-        };
-      }
-
-      if (!assy.revisionId) {
-        set.status = 422;
-        return { success: false, error_code: "REVISION_NOT_READY", message: "ASSY has no model revision" };
-      }
-      if (!assy.lineCode) {
-        set.status = 422;
-        return { success: false, error_code: "REVISION_NOT_READY", message: "ASSY has no line code" };
-      }
-      const lineCode = assy.lineCode;
-
-      const [revision] = await db
-        .select({ basePartNumber: modelRevisions.basePartNumber, status: modelRevisions.status })
-        .from(modelRevisions)
-        .where(eq(modelRevisions.id, assy.revisionId))
-        .limit(1);
-
-      if (!revision || revision.status !== "ACTIVE") {
-        set.status = 422;
-        return { success: false, error_code: "REVISION_NOT_READY", message: "Revision is missing or not ACTIVE" };
-      }
-
-      if (!revision?.basePartNumber) {
-        set.status = 422;
-        return {
-          success: false,
-          error_code: "REVISION_NOT_READY",
-          message: "No base_part_number configured for model revision",
-        };
-      }
-
-      const partNumber = revision.basePartNumber;
-
-      const [variant] = assy.variantId
-        ? await db
-            .select({ code: variants.code })
-            .from(variants)
-            .where(eq(variants.id, assy.variantId))
-            .limit(1)
-        : [];
-
-      if (assy.variantId && !variant) {
-        set.status = 422;
-        return {
-          success: false,
-          error_code: "VARIANT_NOT_FOUND",
-          message: "ASSY variant reference does not exist",
-        };
-      }
-      const variantCode = variant?.code ?? "DEFAULT";
-
-      const [bindingExact] = assy.variantId
-        ? await db
-            .select({ labelTemplateId: labelBindings.labelTemplateId })
-            .from(labelBindings)
-            .where(
-              and(
-                eq(labelBindings.modelRevisionId, assy.revisionId),
-                eq(labelBindings.variantId, assy.variantId),
-                eq(labelBindings.unitType, "FOF_TRAY_20"),
-                eq(labelBindings.processPoint, "POST_FVMI_LABEL")
-              )
-            )
-            .limit(1)
-        : [];
-
-      const [bindingFallback] = await db
-        .select({ labelTemplateId: labelBindings.labelTemplateId })
-        .from(labelBindings)
-        .where(
-          and(
-            eq(labelBindings.modelRevisionId, assy.revisionId),
-            isNull(labelBindings.variantId),
-            eq(labelBindings.unitType, "FOF_TRAY_20"),
-            eq(labelBindings.processPoint, "POST_FVMI_LABEL")
-          )
-        )
-        .limit(1);
-
-      const labelTemplateId = bindingExact?.labelTemplateId ?? bindingFallback?.labelTemplateId;
-      if (!labelTemplateId) {
-        set.status = 422;
-        return {
-          success: false,
-          error_code: "REVISION_NOT_READY",
-          message: "No label binding found for revision/variant at POST_FVMI_LABEL (FOF_TRAY_20)",
-        };
-      }
-
-      // 5. Allocate Serials (allocates next 6)
-      const generatedLabels: Array<{ tray_id: string; serial: number; payload: string }> = [];
-      const now = new Date();
-      const shiftDay = computeShiftDay(now);
-
-      try {
-        await db.transaction(async (tx) => {
-          for (const tray of linkedTrays) {
-             const serial = await allocateSerial(partNumber, shiftDay, lineCode);
-             
-             // Build payload
-             const payload = buildLabelContent({
-               partNumber,
-               variantCode,
-               serial,
-               lineCode,
-               shiftDay
-             });
-
-             // Insert Label
-             await tx.insert(labels).values({
-               unitId: tray.id,
-               labelTemplateId,
-               serialNumber: serial,
-               labelData: payload,
-               shiftDay,
-               lineCode,
-               partNumber
-             });
-
-             generatedLabels.push({
-               tray_id: tray.id,
-               serial,
-               payload
-             });
-             
-             // Update Tray status
-             await tx.update(units).set({ status: "LABELED", updatedAt: now }).where(eq(units.id, tray.id));
-          }
-
-          // Update ASSY status
-          await tx.update(units).set({ status: "LABELED", updatedAt: now }).where(eq(units.id, assy_id));
-        });
-      } catch (err: unknown) {
-        if (err instanceof DomainError) {
-          set.status = err.status;
-          return { success: false, error_code: err.code, message: err.message };
-        }
-        const message = err instanceof Error ? err.message : "Unknown error";
-        set.status = 500;
-        return { success: false, error_code: "GENERATION_FAILED", message };
-      }
-
-      return {
-        success: true,
-        data: {
-          assy_id,
-          labels: generatedLabels
-        }
-      };
-    },
-    {
-      body: t.Object({
-        assy_id: t.String()
-      })
+export const labelRoutes = new Elysia({ prefix: "/labels" }).post(
+  "/generate",
+  async ({ body, request, set }) => {
+    // 1. Auth check
+    const auth = await resolveAuth(request);
+    if (typeof auth === "string") {
+      set.status = 401;
+      return fail(auth, "Valid JWT or Device-Token required");
     }
-  );
+
+    const { assy_id } = body;
+
+    // 2. Validate ASSY state
+    const [assy] = await db
+      .select({
+        id: units.id,
+        status: units.status,
+        variantId: units.variantId,
+        revisionId: units.modelRevisionId,
+        lineCode: units.lineCode,
+      })
+      .from(units)
+      .where(eq(units.id, assy_id))
+      .limit(1);
+
+    if (!assy) {
+      set.status = 404;
+      return fail("UNIT_NOT_FOUND", `ASSY "${assy_id}" not found`);
+    }
+    if (assy.status !== "ASSEMBLY_COMPLETED") {
+      set.status = 409;
+      return fail("INVALID_STATE_TRANSITION", `ASSY is ${assy.status}, expected ASSEMBLY_COMPLETED`);
+    }
+
+    // 3. Get Trays
+    const linkedTrays = await db
+      .select({ id: unitLinks.childUnitId })
+      .from(unitLinks)
+      .where(and(eq(unitLinks.parentUnitId, assy_id), eq(unitLinks.linkType, "SPLIT_INTO_TRAY")));
+
+    if (linkedTrays.length !== 6) {
+      set.status = 422;
+      return fail("INVALID_STATE_TRANSITION", `Expected 6 trays, found ${linkedTrays.length}`);
+    }
+
+    if (!assy.revisionId) {
+      set.status = 422;
+      return fail("REVISION_NOT_READY", "ASSY has no model revision");
+    }
+    if (!assy.lineCode) {
+      set.status = 422;
+      return fail("REVISION_NOT_READY", "ASSY has no line code");
+    }
+    const lineCode = assy.lineCode;
+
+    const [revision] = await db
+      .select({ basePartNumber: modelRevisions.basePartNumber, status: modelRevisions.status })
+      .from(modelRevisions)
+      .where(eq(modelRevisions.id, assy.revisionId))
+      .limit(1);
+
+    if (!revision || revision.status !== "ACTIVE") {
+      set.status = 422;
+      return fail("REVISION_NOT_READY", "Revision is missing or not ACTIVE");
+    }
+
+    if (!revision?.basePartNumber) {
+      set.status = 422;
+      return fail("REVISION_NOT_READY", "No base_part_number configured for model revision");
+    }
+
+    const partNumber = revision.basePartNumber;
+
+    const [variant] = assy.variantId
+      ? await db.select({ code: variants.code }).from(variants).where(eq(variants.id, assy.variantId)).limit(1)
+      : [];
+
+    if (assy.variantId && !variant) {
+      set.status = 422;
+      return fail("VARIANT_NOT_FOUND", "ASSY variant reference does not exist");
+    }
+    const variantCode = variant?.code ?? "DEFAULT";
+
+    const [bindingExact] = assy.variantId
+      ? await db
+          .select({ labelTemplateId: labelBindings.labelTemplateId })
+          .from(labelBindings)
+          .where(
+            and(
+              eq(labelBindings.modelRevisionId, assy.revisionId),
+              eq(labelBindings.variantId, assy.variantId),
+              eq(labelBindings.unitType, "FOF_TRAY_20"),
+              eq(labelBindings.processPoint, "POST_FVMI_LABEL")
+            )
+          )
+          .limit(1)
+      : [];
+
+    const [bindingFallback] = await db
+      .select({ labelTemplateId: labelBindings.labelTemplateId })
+      .from(labelBindings)
+      .where(
+        and(
+          eq(labelBindings.modelRevisionId, assy.revisionId),
+          isNull(labelBindings.variantId),
+          eq(labelBindings.unitType, "FOF_TRAY_20"),
+          eq(labelBindings.processPoint, "POST_FVMI_LABEL")
+        )
+      )
+      .limit(1);
+
+    const labelTemplateId = bindingExact?.labelTemplateId ?? bindingFallback?.labelTemplateId;
+    if (!labelTemplateId) {
+      set.status = 422;
+      return fail("REVISION_NOT_READY", "No label binding found for revision/variant at POST_FVMI_LABEL (FOF_TRAY_20)");
+    }
+
+    // 5. Allocate Serials (allocates next 6)
+    const generatedLabels: Array<{ tray_id: string; serial: number; payload: string }> = [];
+    const now = new Date();
+    const shiftDay = computeShiftDay(now);
+
+    try {
+      await db.transaction(async (tx) => {
+        for (const tray of linkedTrays) {
+          const serial = await allocateSerial(partNumber, shiftDay, lineCode);
+
+          // Build payload
+          const payload = buildLabelContent({
+            partNumber,
+            variantCode,
+            serial,
+            lineCode,
+            shiftDay,
+          });
+
+          // Insert Label
+          await tx.insert(labels).values({
+            unitId: tray.id,
+            labelTemplateId,
+            serialNumber: serial,
+            labelData: payload,
+            shiftDay,
+            lineCode,
+            partNumber,
+          });
+
+          generatedLabels.push({
+            tray_id: tray.id,
+            serial,
+            payload,
+          });
+
+          // Update Tray status
+          await tx.update(units).set({ status: "LABELED", updatedAt: now }).where(eq(units.id, tray.id));
+        }
+
+        // Update ASSY status
+        await tx.update(units).set({ status: "LABELED", updatedAt: now }).where(eq(units.id, assy_id));
+      });
+    } catch (err: unknown) {
+      if (err instanceof DomainError) {
+        set.status = err.status;
+        return fail(err.code, err.message);
+      }
+      const message = err instanceof Error ? err.message : "Unknown error";
+      set.status = 500;
+      return fail("GENERATION_FAILED", message);
+    }
+
+    return ok({
+      assy_id,
+      labels: generatedLabels,
+    });
+  },
+  {
+    body: t.Object({
+      assy_id: t.String(),
+    }),
+  }
+);

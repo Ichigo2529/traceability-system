@@ -19,27 +19,33 @@ type SelectComposition = {
 
 const toArray = (children: React.ReactNode): React.ReactNode[] => React.Children.toArray(children);
 
+type OptionElementProps = { value?: string; className?: string; children?: React.ReactNode };
+
 const pushOptionFromNode = (node: React.ReactNode, options: SelectItemDescriptor[]) => {
   if (!React.isValidElement(node)) return;
+  const el = node as React.ReactElement<OptionElementProps>;
+  const props = el.props;
 
-  if (node.type === SelectItem) {
-    const value = String(node.props.value ?? "");
+  if (el.type === SelectItem) {
+    const value = String(props.value ?? "");
     options.push({
-      key: node.key?.toString() ?? value,
+      key: el.key?.toString() ?? value,
       value,
-      className: node.props.className,
-      children: node.props.children,
+      className: props.className,
+      children: props.children,
     });
     return;
   }
 
-  if (node.type === React.Fragment) {
-    toArray(node.props.children).forEach((child) => pushOptionFromNode(child, options));
+  if (el.type === React.Fragment) {
+    toArray(props.children).forEach((child) => pushOptionFromNode(child, options));
     return;
   }
 
-  toArray(node.props.children).forEach((child) => pushOptionFromNode(child, options));
+  toArray(props.children).forEach((child) => pushOptionFromNode(child, options));
 };
+
+type TriggerValueProps = { placeholder?: string; className?: string; children?: React.ReactNode };
 
 const extractSelectComposition = (children: React.ReactNode): SelectComposition => {
   let triggerClassName: string | undefined;
@@ -48,20 +54,23 @@ const extractSelectComposition = (children: React.ReactNode): SelectComposition 
 
   toArray(children).forEach((node) => {
     if (!React.isValidElement(node)) return;
+    const el = node as React.ReactElement<TriggerValueProps>;
+    const props = el.props;
 
-    if (node.type === SelectTrigger) {
-      triggerClassName = node.props.className;
-      toArray(node.props.children).forEach((triggerChild) => {
+    if (el.type === SelectTrigger) {
+      triggerClassName = props.className;
+      toArray(props.children).forEach((triggerChild) => {
         if (!React.isValidElement(triggerChild)) return;
-        if (triggerChild.type === SelectValue) {
-          placeholder = triggerChild.props.placeholder;
+        const tc = triggerChild as React.ReactElement<TriggerValueProps>;
+        if (tc.type === SelectValue) {
+          placeholder = tc.props.placeholder;
         }
       });
       return;
     }
 
-    if (node.type === SelectContent) {
-      toArray(node.props.children).forEach((contentChild) => pushOptionFromNode(contentChild, options));
+    if (el.type === SelectContent) {
+      toArray(props.children).forEach((contentChild) => pushOptionFromNode(contentChild, options));
       return;
     }
   });
@@ -83,7 +92,7 @@ const Select = React.forwardRef<HTMLElement, SelectProps>(
   ({ value, defaultValue, onValueChange, children, className, disabled, required, name, ...props }, ref) => {
     const isControlled = value !== undefined;
     const [internalValue, setInternalValue] = React.useState(defaultValue ?? "");
-    const selectedValue = isControlled ? value ?? "" : internalValue;
+    const selectedValue = isControlled ? (value ?? "") : internalValue;
     const { triggerClassName, placeholder, options } = extractSelectComposition(children);
 
     return (
@@ -101,11 +110,7 @@ const Select = React.forwardRef<HTMLElement, SelectProps>(
         }}
         {...(props as any)}
       >
-        {placeholder ? (
-          <Ui5Option value="">
-            {placeholder}
-          </Ui5Option>
-        ) : null}
+        {placeholder ? <Ui5Option value="">{placeholder}</Ui5Option> : null}
         {options.map((option) => (
           <Ui5Option key={option.key} value={option.value} className={cn("admin-ui5-select-option", option.className)}>
             {option.children}

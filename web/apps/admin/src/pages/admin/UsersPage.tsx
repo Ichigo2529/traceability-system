@@ -12,7 +12,7 @@ import { FormDialog } from "../../components/shared/FormDialog";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import { PageLayout} from "@traceability/ui";
+import { PageLayout } from "@traceability/ui";
 import {
   Button,
   Input,
@@ -23,7 +23,7 @@ import {
   Form,
   FormItem,
   FlexBox,
-  FlexBoxAlignItems
+  FlexBoxAlignItems,
 } from "@ui5/webcomponents-react";
 import "@ui5/webcomponents-icons/dist/add.js";
 import "@ui5/webcomponents-icons/dist/edit.js";
@@ -57,10 +57,18 @@ export function UsersPage() {
     defaultValues: { roles: ["OPERATOR"], name: "", username: "" },
   });
 
-  const { data: users = [], isLoading: usersLoading } = useQuery({ queryKey: ["users"], queryFn: () => sdk.admin.getUsers() });
-  const { data: departments = [], isLoading: departmentsLoading } = useQuery({ queryKey: ["departments"], queryFn: () => sdk.admin.getDepartments() });
-  const { data: sections = [], isLoading: sectionsLoading } = useQuery({ queryKey: ["admin-sections"], queryFn: getSections });
-
+  const { data: users = [], isLoading: usersLoading } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => sdk.admin.getUsers(),
+  });
+  const { data: departments = [], isLoading: departmentsLoading } = useQuery({
+    queryKey: ["departments"],
+    queryFn: () => sdk.admin.getDepartments(),
+  });
+  const { data: sections = [], isLoading: sectionsLoading } = useQuery({
+    queryKey: ["admin-sections"],
+    queryFn: getSections,
+  });
 
   const createMutation = useMutation({
     mutationFn: (payload: UserForm) =>
@@ -110,13 +118,35 @@ export function UsersPage() {
 
   const columns = useMemo<ColumnDef<User>[]>(
     () => [
-      { header: "Employee ID", accessorKey: "employee_code", cell: ({ row }) => row.original.employee_code || "-", size: 140 },
+      {
+        header: "Employee ID",
+        accessorKey: "employee_code",
+        cell: ({ row }) => row.original.employee_code || "-",
+        size: 140,
+      },
       { header: "Name", accessorKey: "display_name", size: 200 },
       { header: "Email", accessorKey: "email", cell: ({ row }) => row.original.email || "-", size: 220 },
-      { header: "Section", cell: ({ row }) => sections.find(s => s.id === (row.original as any).section_id)?.section_name || "-", size: 150 },
-      { header: "Department", cell: ({ row }) => departments.find(d => d.id === (row.original as any).department_id)?.name || row.original.department || "-", size: 150 },
-      { header: "Roles", cell: ({ row }) => <div className="admin-users-role-list-text">{(row.original.roles || []).join(", ")}</div>, size: 300 },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active === false ? "disabled" : "active"} />, size: 100 },
+      {
+        header: "Section",
+        cell: ({ row }) => sections.find((s) => s.id === (row.original as any).section_id)?.section_name || "-",
+        size: 150,
+      },
+      {
+        header: "Department",
+        cell: ({ row }) =>
+          departments.find((d) => d.id === (row.original as any).department_id)?.name || row.original.department || "-",
+        size: 150,
+      },
+      {
+        header: "Roles",
+        cell: ({ row }) => <div className="admin-users-role-list-text">{(row.original.roles || []).join(", ")}</div>,
+        size: 300,
+      },
+      {
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.is_active === false ? "disabled" : "active"} />,
+        size: 100,
+      },
       {
         header: "Actions",
         size: 100,
@@ -162,8 +192,8 @@ export function UsersPage() {
       title="Users"
       subtitle={
         <FlexBox alignItems={FlexBoxAlignItems.Center}>
-            <span className="indicator-live" />
-            <span>Manage operator and admin identities</span>
+          <span className="indicator-live" />
+          <span>Manage operator and admin identities</span>
         </FlexBox>
       }
       icon="employee"
@@ -183,115 +213,179 @@ export function UsersPage() {
           }
         />
 
-        <DataTable 
-            data={users} 
-            columns={columns} 
-            loading={usersLoading || departmentsLoading || sectionsLoading}
-            filterPlaceholder="Search users..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  className="button-hover-scale"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ roles: ["OPERATOR"], name: "", username: "" });
-                    setOpen(true);
-                  }}
-                >
-                  Add User
-                </Button>
-            }
+        <DataTable
+          data={users}
+          columns={columns}
+          loading={usersLoading || departmentsLoading || sectionsLoading}
+          filterPlaceholder="Search users..."
+          actions={
+            <Button
+              icon="add"
+              design="Emphasized"
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({ roles: ["OPERATOR"], name: "", username: "" });
+                setOpen(true);
+              }}
+            >
+              Add User
+            </Button>
+          }
         />
       </div>
-      
 
       <FormDialog
         open={open}
         onClose={() => setOpen(false)}
         title={editing ? "Edit User" : "Create User"}
-        onSubmit={form.handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
+        onSubmit={form.handleSubmit((values) =>
+          editing ? updateMutation.mutate(values) : createMutation.mutate(values)
+        )}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
         <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12" style={{ padding: "1rem" }}>
           <FormItem labelContent={<Label showColon>Employee ID</Label>}>
             <Input {...form.register("employee_code")} />
           </FormItem>
-          <FormItem labelContent={<Label required showColon>Name</Label>}>
-            <Input {...form.register("name")} />
+          <FormItem
+            labelContent={
+              <Label required showColon>
+                Name
+              </Label>
+            }
+          >
+            <Input
+              {...form.register("name")}
+              valueState={form.formState.errors.name ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.name ? <span>{form.formState.errors.name.message}</span> : undefined
+              }
+            />
           </FormItem>
-          <FormItem labelContent={<Label required showColon>Username</Label>}>
-            <Input {...form.register("username")} disabled={Boolean(editing)} />
+          <FormItem
+            labelContent={
+              <Label required showColon>
+                Username
+              </Label>
+            }
+          >
+            <Input
+              {...form.register("username")}
+              disabled={Boolean(editing)}
+              valueState={form.formState.errors.username ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.username ? <span>{form.formState.errors.username.message}</span> : undefined
+              }
+            />
           </FormItem>
           <FormItem labelContent={<Label showColon>Email</Label>}>
-            <Input {...form.register("email")} />
+            <Input
+              {...form.register("email")}
+              valueState={form.formState.errors.email ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.email ? <span>{form.formState.errors.email.message}</span> : undefined
+              }
+            />
           </FormItem>
           <FormItem labelContent={<Label showColon>Section</Label>}>
-             <Controller
-                control={form.control}
-                name="section_id"
-                render={({ field }) => (
-                     <Select
-                        onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
-                    >
-                         <Option data-value="" selected={!field.value}>None</Option>
-                         {sections.filter(s => s.is_active).map((sec) => (
-                            <Option key={sec.id} data-value={sec.id} selected={field.value === sec.id}>
-                              {sec.section_name}
-                            </Option>
-                          ))}
-                    </Select>
-                )}
-             />
+            <Controller
+              control={form.control}
+              name="section_id"
+              render={({ field }) => (
+                <Select
+                  onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
+                >
+                  <Option data-value="" selected={!field.value}>
+                    None
+                  </Option>
+                  {sections
+                    .filter((s) => s.is_active)
+                    .map((sec) => (
+                      <Option key={sec.id} data-value={sec.id} selected={field.value === sec.id}>
+                        {sec.section_name}
+                      </Option>
+                    ))}
+                </Select>
+              )}
+            />
           </FormItem>
           <FormItem labelContent={<Label showColon>Department</Label>}>
-             <Controller
-                control={form.control}
-                name="department_id"
-                render={({ field }) => (
-                     <Select
-                        onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
-                    >
-                         <Option data-value="" selected={!field.value}>None</Option>
-                         {departments.filter(d => d.is_active).map((dep: any) => (
-                            <Option key={dep.id} data-value={dep.id} selected={field.value === dep.id}>
-                              {dep.name}
-                            </Option>
-                          ))}
-                    </Select>
-                )}
-             />
+            <Controller
+              control={form.control}
+              name="department_id"
+              render={({ field }) => (
+                <Select
+                  onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
+                >
+                  <Option data-value="" selected={!field.value}>
+                    None
+                  </Option>
+                  {departments
+                    .filter((d) => d.is_active)
+                    .map((dep: any) => (
+                      <Option key={dep.id} data-value={dep.id} selected={field.value === dep.id}>
+                        {dep.name}
+                      </Option>
+                    ))}
+                </Select>
+              )}
+            />
           </FormItem>
-          <FormItem labelContent={<Label showColon>Password {editing ? "(optional)" : ""}</Label>} style={{ gridColumn: "span 2" }}>
-            <Input type="Password" {...form.register("password")} placeholder={editing ? "Leave blank to keep current" : ""} />
+          <FormItem
+            labelContent={<Label showColon>Password {editing ? "(optional)" : ""}</Label>}
+            style={{ gridColumn: "span 2" }}
+          >
+            <Input
+              type="Password"
+              {...form.register("password")}
+              placeholder={editing ? "Leave blank to keep current" : ""}
+            />
           </FormItem>
-          <FormItem labelContent={<Label required showColon>Roles</Label>} style={{ gridColumn: "span 2" }}>
-            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", padding: "0.5rem 0" }}>
-              {ROLES.map((role) => (
+          <FormItem
+            labelContent={
+              <Label required showColon>
+                Roles
+              </Label>
+            }
+            style={{ gridColumn: "span 2" }}
+          >
+            <div>
+              {form.formState.errors.roles && (
+                <span
+                  style={{
+                    color: "var(--sapNegativeColor)",
+                    fontSize: "0.75rem",
+                    marginBottom: "0.25rem",
+                    display: "block",
+                  }}
+                >
+                  {form.formState.errors.roles.message}
+                </span>
+              )}
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", padding: "0.5rem 0" }}>
+                {ROLES.map((role) => (
                   <Controller
                     key={role}
                     control={form.control}
                     name="roles"
                     render={({ field }) => {
-                        const checked = field.value.includes(role);
-                         return (
-                            <CheckBox
-                                text={role}
-                                checked={checked}
-                                onChange={(e) => {
-                                   const isChecked = e.target.checked;
-                                   const current = field.value;
-                                     field.onChange(
-                                      isChecked
-                                        ? [...current, role]
-                                        : current.filter((r) => r !== role)
-                                    );
-                                 }}
-                            />
-                         );
+                      const checked = field.value.includes(role);
+                      return (
+                        <CheckBox
+                          text={role}
+                          checked={checked}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            const current = field.value;
+                            field.onChange(isChecked ? [...current, role] : current.filter((r) => r !== role));
+                          }}
+                        />
+                      );
                     }}
                   />
-              ))}
+                ))}
+              </div>
             </div>
           </FormItem>
         </Form>

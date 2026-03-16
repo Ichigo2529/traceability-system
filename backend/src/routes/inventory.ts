@@ -9,6 +9,8 @@ import {
   supplierPartProfiles,
   materialRequestItemIssues,
   materialRequests,
+  component2dScans,
+  users,
 } from "../db/schema";
 import * as XLSX from "xlsx";
 
@@ -550,6 +552,85 @@ inventoryRoutes.get("/do/:id/issue-history", async ({ params, set }) => {
     .orderBy(asc(materialRequests.issuedAt));
 
   return ok(rows);
+});
+
+// ═══════════════════════════════════════════════════════
+//  3.6) DO Full History – GET /inventory/do/:id/history
+//  Returns both issue records and scan records for traceability
+// ═══════════════════════════════════════════════════════
+
+inventoryRoutes.get("/do/:id/history", async ({ params, set }) => {
+  // 1. Get DO info
+  const [doRecord] = await db
+    .select({
+      id: inventoryDo.id,
+      do_number: inventoryDo.doNumber,
+      part_number: inventoryDo.partNumber,
+      supplier: inventoryDo.supplier,
+      qty_received: inventoryDo.qtyReceived,
+      qty_issued: inventoryDo.qtyIssued,
+      gr_number: inventoryDo.grNumber,
+      supplier_name: suppliers.name,
+    })
+    .from(inventoryDo)
+    .leftJoin(suppliers, eq(suppliers.id, inventoryDo.supplierId))
+    .where(eq(inventoryDo.id, params.id))
+    .limit(1);
+
+  if (!doRecord) {
+    set.status = 404;
+    return fail("NOT_FOUND", "DO record not found");
+  }
+
+  // 2. Issue records (Store → Forklift)
+  const issueUser = sql<string>`(SELECT display_name FROM users WHERE id = ${materialRequests.issuedByUserId} LIMIT 1)`;
+  const issueRows = await db
+    .select({
+      id: materialRequestItemIssues.id,
+      request_no: materialRequests.requestNo,
+      request_id: materialRequestItemIssues.materialRequestId,
+      issued_packs: materialRequestItemIssues.issuedPacks,
+      issued_qty: materialRequestItemIssues.issuedQty,
+      supplier_pack_size: materialRequestItemIssues.supplierPackSize,
+      remarks: materialRequestItemIssues.remarks,
+      issued_at: materialRequests.issuedAt,
+      issued_by_name: issueUser,
+    })
+    .from(materialRequestItemIssues)
+    .innerJoin(materialRequests, eq(materialRequests.id, materialRequestItemIssues.materialRequestId))
+    .where(eq(materialRequestItemIssues.doId, params.id))
+    .orderBy(asc(materialRequests.issuedAt));
+
+  // 3. Scan records (Production scan)
+  const scanRows = await db
+    .select({
+      id: component2dScans.id,
+      scan_data: component2dScans.scanData,
+      pack_count: component2dScans.packCount,
+      scanned_at: component2dScans.scannedAt,
+    })
+    .from(component2dScans)
+    .where(eq(component2dScans.inventoryDoId, params.id))
+    .orderBy(asc(component2dScans.scannedAt));
+
+  // 4. Summary
+  const totalIssued = issueRows.reduce((sum, r) => sum + (r.issued_qty ?? 0), 0);
+  const totalIssuedPacks = issueRows.reduce((sum, r) => sum + (r.issued_packs ?? 0), 0);
+  const totalScannedPacks = scanRows.reduce((sum, r) => sum + (r.pack_count ?? 1), 0);
+  const match = totalIssuedPacks > 0 && totalIssuedPacks === totalScannedPacks;
+
+  return ok({
+    do: doRecord,
+    issues: issueRows,
+    scans: scanRows,
+    summary: {
+      total_issued_qty: totalIssued,
+      total_issued_packs: totalIssuedPacks,
+      total_scanned_packs: totalScannedPacks,
+      match,
+      status: match ? "MATCHED" : totalScannedPacks === 0 ? "NOT_SCANNED" : "MISMATCH",
+    },
+  });
 });
 
 // ═══════════════════════════════════════════════════════

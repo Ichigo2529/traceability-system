@@ -105,13 +105,13 @@ export function CostCentersPage() {
       { header: "Group", accessorKey: "group_code", size: 90 },
       { header: "Cost Code", accessorKey: "cost_code", size: 160 },
       { header: "Short Text", accessorKey: "short_text" },
-      { 
-        header: "Section", 
-        accessorFn: (row) => sections.find(s => s.id === row.section_id)?.section_name ?? "-" 
+      {
+        header: "Section",
+        accessorFn: (row) => sections.find((s) => s.id === row.section_id)?.section_name ?? "-",
       },
-      { 
-        header: "Default", 
-        cell: ({ row }) => row.original.is_default ? "Yes" : "No" 
+      {
+        header: "Default",
+        cell: ({ row }) => (row.original.is_default ? "Yes" : "No"),
       },
       {
         header: "Status",
@@ -203,7 +203,11 @@ export function CostCentersPage() {
 
       <FormDialog
         open={open}
-        onClose={() => { setOpen(false); createMut.reset(); updateMut.reset(); }}
+        onClose={() => {
+          setOpen(false);
+          createMut.reset();
+          updateMut.reset();
+        }}
         title={editing ? "Edit Cost Center" : "Create Cost Center"}
         onSubmit={form.handleSubmit((p) => (editing ? updateMut.mutate(p) : createMut.mutate(p)))}
         submitting={createMut.isPending || updateMut.isPending}
@@ -219,11 +223,7 @@ export function CostCentersPage() {
               name="group_code"
               control={form.control}
               render={({ field }) => (
-                <Select
-                  onChange={(e) =>
-                    field.onChange(e.detail.selectedOption.getAttribute("data-value"))
-                  }
-                >
+                <Select onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value"))}>
                   {GROUP_CODES.map((gc) => (
                     <Option key={gc} data-value={gc} selected={field.value === gc}>
                       {gc}
@@ -237,12 +237,20 @@ export function CostCentersPage() {
             <Input
               value={form.watch("cost_code")}
               onInput={(e: any) => form.setValue("cost_code", e.target.value)}
+              valueState={form.formState.errors.cost_code ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.cost_code ? <span>{form.formState.errors.cost_code.message}</span> : undefined
+              }
             />
           </FormItem>
           <FormItem labelContent={<Label required>Short Text</Label>}>
             <Input
               value={form.watch("short_text")}
               onInput={(e: any) => form.setValue("short_text", e.target.value)}
+              valueState={form.formState.errors.short_text ? "Negative" : undefined}
+              valueStateMessage={
+                form.formState.errors.short_text ? <span>{form.formState.errors.short_text.message}</span> : undefined
+              }
             />
           </FormItem>
           <FormItem labelContent={<Label>Section</Label>}>
@@ -253,7 +261,9 @@ export function CostCentersPage() {
                 <Select
                   onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
                 >
-                  <Option data-value="" selected={!field.value}>None</Option>
+                  <Option data-value="" selected={!field.value}>
+                    None
+                  </Option>
                   {sections.map((s) => (
                     <Option key={s.id} data-value={s.id} selected={field.value === s.id}>
                       {s.section_name}
@@ -268,11 +278,7 @@ export function CostCentersPage() {
               name="is_default"
               control={form.control}
               render={({ field }) => (
-                <CheckBox
-                  text="Default"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                />
+                <CheckBox text="Default" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
               )}
             />
           </FormItem>
@@ -281,11 +287,7 @@ export function CostCentersPage() {
               name="is_active"
               control={form.control}
               render={({ field }) => (
-                <CheckBox
-                  text="Active"
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                />
+                <CheckBox text="Active" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
               )}
             />
           </FormItem>
@@ -295,7 +297,9 @@ export function CostCentersPage() {
       <ConfirmDialog
         open={Boolean(disableTarget)}
         title="Disable cost center"
-        description={disableTarget ? `Disable cost center "${disableTarget.cost_code} - ${disableTarget.short_text}"?` : ""}
+        description={
+          disableTarget ? `Disable cost center "${disableTarget.cost_code} - ${disableTarget.short_text}"?` : ""
+        }
         confirmText="Disable"
         destructive
         submitting={deleteMut.isPending}

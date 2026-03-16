@@ -10,18 +10,25 @@
   ],
   "scripts": {
     "install:all": "bun install",
+    "prepare": "husky",
     "dev:backend": "bun run --cwd backend dev",
     "dev:admin": "bun run --cwd web/apps/admin dev",
     "dev:kiosk": "bun run --cwd web/apps/kiosk-pi5 dev",
-    "check:backend": "bun run --cwd backend typecheck && bun run --cwd backend test:contracts && bun run --cwd backend rules:validate",
+    "check:backend": "bun run --cwd backend typecheck && bun run --cwd backend test && bun run --cwd backend rules:validate",
     "check:web": "bun run --cwd web check",
     "check": "bun run check:backend && bun run check:web",
     "check:go-live": "bun run check && bun run --cwd backend db:health",
     "build:admin": "bun run --cwd web/apps/admin build",
     "build:kiosk": "bun run --cwd web/apps/kiosk-pi5 build",
-    "format:check": "bunx prettier --check README.md ROADMAP_STABILITY.md IMPLEMENTATION_CHECKLIST.md TECH_DECISIONS.md docs backend/src web/apps web/packages"
+    "format:check": "bunx prettier --check README.md docs backend/src web/apps web/packages",
+    "lint-staged": "lint-staged"
   },
   "devDependencies": {
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,json,md,css}": "prettier --write"
   }
 }

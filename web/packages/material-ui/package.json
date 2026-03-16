@@ -1,0 +1,27 @@
+{
+  "name": "@traceability/material-ui",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "lint": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  },
+  "dependencies": {
+    "@tanstack/react-table": "^8.21.3",
+    "@traceability/material": "*",
+    "@traceability/sdk": "*",
+    "@traceability/ui": "*",
+    "@ui5/webcomponents-icons": "^2.20.0",
+    "@ui5/webcomponents-react": "^2.20.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.8.0"
+  }
+}

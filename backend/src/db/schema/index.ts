@@ -10,4 +10,7 @@ export * from "./labels";
 export * from "./inventory";
 export * from "./audit";
 export * from "./material-requests";
+export * from "./handover";
 export * from "./genealogy";
+export * from "./email-settings";
+export * from "./email-reminder-logs";

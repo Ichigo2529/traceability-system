@@ -101,6 +101,7 @@ export const component2dScans = pgTable(
     unitId: uuid("unit_id").references(() => units.id),
     scanData: text("scan_data").notNull(),
     parsedData: jsonb("parsed_data").$type<Record<string, unknown>>(),
+    packCount: integer("pack_count").notNull().default(1),
     scannedAt: timestamp("scanned_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [

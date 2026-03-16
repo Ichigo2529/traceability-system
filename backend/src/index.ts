@@ -1,5 +1,6 @@
 import { app } from "./app";
 import { holdStaleSetRuns } from "./lib/set-run-service";
+import { runMaterialRequestReminderCycle } from "./lib/reminder-service";
 
 const port = process.env.PORT ?? 3000;
 
@@ -22,6 +23,7 @@ console.log(`   Admin:   POST /admin/set/force-close | /admin/set/reopen-last | 
 // ─── Background Scheduler ───────────────────────────────
 // Auto-hold stale set_runs every 10 minutes
 const STALE_CHECK_INTERVAL_MS = 10 * 60 * 1000;
+const REMINDER_CHECK_INTERVAL_MS = Number(process.env.REMINDER_CHECK_INTERVAL_MS ?? 15 * 60 * 1000);
 
 setInterval(async () => {
   try {
@@ -35,3 +37,9 @@ setInterval(async () => {
 }, STALE_CHECK_INTERVAL_MS);
 
 console.log(`[SCHEDULER] Stale set_run check running every ${STALE_CHECK_INTERVAL_MS / 60000} minutes`);
+
+setInterval(async () => {
+  await runMaterialRequestReminderCycle();
+}, REMINDER_CHECK_INTERVAL_MS);
+
+console.log(`[SCHEDULER] Material reminder check running every ${Math.floor(REMINDER_CHECK_INTERVAL_MS / 60000)} minutes`);

@@ -1,0 +1,1157 @@
+# Phase 1 Closure Audit — Material Request + Forklift 2D Intake
+
+> **Scope**: (A) Material Request flow, (B) Forklift 2D barcode scanning intake.
+> **Audited against**: actual schema in `backend/src/db/schema/`, routes in `backend/src/routes/material-requests.ts`, specs `01`–`19`, and frontend types.
+
+---
+
+## 1) ✅ Phase-Closable Target Flow (E2E Narrative)
+
+### Happy Path — end to end
+
+```
+ PRODUCTION                STORE                   FORKLIFT
+ ──────────               ──────                  ──────────
+ 1. Create MR ──────────► 2. Approve MR
+    (REQUESTED)              (APPROVED)
+                           3. Allocate DOs
+                              per line item
+                           4. Confirm Issue ────► 5. See pending
+                              (ISSUED)              handover batch
+                                                  6. Pick material
+                                                  7. Open Intake screen
+                                                  8. Scan 2D barcode ×N
+                                                  9. Finalize session
+                                                     (INTAKE_COMPLETE)
+                                                  ◄──── traceable ────►
+```
+
+**Step-by-step narrative:**
+
+| # | Actor | Action | System effect |
+|---|-------|--------|---------------|
+| 1 | Production | Creates Material Request (MR) with model, BOM line items, requested quantities | MR = `REQUESTED`. Auto-generates `request_no` / `dmi_no`. |
+| 2 | Store (approver) | Reviews and approves (or rejects) | MR → `APPROVED` (or `REJECTED`). Email notification. |
+| 3 | Store | Allocates DO(s) per line item (issuer selects DO number, packs, qty) | `material_request_item_issues` rows created. `inventory_do.qty_issued` incremented. |
+| 4 | Store | Confirms issue | MR → `ISSUED`. `handover_batch` auto-created with status `PENDING`. Forklift notified (SSE). |
+| 5 | Forklift | Sees pending handover batches on dashboard | UI lists all `PENDING` handover batches. |
+| 6 | Forklift | Physically picks material from store staging area | (Physical step — no system interaction.) |
+| 7 | Forklift | Opens "Intake" screen, selects handover batch | `scan_session` created with status `OPEN`. |
+| 8 | Forklift | Scans 2D barcode on each supplier pack | Per scan: parse → validate → match to issue line → create `scan_event` (immutable) → update `scanned_item` status. |
+| 9 | Forklift | Finalizes intake | `scan_session` → `COMPLETED`. `handover_batch` → `RECEIVED`. If all batches for MR are received → MR → `INTAKE_COMPLETE`. |
+
+### Phase-close criteria
+
+- [x] Every material unit received has an immutable `scan_event` linking: **who** (forklift user), **when** (device + server timestamps), **what** (barcode raw data + parsed fields), **where** (device_id, station_id).
+- [x] Full traceability chain: `material_request` → `item_issue` → `handover_batch` → `scan_session` → `scan_event` → `scanned_item` → `supplier_pack` → `inventory_do` → `supplier`.
+- [x] Partial intake is tracked; finalizing with missing items is allowed with explicit acknowledgment.
+- [x] No double-scan of the same barcode per MR.
+
+---
+
+## 2) 🔁 State Machines
+
+### 2a) MaterialRequest (MR)
+
+```mermaid
+stateDiagram-v2
+    [*] --> REQUESTED : Production creates
+    REQUESTED --> APPROVED : Store approves
+    REQUESTED --> REJECTED : Store rejects
+    REQUESTED --> CANCELLED : Production cancels
+    APPROVED --> ISSUED : Store confirms issue
+    APPROVED --> CANCELLED : Store/Production cancels
+    ISSUED --> INTAKE_COMPLETE : All handover batches RECEIVED
+    ISSUED --> PARTIALLY_RECEIVED : ≥1 batch RECEIVED, not all
+    PARTIALLY_RECEIVED --> INTAKE_COMPLETE : remaining batches received
+    INTAKE_COMPLETE --> [*]
+    REJECTED --> [*]
+    CANCELLED --> [*]
+```
+
+| From | To | Who | Condition |
+|------|----|-----|-----------|
+| — | REQUESTED | production | Valid BOM lines, model active |
+| REQUESTED | APPROVED | store (approver) | Approval authority per workflow_approval_configs |
+| REQUESTED | REJECTED | store (approver) | Requires remarks |
+| REQUESTED | CANCELLED | production / admin | Not yet approved |
+| APPROVED | ISSUED | store (issuer) | ≥1 item_issue allocated, DO balances sufficient |
+| APPROVED | CANCELLED | store / admin | Before issue only |
+| ISSUED | PARTIALLY_RECEIVED | system (auto) | First handover batch marked RECEIVED |
+| ISSUED | INTAKE_COMPLETE | system (auto) | All handover batches RECEIVED |
+| PARTIALLY_RECEIVED | INTAKE_COMPLETE | system (auto) | All handover batches RECEIVED |
+
+> **Audit gap found**: Current enum is `REQUESTED/APPROVED/REJECTED/ISSUED/CANCELLED`. Missing `PARTIALLY_RECEIVED` and `INTAKE_COMPLETE`. Migration required.
+
+### 2b) HandoverBatch
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING : Auto-created on store issue confirm
+    PENDING --> IN_TRANSIT : Forklift acknowledges pickup
+    IN_TRANSIT --> RECEIVED : Forklift finalizes intake session (all scanned)
+    IN_TRANSIT --> RECEIVED_PARTIAL : Forklift finalizes with missing items
+    RECEIVED_PARTIAL --> RECEIVED : Missing items resolved (re-scan or exception close)
+    PENDING --> CANCELLED : Store cancels before pickup
+    RECEIVED --> [*]
+    CANCELLED --> [*]
+```
+
+| From | To | Who | Condition |
+|------|----|-----|-----------|
+| — | PENDING | system | Auto on MR ISSUED |
+| PENDING | IN_TRANSIT | forklift | Forklift acknowledges they have the material |
+| IN_TRANSIT | RECEIVED | forklift | scan_session finalized, all expected items matched |
+| IN_TRANSIT | RECEIVED_PARTIAL | forklift | Finalized with acknowledged shortages |
+| RECEIVED_PARTIAL | RECEIVED | forklift / admin | Missing items resolved |
+| PENDING | CANCELLED | store / admin | Before forklift pickup |
+
+### 2c) ScanSession
+
+```mermaid
+stateDiagram-v2
+    [*] --> OPEN : Forklift starts scanning
+    OPEN --> COMPLETED : Forklift finalizes
+    OPEN --> ABANDONED : Timeout / explicit abandon
+    COMPLETED --> [*]
+    ABANDONED --> [*]
+```
+
+| From | To | Who |
+|------|----|-----|
+| — | OPEN | forklift |
+| OPEN | COMPLETED | forklift (finalize action) |
+| OPEN | ABANDONED | forklift / system (30-min inactivity timeout) |
+
+### 2d) ScanEvent (immutable — no transitions)
+
+Every `scan_event` is written once and never modified. The `result` field records the outcome:
+
+| Result | Meaning |
+|--------|---------|
+| `MATCHED` | Barcode parsed and matched to an issue line successfully |
+| `DUPLICATE` | Same barcode already scanned for this MR |
+| `NOT_FOUND` | Barcode part_number/DO not in issued list |
+| `EXPIRED` | Barcode parsed but material is past expiry policy |
+| `PARSE_ERROR` | Barcode could not be parsed |
+| `MISMATCH` | Part number doesn't match any expected line |
+
+---
+
+## 3) 🗄 DB Schema
+
+### Existing tables to modify
+
+#### `material_request_status` enum — ADD values
+
+```sql
+ALTER TYPE material_request_status ADD VALUE 'PARTIALLY_RECEIVED';
+ALTER TYPE material_request_status ADD VALUE 'INTAKE_COMPLETE';
+```
+
+### New tables
+
+#### `handover_batches`
+
+```sql
+CREATE TYPE handover_batch_status AS ENUM (
+  'PENDING', 'IN_TRANSIT', 'RECEIVED', 'RECEIVED_PARTIAL', 'CANCELLED'
+);
+
+CREATE TABLE handover_batches (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  batch_no          VARCHAR(80) NOT NULL,                           -- HB-20260302-0001
+  material_request_id UUID NOT NULL REFERENCES material_requests(id),
+  issued_by_user_id UUID NOT NULL REFERENCES users(id),
+  assigned_forklift_user_id UUID REFERENCES users(id),             -- nullable: auto or manual assign
+  status            handover_batch_status NOT NULL DEFAULT 'PENDING',
+  pickup_at         TIMESTAMPTZ,
+  received_at       TIMESTAMPTZ,
+  expected_item_count INTEGER NOT NULL DEFAULT 0,
+  scanned_item_count  INTEGER NOT NULL DEFAULT 0,
+  remarks           TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT uq_handover_batch_no UNIQUE (batch_no)
+);
+
+CREATE INDEX idx_handover_batch_mr ON handover_batches(material_request_id);
+CREATE INDEX idx_handover_batch_status ON handover_batches(status);
+CREATE INDEX idx_handover_batch_forklift ON handover_batches(assigned_forklift_user_id);
+```
+
+#### `handover_batch_items` (links issue lines to batches)
+
+```sql
+CREATE TABLE handover_batch_items (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  handover_batch_id   UUID NOT NULL REFERENCES handover_batches(id) ON DELETE CASCADE,
+  material_request_item_issue_id UUID NOT NULL REFERENCES material_request_item_issues(id),
+  part_number         VARCHAR(120) NOT NULL,
+  do_number           VARCHAR(120) NOT NULL,
+  expected_packs      INTEGER NOT NULL,
+  expected_qty        INTEGER NOT NULL,
+  scanned_packs       INTEGER NOT NULL DEFAULT 0,
+  scanned_qty         INTEGER NOT NULL DEFAULT 0,
+  status              VARCHAR(30) NOT NULL DEFAULT 'PENDING',  -- PENDING | MATCHED | PARTIAL | OVER
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT uq_hbi_issue UNIQUE (handover_batch_id, material_request_item_issue_id)
+);
+
+CREATE INDEX idx_hbi_batch ON handover_batch_items(handover_batch_id);
+CREATE INDEX idx_hbi_part   ON handover_batch_items(part_number);
+```
+
+#### `scan_sessions`
+
+```sql
+CREATE TYPE scan_session_status AS ENUM ('OPEN', 'COMPLETED', 'ABANDONED');
+
+CREATE TABLE scan_sessions (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  handover_batch_id   UUID NOT NULL REFERENCES handover_batches(id),
+  user_id             UUID NOT NULL REFERENCES users(id),         -- forklift operator
+  device_id           UUID REFERENCES devices(id),
+  station_id          UUID,
+  status              scan_session_status NOT NULL DEFAULT 'OPEN',
+  started_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finalized_at        TIMESTAMPTZ,
+  total_scans         INTEGER NOT NULL DEFAULT 0,
+  matched_scans       INTEGER NOT NULL DEFAULT 0,
+  error_scans         INTEGER NOT NULL DEFAULT 0,
+  remarks             TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  -- Only one OPEN session per batch at a time
+  CONSTRAINT uq_open_session_per_batch UNIQUE (handover_batch_id, status)
+    -- enforced via partial unique index below instead
+);
+
+-- Partial unique: only one OPEN session per batch
+CREATE UNIQUE INDEX uq_scan_session_open
+  ON scan_sessions(handover_batch_id)
+  WHERE status = 'OPEN';
+
+CREATE INDEX idx_scan_session_user ON scan_sessions(user_id);
+CREATE INDEX idx_scan_session_batch ON scan_sessions(handover_batch_id);
+```
+
+#### `scan_events` (immutable audit log)
+
+```sql
+CREATE TYPE scan_event_result AS ENUM (
+  'MATCHED', 'DUPLICATE', 'NOT_FOUND', 'EXPIRED', 'PARSE_ERROR', 'MISMATCH'
+);
+
+CREATE TABLE scan_events (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  idempotency_key     VARCHAR(80) NOT NULL,                      -- client-generated UUID
+  scan_session_id     UUID NOT NULL REFERENCES scan_sessions(id),
+  handover_batch_id   UUID NOT NULL REFERENCES handover_batches(id),
+  barcode_raw         TEXT NOT NULL,
+  parsed_supplier_code VARCHAR(80),
+  parsed_part_number  VARCHAR(120),
+  parsed_lot_number   VARCHAR(120),
+  parsed_qty          INTEGER,
+  parsed_uom          VARCHAR(30),
+  parsed_expiry_date  DATE,
+  parsed_production_date DATE,
+  parsed_data         JSONB,                                     -- full parsed result
+  result              scan_event_result NOT NULL,
+  result_detail       TEXT,                                      -- human-readable error
+  matched_batch_item_id UUID REFERENCES handover_batch_items(id),
+  matched_supplier_pack_id UUID REFERENCES supplier_packs(id),
+  user_id             UUID NOT NULL REFERENCES users(id),
+  device_id           UUID REFERENCES devices(id),
+  scanned_at_device   TIMESTAMPTZ NOT NULL,                      -- client timestamp
+  received_at_server  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+  CONSTRAINT uq_scan_event_idempotency UNIQUE (idempotency_key)
+);
+
+-- Prevent double-scan of same raw barcode within same MR
+CREATE UNIQUE INDEX uq_scan_event_barcode_per_batch
+  ON scan_events(handover_batch_id, barcode_raw)
+  WHERE result = 'MATCHED';
+
+CREATE INDEX idx_scan_event_session ON scan_events(scan_session_id);
+CREATE INDEX idx_scan_event_batch   ON scan_events(handover_batch_id);
+CREATE INDEX idx_scan_event_user    ON scan_events(user_id);
+CREATE INDEX idx_scan_event_result  ON scan_events(result);
+```
+
+### Entity Relationship (new tables)
+
+```mermaid
+erDiagram
+    MATERIAL_REQUESTS ||--o{ HANDOVER_BATCHES : "has"
+    HANDOVER_BATCHES ||--o{ HANDOVER_BATCH_ITEMS : "contains"
+    MATERIAL_REQUEST_ITEM_ISSUES ||--|| HANDOVER_BATCH_ITEMS : "mapped"
+    HANDOVER_BATCHES ||--o{ SCAN_SESSIONS : "scanned via"
+    SCAN_SESSIONS ||--o{ SCAN_EVENTS : "produces"
+    SCAN_EVENTS }o--|| HANDOVER_BATCH_ITEMS : "matches"
+    SCAN_EVENTS }o--|| SUPPLIER_PACKS : "links to"
+    USERS ||--o{ SCAN_SESSIONS : "operated by"
+    USERS ||--o{ SCAN_EVENTS : "performed by"
+    DEVICES ||--o{ SCAN_SESSIONS : "on device"
+```
+
+---
+
+## 4) 🧩 Barcode Parsing + Validation
+
+### 4a) Parsing Strategy
+
+Supplier 2D barcodes use **delimiter-based DFI-like format**. Common delimiters: `RS` (0x1E), `GS` (0x1D), or printable separators like `|`, `;`.
+
+**Segment identification** uses Application Identifiers (AIs) or fixed-position segments:
+
+| AI / Position | Field | Example |
+|---------------|-------|---------|
+| `P` or `1P` | Part Number | `P1234-ABC-001` |
+| `Q` or `Q1` | Quantity | `Q500` |
+| `V` or `1V` | Supplier Code | `VSUP001` |
+| `T` or `1T` | Lot / Batch | `TLOT2026-A` |
+| `D` or `2D` | Production Date | `D20260215` |
+| `E` | Expiry Date | `E20270215` |
+| `U` | Unit of Measure | `UPCS` |
+| `K` | Pack Sequence / ID | `K001` |
+| `S` | Serial | `S00001` |
+
+### 4b) Parser Architecture
+
+```
+┌───────────────────────────────────────────────────────┐
+│                  BarcodeParserRegistry                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐             │
+│  │ GENERIC  │  │ SUPPL_A  │  │ SUPPL_B  │  ... more   │
+│  └──────────┘  └──────────┘  └──────────┘             │
+└───────────────────────────────────────────────────────┘
+         ▲                                         
+         │ lookup by supplier_part_profiles.parser_key
+         │                                         
+    ┌─────────┐                                    
+    │ Barcode  │                                    
+    │ Raw Data │                                    
+    └─────────┘                                    
+```
+
+**Selection logic**: When a barcode is scanned:
+1. Attempt parse with `GENERIC` parser first to extract `part_number`.
+2. Look up `supplier_part_profiles` by extracted `part_number`.
+3. If a profile has a specific `parser_key`, re-parse with that parser.
+4. If no profile found, use `GENERIC` result.
+
+### 4c) Pseudocode
+
+```typescript
+// ── types ──
+interface ParsedBarcode {
+  partNumber: string | null;
+  quantity: number | null;
+  supplierCode: string | null;
+  lotNumber: string | null;
+  productionDate: string | null;   // ISO date
+  expiryDate: string | null;       // ISO date
+  uom: string | null;
+  packSequence: string | null;
+  serial: string | null;
+  raw: string;
+  segments: Record<string, string>; // all parsed segments
+  parserKey: string;               // which parser was used
+  errors: string[];                // non-fatal parse warnings
+}
+
+// ── generic parser ──
+function parseGenericBarcode(raw: string): ParsedBarcode {
+  // 1. Detect delimiter
+  const delimiter = detectDelimiter(raw); // RS, GS, |, ;
+  if (!delimiter) {
+    return { ...emptyResult(raw), errors: ['NO_DELIMITER_DETECTED'] };
+  }
+
+  // 2. Split into segments
+  const segments = raw.split(delimiter);
+  const parsed: Record<string, string> = {};
+
+  for (const seg of segments) {
+    if (!seg) continue;
+    // Extract AI prefix (1-2 char alpha) + value
+    const match = seg.match(/^([A-Z][A-Z0-9]?)(.+)$/);
+    if (match) {
+      parsed[match[1]] = match[2].trim();
+    }
+  }
+
+  // 3. Map to canonical fields
+  return {
+    partNumber:      parsed['P'] || parsed['1P'] || null,
+    quantity:        toInt(parsed['Q'] || parsed['Q1']),
+    supplierCode:    parsed['V'] || parsed['1V'] || null,
+    lotNumber:       parsed['T'] || parsed['1T'] || null,
+    productionDate:  parseDate(parsed['D'] || parsed['2D']),
+    expiryDate:      parseDate(parsed['E']),
+    uom:             parsed['U'] || null,
+    packSequence:    parsed['K'] || null,
+    serial:          parsed['S'] || null,
+    raw,
+    segments: parsed,
+    parserKey: 'GENERIC',
+    errors: [],
+  };
+}
+
+function detectDelimiter(raw: string): string | null {
+  // Priority: control chars first, then printable
+  if (raw.includes('\x1E')) return '\x1E';  // RS
+  if (raw.includes('\x1D')) return '\x1D';  // GS
+  if (raw.includes('|'))    return '|';
+  if (raw.includes(';'))    return ';';
+  return null;
+}
+```
+
+### 4d) Validation Rules (post-parse)
+
+```typescript
+function validateScannedBarcode(
+  parsed: ParsedBarcode,
+  batchItems: HandoverBatchItem[],
+  existingScans: ScanEvent[]
+): ScanValidationResult {
+  // 1. Parse success check
+  if (parsed.errors.includes('NO_DELIMITER_DETECTED') || !parsed.partNumber) {
+    return { result: 'PARSE_ERROR', detail: 'Cannot parse barcode format' };
+  }
+
+  // 2. Duplicate check (same raw barcode in this batch)
+  if (existingScans.some(s => s.barcode_raw === parsed.raw && s.result === 'MATCHED')) {
+    return { result: 'DUPLICATE', detail: `Already scanned: ${parsed.raw.slice(0,30)}...` };
+  }
+
+  // 3. Find matching batch item by part_number + optional DO cross-check
+  const matchingItem = batchItems.find(bi =>
+    bi.part_number.toUpperCase() === parsed.partNumber!.toUpperCase()
+  );
+  if (!matchingItem) {
+    return { result: 'NOT_FOUND', detail: `Part ${parsed.partNumber} not in issued items` };
+  }
+
+  // 4. Expiry check (if expiry policy enabled and expiry date present)
+  if (parsed.expiryDate && new Date(parsed.expiryDate) < new Date()) {
+    return { result: 'EXPIRED', detail: `Material expired: ${parsed.expiryDate}` };
+  }
+
+  // 5. Over-scan check (already scanned more than expected for this part)
+  if (matchingItem.scanned_packs >= matchingItem.expected_packs) {
+    // Allow but flag — will need supervisor confirmation at finalize
+    return { result: 'MATCHED', detail: 'OVER_INTAKE_WARNING', matchedItemId: matchingItem.id };
+  }
+
+  return { result: 'MATCHED', matchedItemId: matchingItem.id };
+}
+```
+
+### 4e) Unknown/Optional Segments
+
+- All parsed segments are stored in `parsed_data` JSONB — nothing is discarded.
+- Only canonical fields (partNumber, qty, etc.) are validated.
+- Unknown AI prefixes are preserved in `segments` map for future use.
+- Missing optional fields (e.g., no expiry) do not fail validation.
+
+---
+
+## 5) 🔌 API Contract
+
+### Base conventions (existing)
+
+```json
+// Success
+{ "success": true, "data": { ... } }
+// Error
+{ "success": false, "error_code": "SOME_CODE", "message": "Human readable" }
+```
+
+### Endpoints
+
+---
+
+#### 5.1 Material Request — Create
+
+> Already exists but documented here for completeness.
+
+```
+POST /material-requests
+Auth: JWT (role: production)
+```
+
+```json
+// Request
+{
+  "model_id": "uuid",
+  "cost_center_id": "uuid",
+  "process_name": "Assembly",
+  "remarks": "Urgent restock",
+  "items": [
+    {
+      "part_number": "PIN430-A-001",
+      "description": "Pin 430 component",
+      "requested_qty": 500,
+      "uom": "PCS"
+    }
+  ]
+}
+// Response 201
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "request_no": "MR-20260302-0001",
+    "dmi_no": "DMI-20260302-0001",
+    "status": "REQUESTED"
+  }
+}
+```
+
+---
+
+#### 5.2 Material Request — Approve / Reject
+
+```
+POST /material-requests/:id/approve
+POST /material-requests/:id/reject
+Auth: JWT (role per workflow_approval_configs)
+```
+
+```json
+// Approve — no body required (remarks optional)
+{ "remarks": "OK" }
+
+// Reject — remarks required
+{ "remarks": "Wrong model, please re-submit" }
+
+// Response 200
+{ "success": true, "data": { "id": "uuid", "status": "APPROVED" } }
+```
+
+---
+
+#### 5.3 Store Issue — Confirm (creates handover batch)
+
+> Extends existing issue endpoint. After issuing, auto-create handover batch.
+
+```
+POST /material-requests/:id/issue
+Auth: JWT (role: store)
+```
+
+```json
+// Request (existing allocations payload)
+{
+  "dmi_no": "DMI-20260302-0001",
+  "remarks": "Issued from Rack B",
+  "allocations": [
+    {
+      "item_id": "uuid",
+      "part_number": "PIN430-A-001",
+      "do_number": "DO-2026-001",
+      "issued_packs": 5,
+      "issued_qty": 500,
+      "vendor_pack_size": 100
+    }
+  ]
+}
+
+// Response 200  (extended with handover info)
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "status": "ISSUED",
+    "handover_batch": {
+      "id": "uuid",
+      "batch_no": "HB-20260302-0001",
+      "status": "PENDING",
+      "expected_item_count": 5
+    }
+  }
+}
+```
+
+**Server-side effect**: Creates `handover_batches` + `handover_batch_items` from the allocations.
+
+---
+
+#### 5.4 Handover — List pending batches
+
+```
+GET /handover-batches?status=PENDING,IN_TRANSIT
+Auth: JWT (role: forklift)
+```
+
+```json
+// Response 200
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "batch_no": "HB-20260302-0001",
+      "material_request_id": "uuid",
+      "request_no": "MR-20260302-0001",
+      "model_code": "MARLIN-A",
+      "status": "PENDING",
+      "expected_item_count": 5,
+      "scanned_item_count": 0,
+      "issued_by": "John (Store)",
+      "created_at": "2026-03-02T10:00:00Z",
+      "items": [
+        {
+          "id": "uuid",
+          "part_number": "PIN430-A-001",
+          "do_number": "DO-2026-001",
+          "expected_packs": 5,
+          "expected_qty": 500,
+          "scanned_packs": 0,
+          "status": "PENDING"
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+#### 5.5 Handover — Acknowledge pickup
+
+```
+POST /handover-batches/:id/pickup
+Auth: JWT (role: forklift)
+```
+
+```json
+// Request
+{ "remarks": "Picked from staging area B" }
+
+// Response 200
+{
+  "success": true,
+  "data": { "id": "uuid", "status": "IN_TRANSIT", "pickup_at": "2026-03-02T10:15:00Z" }
+}
+```
+
+---
+
+#### 5.6 Scan Session — Start
+
+```
+POST /scan-sessions
+Auth: JWT (role: forklift)
+```
+
+```json
+// Request
+{
+  "handover_batch_id": "uuid",
+  "device_id": "uuid"
+}
+
+// Response 201
+{
+  "success": true,
+  "data": {
+    "session_id": "uuid",
+    "status": "OPEN",
+    "batch": { /* handover batch detail with items */ }
+  }
+}
+```
+
+**Guard**: Handover batch must be `IN_TRANSIT`. Only one `OPEN` session per batch (enforced by partial unique index).
+
+---
+
+#### 5.7 Scan Event — Submit single scan
+
+> **This is the hot path.** Must be fast (<100ms p95).
+
+```
+POST /scan-sessions/:sessionId/scans
+Auth: JWT (role: forklift)
+```
+
+```json
+// Request
+{
+  "idempotency_key": "client-uuid-v4",
+  "barcode_raw": "RS P PIN430-A-001 RS Q 100 RS V SUP001 RS T LOT2026-A RS D 20260215",
+  "scanned_at_device": "2026-03-02T10:20:05.123Z",
+  "device_id": "uuid"
+}
+
+// Response 200 — successful match
+{
+  "success": true,
+  "data": {
+    "scan_event_id": "uuid",
+    "result": "MATCHED",
+    "result_detail": null,
+    "matched_item": {
+      "part_number": "PIN430-A-001",
+      "do_number": "DO-2026-001",
+      "scanned_packs": 3,
+      "expected_packs": 5,
+      "remaining": 2
+    },
+    "session_totals": {
+      "total_scans": 10,
+      "matched": 9,
+      "errors": 1
+    }
+  }
+}
+
+// Response 200 — scan error (DUPLICATE / NOT_FOUND / etc.)
+{
+  "success": true,
+  "data": {
+    "scan_event_id": "uuid",
+    "result": "DUPLICATE",
+    "result_detail": "Already scanned: PIN430-A-001 LOT2026-A pack 3",
+    "matched_item": null,
+    "session_totals": { "total_scans": 11, "matched": 9, "errors": 2 }
+  }
+}
+```
+
+**Idempotency**: If `idempotency_key` already exists, return the existing result without side effects.
+
+**Concurrency**: Use `SELECT ... FOR UPDATE` on `handover_batch_items` row when incrementing `scanned_packs`.
+
+---
+
+#### 5.8 Scan Session — Finalize
+
+```
+POST /scan-sessions/:sessionId/finalize
+Auth: JWT (role: forklift)
+```
+
+```json
+// Request
+{
+  "acknowledge_shortages": true,
+  "shortage_remarks": "2 packs PIN430 not received, will follow up",
+  "acknowledge_overages": false
+}
+
+// Response 200
+{
+  "success": true,
+  "data": {
+    "session_id": "uuid",
+    "status": "COMPLETED",
+    "handover_batch_status": "RECEIVED",
+    "material_request_status": "INTAKE_COMPLETE",
+    "summary": {
+      "expected_packs": 15,
+      "scanned_packs": 13,
+      "shortages": [
+        { "part_number": "PIN430-A-001", "expected": 5, "scanned": 3, "missing": 2 }
+      ],
+      "overages": []
+    }
+  }
+}
+```
+
+**Business rules on finalize**:
+- If all items fully scanned → `handover_batch` → `RECEIVED`
+- If shortages exist and `acknowledge_shortages = true` → `handover_batch` → `RECEIVED_PARTIAL`
+- If shortages exist and `acknowledge_shortages = false` → reject finalize
+- After batch status update, check all batches for MR: if all `RECEIVED` or `RECEIVED_PARTIAL` → MR → `INTAKE_COMPLETE`
+
+---
+
+#### 5.9 Exception — Return to Store
+
+```
+POST /handover-batches/:id/return-to-store
+Auth: JWT (role: forklift, admin)
+```
+
+```json
+// Request
+{
+  "reason": "Wrong material received",
+  "items": [
+    { "batch_item_id": "uuid", "return_packs": 2, "remark": "Wrong lot" }
+  ]
+}
+
+// Response 200
+{
+  "success": true,
+  "data": { "id": "uuid", "status": "PENDING", "return_logged": true }
+}
+```
+
+---
+
+#### 5.10 Error Codes (new, additive to existing catalog)
+
+| Code | HTTP | Meaning |
+|------|------|---------|
+| `HANDOVER_NOT_FOUND` | 404 | Batch ID invalid |
+| `HANDOVER_WRONG_STATUS` | 409 | Batch not in expected status for this action |
+| `SESSION_ALREADY_OPEN` | 409 | Another OPEN session exists for this batch |
+| `SESSION_NOT_OPEN` | 409 | Trying to submit scan to non-OPEN session |
+| `BARCODE_PARSE_FAILED` | 422 | Cannot extract fields from barcode |
+| `BARCODE_DUPLICATE` | 409 | Same barcode already MATCHED in this batch |
+| `BARCODE_NOT_IN_ISSUE` | 422 | Part number not in issued items |
+| `BARCODE_EXPIRED` | 422 | Material past expiry |
+| `SHORTAGE_NOT_ACKNOWLEDGED`| 422 | Finalize refused — shortages not acknowledged |
+| `IDEMPOTENCY_CONFLICT` | 409 | Idempotency key reused with different payload |
+
+---
+
+## 6) 🖥 UI/UX Specs (UI5 Web Components)
+
+### 6a) Forklift Intake Dashboard (main screen)
+
+**Route**: `/forklift/intake`
+**Role**: `forklift`
+
+**Layout**:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ObjectPageHeader                                        │
+│  Title: "Material Intake"                                │
+│  Subtitle: "Forklift Station"                            │
+│  [Badge: Online/Offline]                                │
+├─────────────────────────────────────────────────────────┤
+│  IconTabBar                                             │
+│  ┌──────────┐ ┌───────────┐ ┌───────────┐              │
+│  │ Pending  │ │ In Transit│ │ Completed │              │
+│  │   (3)    │ │    (1)    │ │   (12)    │              │
+│  └──────────┘ └───────────┘ └───────────┘              │
+├─────────────────────────────────────────────────────────┤
+│  List (AnalyticalTable or List)                          │
+│  ┌───────────┬──────────┬────────┬──────────┬─────────┐ │
+│  │ Batch No  │ MR No    │ Model  │ Items    │ Action  │ │
+│  ├───────────┼──────────┼────────┼──────────┼─────────┤ │
+│  │ HB-0001   │ MR-0001  │ MARLIN │ 5 packs  │ [Pick]  │ │
+│  │ HB-0002   │ MR-0003  │ MARLIN │ 8 packs  │ [Pick]  │ │
+│  └───────────┴──────────┴────────┴──────────┴─────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Components**: `ObjectPage`, `IconTabBar`, `AnalyticalTable`, `Button`, `Badge`
+**Actions**: "Pick up" → calls `POST /handover-batches/:id/pickup` → navigates to scan screen.
+
+---
+
+### 6b) Forklift Scan Session Screen (core — optimized for speed)
+
+**Route**: `/forklift/intake/:batchId/scan`
+**Role**: `forklift`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Bar (top)                                                   │
+│  [← Back]  "Scanning: HB-20260302-0001"  [Finalize ✓]       │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌─ Scan Input (PRIMARY FOCUS) ──────────────────────────┐  │
+│  │  🔍  [____________________________________]  ← always │  │
+│  │       auto-focused, full width                        │  │
+│  │       Enter key = submit scan                          │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌─ Status Indicator ───────────────────────────────────┐   │
+│  │  ✅ MATCHED — PIN430-A-001 (3/5 packs scanned)      │   │
+│  │  ─ or ─                                               │   │
+│  │  ❌ DUPLICATE — Already scanned this pack             │   │
+│  │  (auto-clears after 3 seconds)                        │   │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                              │
+├─────────────────────────────────────────────────────────────┤
+│  FlexBox — Progress Summary                                 │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
+│  │ Expected │  │ Scanned  │  │ Remaining│                  │
+│  │   15     │  │   9      │  │    6     │                  │
+│  └──────────┘  └──────────┘  └──────────┘                  │
+├─────────────────────────────────────────────────────────────┤
+│  Table: Expected Items Progress                              │
+│  ┌────────────┬───────┬───────────┬──────────┬────────────┐ │
+│  │ Part No    │ DO    │ Expected  │ Scanned  │ Status     │ │
+│  ├────────────┼───────┼───────────┼──────────┼────────────┤ │
+│  │ PIN430-001 │ DO-01 │ 5 packs   │ 3 packs  │ 🟡 Partial│ │
+│  │ PIN300-001 │ DO-01 │ 5 packs   │ 5 packs  │ ✅ Done   │ │
+│  │ SHROUD-001 │ DO-02 │ 5 packs   │ 1 packs  │ 🟡 Partial│ │
+│  └────────────┴───────┴───────────┴──────────┴────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│  Expandable Panel: "Scan History (9)"                        │
+│  ┌──────┬────────────┬────────┬──────────┬────────────────┐ │
+│  │  #   │ Part No    │ Lot    │ Result   │ Time           │ │
+│  ├──────┼────────────┼────────┼──────────┼────────────────┤ │
+│  │  9   │ SHROUD-001 │ L26-A  │ MATCHED  │ 10:25:03       │ │
+│  │  8   │ PIN430-001 │ L26-B  │ DUPLICAT │ 10:24:55       │ │
+│  │  7   │ PIN300-001 │ L26-A  │ MATCHED  │ 10:24:48       │ │
+│  └──────┴────────────┴────────┴──────────┴────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**UX rules for scanning speed**:
+
+| Rule | Implementation |
+|------|----------------|
+| Auto-focus scan input | `useEffect` → `inputRef.current.focus()` on mount and after every scan result |
+| Auto-submit on Enter | `onKeyDown` handler, submit immediately (no "Scan" button needed) |
+| Clear input after scan | After API response arrives, clear input field and re-focus |
+| Status toast auto-clear | `MessageStrip` with 3-second timeout for success, 5-second for errors |
+| Audio feedback | Play success/error beep sounds via `Audio API` (optional, configurable) |
+| No page navigation mid-scan | Single-page experience; scanned items table updates in-place |
+| Finalize button disabled until ≥1 scan | Prevent accidental empty finalize |
+| Keyboard-only operation | Tab order: scan input → finalize button. No mouse required. |
+
+**UI5 Components used**: `Bar`, `Input`, `MessageStrip`, `AnalyticalTable`, `Panel`, `Button`, `ObjectStatus`, `FlexBox`, `NumericContent` (via cards), `Dialog` (for finalize confirmation).
+
+---
+
+### 6c) Finalize Confirmation Dialog
+
+```
+┌──────────────────────────────────────────────┐
+│  Dialog: "Confirm Intake Finalization"         │
+│                                                │
+│  Summary:                                      │
+│  ✅ Matched: 13 packs                         │
+│  ⚠️ Missing: 2 packs (PIN430-A-001)           │
+│  ❌ Errors: 1 duplicate scan                  │
+│                                                │
+│  ┌─ CheckBox ─────────────────────────────┐   │
+│  │ ☐ I acknowledge the shortages listed   │   │
+│  │   above and accept partial receipt.    │   │
+│  └────────────────────────────────────────┘   │
+│                                                │
+│  ┌─ TextArea ─────────────────────────────┐   │
+│  │ Remarks (required if shortages): _____ │   │
+│  └────────────────────────────────────────┘   │
+│                                                │
+│  [Cancel]                    [Confirm ✓]       │
+└──────────────────────────────────────────────┘
+```
+
+---
+
+### 6d) Request Material Form (Production — minimal spec)
+
+> Already largely implemented. Key notes:
+
+- Model selector → auto-loads BOM parts
+- Part number dropdown filtered by active BOM + active revision
+- Requested qty per line
+- UoM auto-filled from BOM
+- Submit → creates MR with `REQUESTED` status
+
+### 6e) Store Issue Screen (minimal spec)
+
+> Already largely implemented. Key addition:
+
+- After clicking "Confirm Issue", system now also creates `handover_batch` in the background.
+- UI shows toast: **"Issue confirmed. Handover batch HB-xxx created for forklift pickup."**
+- No additional screens needed for store — they see the MR transition to `ISSUED`.
+
+---
+
+## 7) 🧾 Audit Log Spec
+
+### What must be logged
+
+Every state-changing action creates an entry in `config_audit_logs` (existing table):
+
+| Action | entity_type | Logged fields |
+|--------|-------------|---------------|
+| MR created | `material_request` | actor, role, full payload, device_id |
+| MR approved/rejected | `material_request` | actor, role, from_status → to_status, remarks |
+| MR issued | `material_request` | actor, role, allocations, DOs affected |
+| Handover batch created | `handover_batch` | actor (system), MR id, item count |
+| Handover pickup | `handover_batch` | actor (forklift user), device_id, timestamp |
+| Scan session started | `scan_session` | actor, device_id, batch_id |
+| Scan event (every scan) | `scan_event` | **Immutable by table design** — actor, device, raw data, parsed data, result, timestamps |
+| Session finalized | `scan_session` | actor, device_id, summary stats, shortage acknowledgment |
+| MR status → INTAKE_COMPLETE | `material_request` | system-triggered, final state |
+| Return to store | `handover_batch` | actor, returned items, reason |
+
+### Immutability approach
+
+1. **`scan_events` table**: No `UPDATE` or `DELETE` is ever performed. Application layer enforces this. Database-level: revoke `UPDATE` and `DELETE` on role used by app.
+2. **`config_audit_logs`**: Same immutability — append-only.
+3. **Retention**: Keep all scan events for minimum **7 years** (automotive traceability standard). Partition `scan_events` by month if volume >10M rows/year.
+
+### Payload hash (optional but recommended)
+
+```typescript
+// On each scan_event insert, compute SHA-256 of the full row
+const payloadHash = crypto
+  .createHash('sha256')
+  .update(JSON.stringify({
+    idempotency_key, barcode_raw, user_id, scanned_at_device, result
+  }))
+  .digest('hex');
+// Store in scan_events.payload_hash (VARCHAR(64))
+```
+
+This enables tamper detection during audit reviews.
+
+---
+
+## 8) 🧯 Edge Cases Playbook
+
+### 8.1 Scanned item not found in issued list
+
+| Step | Action |
+|------|--------|
+| 1 | Parser extracts `partNumber` from barcode |
+| 2 | Lookup in `handover_batch_items` for this batch → no match |
+| 3 | Create `scan_event` with `result = 'NOT_FOUND'` |
+| 4 | UI shows `MessageStrip` error: **"Part XXX not in this batch. Check batch number."** |
+| 5 | Input clears, focus returns. Forklift can continue scanning other items. |
+| 6 | NOT_FOUND events appear in scan history with ❌ status for audit. |
+
+### 8.2 Wrong part number vs request line
+
+| Step | Action |
+|------|--------|
+| 1 | Barcode parsed successfully; part_number recognized |
+| 2 | Part exists in system but not in this specific batch's items |
+| 3 | Create `scan_event` with `result = 'MISMATCH'` |
+| 4 | UI: **"Part XXX belongs to a different request. Expected: YYY, ZZZ"** |
+| 5 | Forklift sets pack aside and reports to store. |
+
+### 8.3 Duplicate scan
+
+| Step | Action |
+|------|--------|
+| 1 | `uq_scan_event_barcode_per_batch` unique index prevents double-MATCH |
+| 2 | Create `scan_event` with `result = 'DUPLICATE'` |
+| 3 | UI: **"⚠️ Already scanned this pack."** (amber, 3-sec auto-clear) |
+| 4 | `scanned_packs` count NOT incremented |
+| 5 | Input clears, forklift moves to next pack |
+
+### 8.4 Partial intake then finalize
+
+| Step | Action |
+|------|--------|
+| 1 | Forklift clicks **Finalize** |
+| 2 | System detects `scanned_packs < expected_packs` for ≥1 item |
+| 3 | Finalize dialog shows shortage summary |
+| 4 | Forklift must check "Acknowledge shortages" checkbox and enter remarks |
+| 5 | `handover_batch` → `RECEIVED_PARTIAL` |
+| 6 | `scan_session` → `COMPLETED` |
+| 7 | Shortages logged as audit events |
+| 8 | Store notified via SSE/email about partial receipt |
+| 9 | Store can re-issue missing items (new MR or supplement) |
+
+### 8.5 Over-intake (extra packs)
+
+| Step | Action |
+|------|--------|
+| 1 | Forklift scans pack when `scanned_packs >= expected_packs` for that part |
+| 2 | Scan still records as `MATCHED` but with `result_detail = 'OVER_INTAKE_WARNING'` |
+| 3 | UI: **"⚠️ Over expected quantity for PIN430-A-001 (6/5). Continue?"** |
+| 4 | `scanned_packs` increments beyond expected |
+| 5 | At finalize, dialog shows overage summary |
+| 6 | Requires `acknowledge_overages = true` to finalize |
+| 7 | Audit log records the overage |
+
+### 8.6 Network offline during scans
+
+| Step | Action |
+|------|--------|
+| 1 | Frontend detects network offline (`navigator.onLine` + heartbeat) |
+| 2 | UI shows amber banner: **"OFFLINE — Scans will be queued"** |
+| 3 | Scans are stored in **Dexie (IndexedDB) offline queue** on device |
+| 4 | Each queued scan has: `idempotency_key`, `barcode_raw`, `scanned_at_device`, `device_id` |
+| 5 | When network restores, client replays queue in order |
+| 6 | Server idempotency via `idempotency_key` prevents duplicates |
+| 7 | **Limitation**: No server-side validation during offline. Must validate queued scans on replay and show any errors retroactively |
+| 8 | **Recommendation for Phase 1**: Show **"Online required for scanning"** and block scanning if offline. Offline queue is a Phase 2 enhancement. |
+
+### 8.7 Forklift scans without selecting a batch
+
+| Step | Action |
+|------|--------|
+| 1 | **Prevented by design**: scan input is only available after navigating to a specific batch's scan screen |
+| 2 | No "free scan" mode in Phase 1 |
+| 3 | If future requirement: scans go to `unassigned_scan_events` table, reconciled by admin later |
+
+### 8.8 Cancellation / Rollback rules
+
+| Entity | Can undo? | Rule |
+|--------|-----------|------|
+| MR `REQUESTED` | ✅ Cancel | Production can cancel before approval |
+| MR `APPROVED` | ✅ Cancel | Before issue only |
+| MR `ISSUED` | ❌ | Cannot cancel after store has issued. Must use return-to-store flow. |
+| Handover batch `PENDING` | ✅ Cancel | Store can cancel before forklift picks up |
+| Handover batch `IN_TRANSIT` | ❌ Cancel | Must complete or return-to-store |
+| Scan session `OPEN` | ✅ Abandon | Forklift can abandon (or 30-min timeout). Scans remain in audit log but batch reverts. |
+| Individual scan event | ❌ Never | Scan events are **immutable**. To "undo" a scan, supervisor marks it as `VOID` via separate exception flow (new scan_event with `result = 'VOIDED'` referencing original). |
+
+---
+
+## 9) 🧠 Implementation Notes
+
+### Risk List
+
+| # | Risk | Severity | Mitigation |
+|---|------|----------|------------|
+| 1 | `material_request_status` enum migration breaks existing queries | HIGH | Use `ALTER TYPE ... ADD VALUE` (non-destructive). Test all existing `WHERE status = ...` queries. |
+| 2 | High scan throughput → DB bottleneck on `scan_events` table | HIGH | Batch inserts not needed for single-scan UX. Use connection pooling. Partition table by month after 6 months. |
+| 3 | Concurrent forklift sessions on same batch | MEDIUM | Partial unique index `uq_scan_session_open` prevents this. Test race condition with concurrent requests. |
+| 4 | Barcode format varies by supplier | MEDIUM | Parser registry with `supplier_part_profiles.parser_key`. Default `GENERIC` handles most. Add supplier-specific parsers incrementally. |
+| 5 | Offline scanning data loss | MEDIUM | Phase 1: require online. Phase 2: Dexie offline queue with replay. |
+| 6 | Over-intake goes unnoticed | LOW | Warning at scan time + required acknowledgment at finalize. Audit log captures it. |
+| 7 | Forklift users unfamiliar with UI | LOW | Minimal-click design. Auto-focus. Keyboard-wedge scanner works without touch screen. |
+
+### Implementation Priority (suggested order)
+
+| Order | Task | Depends on | Est. effort |
+|-------|------|------------|-------------|
+| 1 | DB migration: add enum values + new tables | — | 0.5 day |
+| 2 | Drizzle schema: define new tables in `material-requests.ts` or new `handover.ts` | #1 | 0.5 day |
+| 3 | Barcode parser module (`lib/barcode-parser.ts`) | — | 1 day |
+| 4 | API: handover batch endpoints (list, pickup) | #2 | 1 day |
+| 5 | API: scan session + scan event endpoints | #2, #3 | 1.5 days |
+| 6 | API: finalize endpoint + MR status cascading | #5 | 0.5 day |
+| 7 | Extend existing issue endpoint to create handover batch | #2 | 0.5 day |
+| 8 | Frontend: Forklift Intake Dashboard | #4 | 1 day |
+| 9 | Frontend: Scan Session Screen | #5 | 1.5 days |
+| 10 | Frontend: Finalize Dialog | #6 | 0.5 day |
+| 11 | SSE: realtime notifications for forklift | #4 | 0.5 day |
+| 12 | Integration testing + edge case testing | #1–#10 | 1.5 days |
+
+**Total estimate**: ~10 developer-days
+
+### Drizzle Schema File Strategy
+
+- Create new file: `backend/src/db/schema/handover.ts` for `handover_batches`, `handover_batch_items`, `scan_sessions`, `scan_events`
+- Update `backend/src/db/schema/index.ts` to export from new file
+- Keep `material-requests.ts` for enum migration only (add values)
+
+### API Route File Strategy
+
+- Create new file: `backend/src/routes/handover.ts` for all handover + scan endpoints
+- Keep `material-requests.ts` for the issue endpoint extension only
+- Register new route in `backend/src/app.ts`
+
+---
+
+> **Audit verdict**: The existing codebase has a solid foundation (MR creation, approval, issue allocation). The gap is **post-issue material tracking**. The tables, APIs, and UX screens defined above close this gap and make the system production-grade for forklift intake traceability.

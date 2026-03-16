@@ -6,11 +6,15 @@ const FRIENDLY_CODE_MESSAGE: Record<string, string> = {
   INVALID_INPUT: "Invalid input",
   UNKNOWN_ERROR: "Request failed",
   FORBIDDEN: "You do not have permission to perform this action",
+  UNAUTHORIZED: "Authentication required",
   SECTION_NOT_SET: "Section not assigned — contact your administrator",
   COST_CENTER_DEFAULT_NOT_SET: "No default cost center set for your section — contact your administrator",
   INVALID_COST_CENTER: "Selected cost center is not allowed for your section",
   INVALID_GROUP_CODE: "Invalid group code",
   INVALID_SECTION: "Invalid section",
+  USERNAME_TAKEN: "Username already exists",
+  LOCKED_USER: "User is currently logged in and cannot be deleted",
+  VALIDATION_ERROR: "Invalid request. Check the form and try again.",
 };
 
 export function formatApiError(error: unknown, fallback = "Request failed") {

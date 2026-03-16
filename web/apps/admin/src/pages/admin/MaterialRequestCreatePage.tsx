@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MaterialRequestCatalogItem } from "@traceability/sdk";
+import { createMaterialQueryKeys, NextNumbersResponse } from "@traceability/material";
+import { MaterialRequestForm, MaterialRequestLineForm } from "@traceability/material-ui";
+import { MaterialRequest, MaterialRequestCatalogItem } from "@traceability/sdk";
 import { useAuth } from "../../context/AuthContext";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
@@ -9,26 +11,12 @@ import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { useNavigate } from "react-router-dom";
 import {
-  Button,
-  Input,
-  Select,
-  Option,
-  Label,
   FlexBox,
   MessageStrip,
-  Table,
-  TableRow,
-  TableCell,
-  TableHeaderRow,
-  TableHeaderCell,
-  Form,
-  FormItem,
   Text,
   FlexBoxDirection,
   FlexBoxAlignItems,
-  FlexBoxJustifyContent,
-  Bar,
-  Title
+  Button,
 } from "@ui5/webcomponents-react";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
@@ -43,17 +31,7 @@ import "@ui5/webcomponents-icons/dist/delete.js";
 import "@ui5/webcomponents-icons/dist/nav-back.js";
 import "@ui5/webcomponents-icons/dist/create-form.js";
 
-type LineForm = {
-  item_no: number;
-  model_id: string;
-  part_number: string;
-  description: string;
-  requested_qty?: number;
-  uom: string;
-  remarks: string;
-};
-
-function blankLine(itemNo: number): LineForm {
+function blankLine(itemNo: number): MaterialRequestLineForm {
   return {
     item_no: itemNo,
     model_id: "",
@@ -67,13 +45,14 @@ function blankLine(itemNo: number): LineForm {
 
 export function MaterialRequestCreatePage() {
   const { user } = useAuth();
+  const keys = createMaterialQueryKeys("admin");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { showToast, ToastComponent } = useToast();
   
   const [selectedCostCenterId, setSelectedCostCenterId] = useState("");
   const [headerRemarks] = useState("");
-  const [lines, setLines] = useState<LineForm[]>([blankLine(1)]);
+  const [lines, setLines] = useState<MaterialRequestLineForm[]>([blankLine(1)]);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
   const { meta, sectionNotSet } = useMaterialRequestMeta();
@@ -86,54 +65,16 @@ export function MaterialRequestCreatePage() {
     }
   }, [meta?.default_cost_center_id]);
 
-  const catalogQuery = useQuery({
-    queryKey: ["material-request-catalog-admin"],
+  const catalogQuery = useQuery<MaterialRequestCatalogItem[]>({
+    queryKey: keys.catalog(),
     queryFn: getMaterialRequestCatalog,
   });
 
-  const nextNumbersQuery = useQuery({
-    queryKey: ["material-request-next-numbers-admin"],
+  const nextNumbersQuery = useQuery<NextNumbersResponse>({
+    queryKey: keys.nextNumbers(),
     queryFn: getMaterialRequestNextNumbers,
     refetchOnWindowFocus: true,
   });
-
-  const modelOptions = useMemo(() => {
-    const map = new Map<string, { model_id: string; model_code: string; model_name: string }>();
-    for (const row of catalogQuery.data ?? []) {
-      if (!map.has(row.model_id)) {
-        map.set(row.model_id, {
-          model_id: row.model_id,
-          model_code: row.model_code,
-          model_name: row.model_name,
-        });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => a.model_code.localeCompare(b.model_code));
-  }, [catalogQuery.data]);
-
-  const componentOptionsByModel = useMemo(() => {
-    const mapByModel = new Map<string, Map<string, MaterialRequestCatalogItem>>();
-    for (const row of catalogQuery.data ?? []) {
-      const modelId = row.model_id;
-      if (!mapByModel.has(modelId)) mapByModel.set(modelId, new Map<string, MaterialRequestCatalogItem>());
-      const map = mapByModel.get(modelId)!;
-      const key = String(row.part_number).toUpperCase();
-      if (!key) continue;
-      if (!map.has(key)) map.set(key, row);
-    }
-    const result = new Map<string, MaterialRequestCatalogItem[]>();
-    for (const [modelId, itemMap] of mapByModel.entries()) result.set(modelId, Array.from(itemMap.values()));
-    return result;
-  }, [catalogQuery.data]);
-
-  const catalogByModelPart = useMemo(() => {
-    const map = new Map<string, MaterialRequestCatalogItem>();
-    for (const row of catalogQuery.data ?? []) {
-      const key = `${row.model_id}|${String(row.part_number).toUpperCase()}`;
-      if (!map.has(key)) map.set(key, row);
-    }
-    return map;
-  }, [catalogQuery.data]);
 
   const sectionDisplay = meta?.section
     ? `${meta.section.section_name} (${meta.section.section_code})`
@@ -143,7 +84,7 @@ export function MaterialRequestCreatePage() {
     .filter((line) => line.part_number.trim().length > 0)
     .some((line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
 
-  const createMutation = useMutation({
+  const createMutation = useMutation<MaterialRequest, any>({
     mutationFn: () => {
       const requestedLines = lines.filter((line) => line.part_number.trim().length > 0);
       if (!requestedLines.length) {
@@ -179,8 +120,8 @@ export function MaterialRequestCreatePage() {
     },
     onSuccess: async (created) => {
       showToast(`Request submitted: ${created.request_no}${created.dmi_no ? ` (${created.dmi_no})` : ""}`);
-      await queryClient.invalidateQueries({ queryKey: ["admin-material-requests"] });
-      await queryClient.invalidateQueries({ queryKey: ["material-request-next-numbers-admin"] });
+      await queryClient.invalidateQueries({ queryKey: keys.requests() });
+      await queryClient.invalidateQueries({ queryKey: keys.nextNumbers() });
       navigate("/admin/material-requests");
     },
     onError: (err: any) => {
@@ -198,230 +139,62 @@ export function MaterialRequestCreatePage() {
     }
   });
 
-  const updateLine = (index: number, patch: Partial<LineForm>) => {
-    setLines((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-  };
-
-  const onModelChange = (index: number, modelId: string) => {
-    updateLine(index, {
-      model_id: modelId,
-      part_number: "",
-      description: "",
-      uom: "PCS",
-    });
-  };
-
-  const onPartNumberChange = (index: number, partNo: string) => {
-    const key = partNo.toUpperCase();
-    const modelId = lines[index]?.model_id || "";
-    const model = catalogByModelPart.get(`${modelId}|${key}`);
-    updateLine(index, {
-      part_number: key,
-      description:
-        [
-          model?.component_name || model?.model_name || "",
-          model?.rm_location ? `Loc ${model.rm_location}` : "",
-          model?.qty_per_assy ? `Use ${model.qty_per_assy}/VCM` : "",
-        ]
-          .filter(Boolean)
-          .join(" | ") || "",
-      uom: model?.uom_default ?? "PCS",
-    });
-  };
-
   const anyError = catalogQuery.error ?? nextNumbersQuery.error ?? createMutation.error;
 
   return (
     <PageLayout
       title="New Material Request"
+      subtitle={
+        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <span className="indicator-live" />
+          <Text>Create a new material request</Text>
+        </FlexBox>
+      }
       icon="create-form"
       iconColor="blue"
+      showBackButton
+      onBackClick={() => navigate("/admin/material-requests")}
+      headerActions={
+        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+          <Button design="Transparent" onClick={() => navigate("/admin/material-requests")}>
+            Cancel
+          </Button>
+          <Button
+            design="Emphasized"
+            onClick={() => setConfirmSubmitOpen(true)}
+            disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty || sectionNotSet}
+          >
+            {createMutation.isPending ? "Submitting..." : "Submit Request"}
+          </Button>
+        </FlexBox>
+      }
     >
-      <div className="page-container motion-safe:animate-fade-in">
+      <div className="page-container motion-safe:animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
-        
+
         <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem", flex: 1 }}>
-             {sectionNotSet && (
-               <MessageStrip design="Critical" hideCloseButton style={{ marginBottom: "0.5rem" }}>
-                 Your user account has no section assigned. You cannot create requests.
-               </MessageStrip>
-             )}
-             
-             {/* Header Info */}
-             <div style={{ padding: "1.5rem", background: "var(--sapObjectHeader_Background)", border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
-                 <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Start} style={{ width: "100%", paddingBottom: "1.5rem" }}>
-                   <FlexBox style={{ gap: "1.5rem" }} alignItems={FlexBoxAlignItems.Start}>
-                     <img src="/logo.png" alt="MMI Logo" style={{ height: "4.5rem", width: "auto", objectFit: "contain" }} />
-                     <FlexBox direction={FlexBoxDirection.Column}>
-                         <Title level="H3" style={{ fontStyle: "italic", marginBottom: "0.25rem", color: "var(--sapTextColor)" }}>MMI Precision Assembly (Thailand) Co., Ltd.</Title>
-                         <Text style={{ fontSize: "0.875rem" }}>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</Text>
-                         <FlexBox style={{ marginTop: "0.25rem", gap: "1rem" }}>
-                             <Text style={{ fontSize: "0.875rem" }}>TEL : (6644) 000188</Text>
-                             <Text style={{ fontSize: "0.875rem" }}>FAX : (6644) 000199</Text>
-                         </FlexBox>
-                     </FlexBox>
-                   </FlexBox>
-                   <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }} className="no-print">
-                       <Button icon="nav-back" design="Transparent" onClick={() => navigate("/admin/material-requests")}>Back</Button>
-                   </FlexBox>
-                 </FlexBox>
-    
-                 <div style={{ width: "100%", borderBottom: "2px solid var(--sapGroup_ContentBorderColor)", marginBottom: "1.5rem" }}>
-                     <Title level="H3" style={{ marginBottom: "0.5rem" }}>DIRECT MATERIAL ISSUE VOUCHER</Title>
-                 </div>
+          {sectionNotSet && (
+            <MessageStrip design="Critical" hideCloseButton style={{ marginBottom: "0.5rem" }}>
+              Your user account has no section assigned. You cannot create requests.
+            </MessageStrip>
+          )}
 
-                 <Form layout="S1 M3 L4 XL4" labelSpan="S12 M12 L12 XL12">
-                     <FormItem labelContent={<Label>NO.</Label>}>
-                         <Text style={{ color: "var(--sapNegativeColor)", fontWeight: "bold" }}>
-                            {nextNumbersQuery.data?.request_no ?? "-"}
-                         </Text>
-                     </FormItem>
-                     <FormItem labelContent={<Label>DMI. NO.</Label>}>
-                         <Text style={{ color: "var(--sapNegativeColor)", fontWeight: "bold" }}>
-                            {nextNumbersQuery.data?.dmi_no ?? "-"}
-                         </Text>
-                     </FormItem>
-                     <FormItem labelContent={<Label>DATE</Label>}>
-                         <Text>
-                            {formatDate(nextNumbersQuery.data?.generated_at ?? new Date().toISOString())}
-                         </Text>
-                     </FormItem>
-                     <FormItem labelContent={<Label>REQUESTOR</Label>}>
-                         <Text>
-                            {user?.display_name ?? "-"}
-                         </Text>
-                     </FormItem>
-                     <FormItem labelContent={<Label>DEPARTMENT</Label>}>
-                         <Text>
-                            {meta?.department?.name ?? user?.department ?? "-"}
-                         </Text>
-                     </FormItem>
-                     <FormItem labelContent={<Label>SECTION</Label>}>
-                         <Text>
-                            {sectionDisplay || "-"}
-                         </Text>
-                     </FormItem>
-                     <FormItem labelContent={<Label required showColon>COST CENTER</Label>}>
-                         <Select
-                             id="admin-cc-select"
-                             disabled={sectionNotSet}
-                             onChange={(e) => setSelectedCostCenterId(e.detail.selectedOption.getAttribute("data-value") ?? "")}
-                             style={{ width: "100%" }}
-                         >
-                             <Option data-value="" selected={!selectedCostCenterId}>Select Cost Center</Option>
-                             {(meta?.allowed_cost_centers ?? []).map((cc) => (
-                                 <Option
-                                     key={cc.cost_center_id}
-                                     data-value={cc.cost_center_id}
-                                     selected={selectedCostCenterId === cc.cost_center_id}
-                                 >
-                                     {cc.group_code ? `${cc.group_code} | ` : ""}{cc.cost_code}{cc.short_text ? ` — ${cc.short_text}` : ""}
-                                 </Option>
-                             ))}
-                         </Select>
-                     </FormItem>
-                 </Form>
-             </div>
-
-             {/* Items Table */}
-             <div style={{ flex: 1, border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", overflow: "hidden" }}>
-                 <div style={{ padding: "1rem", background: "var(--sapGroup_TitleBackground)", borderBottom: "1px solid var(--sapList_BorderColor)" }}>
-                    <Title level="H5">Request Items</Title>
-                 </div>
-                 <Table
-                    headerRow={
-                        <TableHeaderRow>
-                            <TableHeaderCell width="3rem"><Label>Item</Label></TableHeaderCell>
-                            <TableHeaderCell width="12rem"><Label>Model</Label></TableHeaderCell>
-                            <TableHeaderCell width="14rem"><Label>Part No.</Label></TableHeaderCell>
-                            <TableHeaderCell><Label>Description</Label></TableHeaderCell>
-                            <TableHeaderCell width="8rem"><Label>Qty</Label></TableHeaderCell>
-                            <TableHeaderCell width="6rem"><Label>UOM</Label></TableHeaderCell>
-                            <TableHeaderCell width="12rem"><Label>Remarks</Label></TableHeaderCell>
-                        </TableHeaderRow>
-                    }
-                 >
-                     {lines.map((line, idx) => (
-                         <TableRow key={idx}>
-                             <TableCell><Label>{idx + 1}</Label></TableCell>
-                             <TableCell>
-                                 <Select 
-                                    onChange={(e) => {
-                                        const selected = e.detail.selectedOption as unknown as { value: string };
-                                        onModelChange(idx, selected.value);
-                                    }}
-                                    value={line.model_id}
-                                    style={{ width: "100%" }}
-                                 >
-                                     <Option value="">Select Model</Option>
-                                     {modelOptions.map((model) => (
-                                         <Option key={model.model_id} value={model.model_id}>{model.model_code}</Option>
-                                     ))}
-                                 </Select>
-                             </TableCell>
-                             <TableCell>
-                                 <Select 
-                                     onChange={(e) => {
-                                        const selected = e.detail.selectedOption as unknown as { value: string };
-                                        onPartNumberChange(idx, selected.value);
-                                    }}
-                                    value={line.part_number}
-                                    disabled={!line.model_id}
-                                    style={{ width: "100%" }}
-                                 >
-                                     <Option value="">{line.model_id ? "Select Component" : "Select model"}</Option>
-                                     {(componentOptionsByModel.get(line.model_id) ?? []).map((item) => (
-                                         <Option key={`${item.model_id}-${item.part_number}`} value={item.part_number}>
-                                             {item.part_number} {item.component_name ? `- ${item.component_name}` : ""}
-                                         </Option>
-                                     ))}
-                                 </Select>
-                             </TableCell>
-                             <TableCell>
-                                 <Label wrappingType="Normal">{line.description || "-"}</Label>
-                             </TableCell>
-                             <TableCell>
-                                 <Input 
-                                    type="Number"
-                                    value={line.requested_qty?.toString() ?? ""}
-                                    onInput={(e) => updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined })}
-                                    style={{ width: "100%", textAlign: "right" }}
-                                 />
-                             </TableCell>
-                             <TableCell>
-                                 <Label>{line.uom || "PCS"}</Label>
-                             </TableCell>
-                             <TableCell>
-                                 <Input 
-                                    value={line.remarks}
-                                    onInput={(e) => updateLine(idx, { remarks: e.target.value })}
-                                    style={{ width: "100%" }}
-                                 />
-                             </TableCell>
-                         </TableRow>
-                     ))}
-                 </Table>
-                 <FlexBox style={{ gap: "0.5rem", padding: "1rem", borderTop: "1px solid var(--sapList_BorderColor)" }}>
-                     <Button icon="add" onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}>Add Item</Button>
-                     <Button icon="delete" design="Transparent" disabled={lines.length <= 1} onClick={() => setLines((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)))}>Remove Last</Button>
-                 </FlexBox>
-             </div>
-
-            <Bar 
-                design="FloatingFooter" 
-                endContent={
-                    <>
-                        <Button design="Transparent" onClick={() => navigate("/admin/material-requests")}>Cancel</Button>
-                        <Button
-                            design="Emphasized"
-                            onClick={() => setConfirmSubmitOpen(true)}
-                            disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty || sectionNotSet}
-                        >
-                            {createMutation.isPending ? "Submitting..." : "Submit Request"}
-                        </Button>
-                    </>
-                } 
-            />
+          <MaterialRequestForm
+            lines={lines}
+            setLines={setLines}
+            selectedCostCenterId={selectedCostCenterId}
+            setSelectedCostCenterId={setSelectedCostCenterId}
+            meta={meta}
+            sectionNotSet={sectionNotSet}
+            catalog={catalogQuery.data ?? []}
+            requestNo={nextNumbersQuery.data?.request_no}
+            dmiNo={nextNumbersQuery.data?.dmi_no}
+            generatedAt={nextNumbersQuery.data?.generated_at}
+            requestorName={user?.display_name}
+            departmentName={meta?.department?.name ?? user?.department ?? "-"}
+            sectionDisplay={sectionDisplay}
+            formatDate={formatDate}
+          />
         </FlexBox>
       </div>
 

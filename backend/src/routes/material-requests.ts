@@ -5,6 +5,7 @@ import { checkAuth, checkRole } from "../middleware/auth";
 import { authDerive } from "../middleware/auth";
 import { type AccessTokenPayload } from "../lib/jwt";
 import { publishMaterialRequestUpdate } from "../lib/realtime";
+import { sendAlertEmail } from "../lib/alert";
 import {
   bom,
   component2dScans,
@@ -29,6 +30,8 @@ import {
   userSections,
   users,
   workflowApprovalConfigs,
+  handoverBatches,
+  handoverBatchItems,
 } from "../db/schema";
 
 function parseErrorCode(error: unknown): string {
@@ -38,7 +41,7 @@ function parseErrorCode(error: unknown): string {
   return "INTERNAL_ERROR";
 }
 
-async function auditConfigChange(
+export async function auditConfigChange(
   userId: string,
   entityType: string,
   entityId: string,
@@ -180,6 +183,13 @@ function canApproveMaterialRequestByWorkflow(user: AccessTokenPayload, policy: M
   return policy.approver_users.some((approver) => approver.user_id === user.userId);
 }
 
+function canStoreHandleIssue(user: AccessTokenPayload, policy: MaterialWorkflowPolicy) {
+  // Store issue flow should remain operable by STORE/SUPERVISOR even when
+  // workflow approver-user config is stricter than role mapping.
+  if (hasAnyRole(user, ["STORE", "SUPERVISOR", "ADMIN"])) return true;
+  return canApproveMaterialRequestByWorkflow(user, policy);
+}
+
 async function resolveMaterialRequestAlertRecipients(policy: MaterialWorkflowPolicy): Promise<AlertRecipient[]> {
   if (policy.approver_users.length > 0) {
     const approverIds = policy.approver_users.map((approver) => approver.user_id);
@@ -224,6 +234,78 @@ async function resolveMaterialRequestAlertRecipients(policy: MaterialWorkflowPol
     email: row.email,
     source: "WORKFLOW_ROLE",
   }));
+}
+
+async function resolveRecipientsByRoles(roleNames: string[]): Promise<AlertRecipient[]> {
+  if (!roleNames.length) return [];
+  const rows = await db
+    .select({
+      user_id: users.id,
+      display_name: users.displayName,
+      email: users.email,
+    })
+    .from(userRoles)
+    .innerJoin(users, eq(users.id, userRoles.userId))
+    .innerJoin(roles, eq(roles.id, userRoles.roleId))
+    .where(and(inArray(roles.name, roleNames), eq(users.isActive, true)))
+    .orderBy(asc(users.displayName));
+
+  const uniq = new Map<string, AlertRecipient>();
+  for (const row of rows) {
+    uniq.set(row.user_id, {
+      user_id: row.user_id,
+      display_name: row.display_name,
+      email: row.email,
+      source: "WORKFLOW_ROLE",
+    });
+  }
+  return Array.from(uniq.values());
+}
+
+async function resolveRecipientByUserId(userId: string | null | undefined): Promise<AlertRecipient[]> {
+  if (!userId) return [];
+  const [row] = await db
+    .select({
+      user_id: users.id,
+      display_name: users.displayName,
+      email: users.email,
+    })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.isActive, true)))
+    .limit(1);
+  if (!row) return [];
+  return [
+    {
+      user_id: row.user_id,
+      display_name: row.display_name,
+      email: row.email,
+      source: "WORKFLOW_USER",
+    },
+  ];
+}
+
+function mergeAlertRecipients(...groups: AlertRecipient[][]): AlertRecipient[] {
+  const uniq = new Map<string, AlertRecipient>();
+  for (const group of groups) {
+    for (const row of group) {
+      const key = row.user_id || String(row.email ?? "").toLowerCase();
+      if (!key) continue;
+      if (!uniq.has(key)) uniq.set(key, row);
+    }
+  }
+  return Array.from(uniq.values());
+}
+
+async function resolveActorName(userId: string): Promise<string> {
+  const [row] = await db
+    .select({
+      display_name: users.displayName,
+      email: users.email,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.display_name ?? row?.email ?? userId;
 }
 
 async function buildNextVoucherNumbers(targetDate: Date = new Date()) {
@@ -316,6 +398,8 @@ materialRequestRoutes.get(
     const unauthorized = checkAuth({ user, set });
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;
+    const workflowPolicy = await getMaterialWorkflowPolicy();
+    const alertRecipients = await resolveMaterialRequestAlertRecipients(workflowPolicy);
 
     const conditions = [];
     const canViewAll = hasAnyRole(currentUser, ["STORE", "SUPERVISOR", "ADMIN"]);
@@ -346,9 +430,15 @@ materialRequestRoutes.get(
         requested_by_user_id: materialRequests.requestedByUserId,
         requested_by_name: reqUser.displayName,
         approved_by_user_id: materialRequests.approvedByUserId,
+        dispatched_by_user_id: materialRequests.dispatchedByUserId,
+        dispatched_at: materialRequests.dispatchedAt,
         issued_by_user_id: materialRequests.issuedByUserId,
         issued_at: materialRequests.issuedAt,
         received_by_user_id: materialRequests.receivedByUserId,
+        production_ack_by_user_id: materialRequests.productionAcknowledgedByUserId,
+        production_ack_at: materialRequests.productionAcknowledgedAt,
+        forklift_ack_by_user_id: materialRequests.forkliftAcknowledgedByUserId,
+        forklift_ack_at: materialRequests.forkliftAcknowledgedAt,
         created_at: materialRequests.createdAt,
         updated_at: materialRequests.updatedAt,
       })
@@ -379,6 +469,8 @@ materialRequestRoutes.get(
       data: rows.map((row) => ({
         ...row,
         item_count: itemCounts[row.id] ?? 0,
+        alert_status: "UNTRACKED",
+        alert_recipients: alertRecipients,
       })),
     };
   },
@@ -396,6 +488,7 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
   if (unauthorized) return unauthorized;
   const currentUser = user as AccessTokenPayload;
   const policy = await getMaterialWorkflowPolicy();
+  const alertRecipients = await resolveMaterialRequestAlertRecipients(policy);
   if (!canApproveMaterialRequestByWorkflow(currentUser, policy)) {
     return { success: true, data: [] };
   }
@@ -420,9 +513,15 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
       requested_by_user_id: materialRequests.requestedByUserId,
       requested_by_name: reqUser.displayName,
       approved_by_user_id: materialRequests.approvedByUserId,
+      dispatched_by_user_id: materialRequests.dispatchedByUserId,
+      dispatched_at: materialRequests.dispatchedAt,
       issued_by_user_id: materialRequests.issuedByUserId,
       issued_at: materialRequests.issuedAt,
       received_by_user_id: materialRequests.receivedByUserId,
+      production_ack_by_user_id: materialRequests.productionAcknowledgedByUserId,
+      production_ack_at: materialRequests.productionAcknowledgedAt,
+      forklift_ack_by_user_id: materialRequests.forkliftAcknowledgedByUserId,
+      forklift_ack_at: materialRequests.forkliftAcknowledgedAt,
       created_at: materialRequests.createdAt,
       updated_at: materialRequests.updatedAt,
     })
@@ -432,7 +531,14 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
     .where(eq(materialRequests.status, "REQUESTED"))
     .orderBy(asc(materialRequests.requestDate), asc(materialRequests.createdAt));
 
-  return { success: true, data: rows };
+  return {
+    success: true,
+    data: rows.map((row) => ({
+      ...row,
+      alert_status: "UNTRACKED",
+      alert_recipients: alertRecipients,
+    })),
+  };
 });
 
 materialRequestRoutes.get(
@@ -441,6 +547,8 @@ materialRequestRoutes.get(
     const unauthorized = checkAuth({ user, set });
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;
+    const workflowPolicy = await getMaterialWorkflowPolicy();
+    const alertRecipients = await resolveMaterialRequestAlertRecipients(workflowPolicy);
     const reqUser = aliasedTable(users, "request_user");
 
     const [header] = await db
@@ -461,9 +569,15 @@ materialRequestRoutes.get(
         requested_by_user_id: materialRequests.requestedByUserId,
         requested_by_name: reqUser.displayName,
         approved_by_user_id: materialRequests.approvedByUserId,
+        dispatched_by_user_id: materialRequests.dispatchedByUserId,
+        dispatched_at: materialRequests.dispatchedAt,
         issued_by_user_id: materialRequests.issuedByUserId,
         issued_at: materialRequests.issuedAt,
         received_by_user_id: materialRequests.receivedByUserId,
+        production_ack_by_user_id: materialRequests.productionAcknowledgedByUserId,
+        production_ack_at: materialRequests.productionAcknowledgedAt,
+        forklift_ack_by_user_id: materialRequests.forkliftAcknowledgedByUserId,
+        forklift_ack_at: materialRequests.forkliftAcknowledgedAt,
         created_at: materialRequests.createdAt,
         updated_at: materialRequests.updatedAt,
       })
@@ -515,9 +629,12 @@ materialRequestRoutes.get(
         supplier_name: suppliers.name,
         vendor_name: suppliers.name,
         remarks: materialRequestItemIssues.remarks,
+        gr_number: inventoryDo.grNumber,
+        available_qty: sql<number>`${inventoryDo.qtyReceived} - ${inventoryDo.qtyIssued}`,
       })
       .from(materialRequestItemIssues)
       .leftJoin(suppliers, eq(suppliers.id, materialRequestItemIssues.supplierId))
+      .leftJoin(inventoryDo, eq(inventoryDo.id, materialRequestItemIssues.doId))
       .where(eq(materialRequestItemIssues.materialRequestId, params.id))
       .orderBy(asc(materialRequestItemIssues.createdAt));
 
@@ -547,6 +664,14 @@ materialRequestRoutes.get(
       receivedByName = receivedByUser?.display_name ?? receivedByUser?.email ?? null;
     }
 
+    // Fetch handover batch number for QR code on voucher
+    const [batchRow] = await db
+      .select({ batch_no: handoverBatches.batchNo })
+      .from(handoverBatches)
+      .where(eq(handoverBatches.materialRequestId, params.id))
+      .orderBy(asc(handoverBatches.createdAt))
+      .limit(1);
+
     return {
       success: true,
       data: {
@@ -554,6 +679,9 @@ materialRequestRoutes.get(
         issued_by_name: issuedByName,
         received_by_name: receivedByName,
         received_at: header.received_by_user_id ? header.updated_at : null,
+        handover_batch_no: batchRow?.batch_no ?? null,
+        alert_status: "UNTRACKED",
+        alert_recipients: alertRecipients,
         items: items.map((item) => ({
           ...item,
           issue_allocations: allocationsByItem[item.id] ?? [],
@@ -873,11 +1001,20 @@ materialRequestRoutes.post(
       });
 
       const alertRecipients = await resolveMaterialRequestAlertRecipients(workflowPolicy);
+      const alertStatus = await sendAlertEmail({
+        templateId: "material_request_created",
+        recipients: alertRecipients,
+        context: {
+          requestNo: created.request_no,
+          dmiNo: created.dmi_no,
+          actorName: requestUser?.display_name ?? currentUser.username,
+        },
+      });
       return {
         success: true,
         data: {
           ...created,
-          alert_status: "QUEUED_MOCK",
+          alert_status: alertStatus,
           alert_recipients: alertRecipients,
         },
       };
@@ -922,9 +1059,9 @@ materialRequestRoutes.get(
     if (unauthorized) return unauthorized;
     const currentUser = user as AccessTokenPayload;
     const workflowPolicy = await getMaterialWorkflowPolicy();
-    if (!canApproveMaterialRequestByWorkflow(currentUser, workflowPolicy)) {
+    if (!canStoreHandleIssue(currentUser, workflowPolicy)) {
       set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "Current user is not configured as level-2 approver" };
+      return { success: false, error_code: "FORBIDDEN", message: "Requires STORE/SUPERVISOR role or workflow approver permission" };
     }
 
     const [header] = await db
@@ -1117,7 +1254,19 @@ materialRequestRoutes.post(
       dmi_no: existing.dmiNo,
     });
 
-    return { success: true, data: { id: params.id, status: "APPROVED" } };
+    const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_approved",
+      recipients: requestorRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+      },
+    });
+
+    return { success: true, data: { id: params.id, status: "APPROVED", alert_status: alertStatus } };
   }
 );
 
@@ -1154,9 +1303,9 @@ materialRequestRoutes.post(
     const currentUser = user as AccessTokenPayload;
 
     const workflowPolicy = await getMaterialWorkflowPolicy();
-    if (!canApproveMaterialRequestByWorkflow(currentUser, workflowPolicy)) {
+    if (!canStoreHandleIssue(currentUser, workflowPolicy)) {
       set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "Current user is not configured as level-2 approver" };
+      return { success: false, error_code: "FORBIDDEN", message: "Requires STORE/SUPERVISOR role or workflow approver permission" };
     }
 
     const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
@@ -1164,9 +1313,9 @@ materialRequestRoutes.post(
       set.status = 404;
       return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
     }
-    if (!["REQUESTED", "APPROVED"].includes(existing.status)) {
+    if (existing.status !== "APPROVED" && existing.status !== "REQUESTED") {
       set.status = 400;
-      return { success: false, error_code: "INVALID_STATUS", message: "Only REQUESTED/APPROVED can be issued" };
+      return { success: false, error_code: "INVALID_STATUS", message: "Only REQUESTED or APPROVED can be issued" };
     }
 
     const lines = (body.allocations ?? []).filter(
@@ -1313,11 +1462,57 @@ materialRequestRoutes.post(
             dmiNo: body.dmi_no?.trim() || existing.dmiNo,
             remarks: body.remarks?.trim() || existing.remarks,
             approvedByUserId: existing.approvedByUserId ?? currentUser.userId,
+            dispatchedByUserId: existing.dispatchedByUserId ?? currentUser.userId,
+            dispatchedAt: existing.dispatchedAt ?? new Date(),
             issuedByUserId: currentUser.userId,
             issuedAt: new Date(),
             updatedAt: new Date(),
           })
           .where(eq(materialRequests.id, params.id));
+
+        // Create the handover batch
+        const dateStr = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
+        const batchNo = `HB-${dateStr}-${Math.floor(Math.random() * 10000)
+          .toString()
+          .padStart(4, "0")}`;
+
+        const [batch] = await tx
+          .insert(handoverBatches)
+          .values({
+            batchNo,
+            materialRequestId: params.id,
+            issuedByUserId: currentUser.userId,
+            expectedItemCount: normalized.length,
+            status: "PENDING",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .returning();
+
+        // Map the newly inserted item issues to batch items
+        // We need the inserted IDs, so we re-select them. Since this is in tx,
+        // it's safe to select by materialRequestId = params.id
+        const currentIssues = await tx
+          .select({ id: materialRequestItemIssues.id, partNumber: materialRequestItemIssues.partNumber, doNumber: materialRequestItemIssues.doNumber, issuedQty: materialRequestItemIssues.issuedQty, issuedPacks: materialRequestItemIssues.issuedPacks })
+          .from(materialRequestItemIssues)
+          .where(eq(materialRequestItemIssues.materialRequestId, params.id));
+
+        if (currentIssues.length > 0) {
+          await tx.insert(handoverBatchItems).values(
+            currentIssues.map((issue) => ({
+              handoverBatchId: batch.id,
+              materialRequestItemIssueId: issue.id,
+              partNumber: issue.partNumber,
+              doNumber: issue.doNumber,
+              expectedQty: issue.issuedQty,
+              expectedPacks: issue.issuedPacks,
+              scannedQty: 0,
+              scannedPacks: 0,
+              status: "PENDING",
+              createdAt: new Date(),
+            }))
+          );
+        }
       });
 
       await auditConfigChange(
@@ -1336,7 +1531,19 @@ materialRequestRoutes.post(
         dmi_no: body.dmi_no ?? existing.dmiNo ?? null,
       });
 
-      return { success: true, data: { id: params.id, status: "ISSUED" } };
+      const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+      const actorName = await resolveActorName(currentUser.userId);
+      const alertStatus = await sendAlertEmail({
+        templateId: "material_request_issued",
+        recipients: requestorRecipients,
+        context: {
+          requestNo: existing.requestNo,
+          dmiNo: body.dmi_no ?? existing.dmiNo ?? null,
+          actorName,
+        },
+      });
+
+      return { success: true, data: { id: params.id, status: "ISSUED", alert_status: alertStatus } };
     } catch (error) {
       set.status = 400;
       return {
@@ -1369,6 +1576,73 @@ materialRequestRoutes.post(
 );
 
 materialRequestRoutes.post(
+  "/:id/dispatch-to-forklift",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload | null }) => {
+    const unauthorized = checkAuth({ user, set });
+    if (unauthorized) return unauthorized;
+    const currentUser = user as AccessTokenPayload;
+
+    const workflowPolicy = await getMaterialWorkflowPolicy();
+    if (!canApproveMaterialRequestByWorkflow(currentUser, workflowPolicy)) {
+      set.status = 403;
+      return { success: false, error_code: "FORBIDDEN", message: "Current user is not configured as approver" };
+    }
+
+    const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
+    }
+    if (existing.status !== "APPROVED") {
+      set.status = 400;
+      return { success: false, error_code: "INVALID_STATUS", message: "Only APPROVED can be dispatched to forklift" };
+    }
+
+    await db
+      .update(materialRequests)
+      .set({
+        dispatchedByUserId: currentUser.userId,
+        dispatchedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(materialRequests.id, params.id));
+
+    await auditConfigChange(
+      currentUser.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "DISPATCH_TO_FORKLIFT",
+      { status: existing.status, dispatched_at: existing.dispatchedAt ?? null },
+      { status: existing.status, dispatched_at: new Date().toISOString() }
+    );
+    publishMaterialRequestUpdate({
+      event_type: "DISPATCHED_TO_FORKLIFT",
+      id: params.id,
+      status: existing.status,
+      request_no: existing.requestNo,
+      dmi_no: existing.dmiNo,
+    });
+
+    const forkliftRecipients = await resolveRecipientsByRoles(["OPERATOR", "STORE"]);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_dispatched",
+      recipients: forkliftRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+      },
+    });
+
+    return {
+      success: true,
+      data: { id: params.id, status: existing.status, dispatched: true, alert_status: alertStatus },
+    };
+  }
+);
+
+materialRequestRoutes.post(
   "/:id/confirm-receipt",
   async ({
     params,
@@ -1377,7 +1651,7 @@ materialRequestRoutes.post(
     user,
   }: {
     params: { id: string };
-    body: { scans: Array<{ part_number: string; do_number: string; scan_data: string }>; remarks?: string };
+    body: { scans: Array<{ part_number: string; do_number: string; scan_data: string; pack_count?: number }>; remarks?: string };
     set: any;
     user: AccessTokenPayload | null;
   }) => {
@@ -1398,6 +1672,7 @@ materialRequestRoutes.post(
           .trim()
           .toUpperCase(),
         scan_data: String(row.scan_data ?? "").trim(),
+        pack_count: Math.max(1, Math.floor(Number(row.pack_count ?? 1))),
       }))
       .filter((row) => row.part_number && row.do_number && row.scan_data);
 
@@ -1409,8 +1684,12 @@ materialRequestRoutes.post(
     const [header] = await db
       .select({
         id: materialRequests.id,
+        request_no: materialRequests.requestNo,
+        dmi_no: materialRequests.dmiNo,
         status: materialRequests.status,
         received_by_user_id: materialRequests.receivedByUserId,
+        dispatched_by_user_id: materialRequests.dispatchedByUserId,
+        production_ack_at: materialRequests.productionAcknowledgedAt,
         remarks: materialRequests.remarks,
       })
       .from(materialRequests)
@@ -1428,6 +1707,14 @@ materialRequestRoutes.post(
         success: false,
         error_code: "INVALID_STATUS",
         message: "Only ISSUED can be confirmed by production receipt",
+      };
+    }
+    if (header.production_ack_at) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Production acknowledgement already completed",
       };
     }
 
@@ -1502,8 +1789,9 @@ materialRequestRoutes.post(
             unitId: pack?.unit_id ?? null,
             scanData: scan.scan_data,
             parsedData: pack?.parsed_data ?? null,
+            packCount: scan.pack_count,
           });
-          insertedCount += 1;
+          insertedCount += scan.pack_count;
         }
 
         const mergedRemarks = [header.remarks, body.remarks].filter(Boolean).join(" | ") || null;
@@ -1511,6 +1799,8 @@ materialRequestRoutes.post(
           .update(materialRequests)
           .set({
             receivedByUserId: currentUser.userId,
+            productionAcknowledgedByUserId: currentUser.userId,
+            productionAcknowledgedAt: new Date(),
             remarks: mergedRemarks,
             updatedAt: new Date(),
           })
@@ -1533,13 +1823,30 @@ materialRequestRoutes.post(
       params.id,
       "CONFIRM_RECEIPT",
       { status: header.status, received_by_user_id: header.received_by_user_id ?? null },
-      { status: header.status, received_by_user_id: currentUser.userId, scans_saved: saved }
+      {
+        status: header.status,
+        received_by_user_id: currentUser.userId,
+        production_ack_by_user_id: currentUser.userId,
+        scans_saved: saved,
+      }
     );
 
     publishMaterialRequestUpdate({
       event_type: "RECEIPT_CONFIRMED",
       id: params.id,
       status: "ISSUED",
+    });
+
+    const forkliftRecipients = await resolveRecipientByUserId(header.dispatched_by_user_id);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_receipt_confirmed",
+      recipients: forkliftRecipients,
+      context: {
+        requestNo: header.request_no,
+        dmiNo: header.dmi_no,
+        actorName,
+      },
     });
 
     return {
@@ -1550,6 +1857,7 @@ materialRequestRoutes.post(
         received_by_user_id: currentUser.userId,
         received_at: new Date().toISOString(),
         scans_saved: saved,
+        alert_status: alertStatus,
       },
     };
   },
@@ -1560,9 +1868,106 @@ materialRequestRoutes.post(
           part_number: t.String(),
           do_number: t.String(),
           scan_data: t.String(),
+          pack_count: t.Optional(t.Number()),
         })
       ),
       remarks: t.Optional(t.String()),
+    }),
+  }
+);
+
+materialRequestRoutes.post(
+  "/:id/withdraw",
+  async ({
+    params,
+    body,
+    set,
+    user,
+  }: {
+    params: { id: string };
+    body: { reason?: string };
+    set: any;
+    user: AccessTokenPayload | null;
+  }) => {
+    const unauthorized = checkAuth({ user, set });
+    if (unauthorized) return unauthorized;
+    const currentUser = user as AccessTokenPayload;
+
+    const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
+    }
+    if (!["REQUESTED", "APPROVED"].includes(existing.status)) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Only REQUESTED or APPROVED can be withdrawn",
+      };
+    }
+    if (existing.dispatchedAt) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Cannot withdraw after dispatch to forklift",
+      };
+    }
+
+    const isOwner = existing.requestedByUserId === currentUser.userId;
+    const isAdmin = hasAnyRole(currentUser, ["ADMIN"]);
+    if (!isOwner && !isAdmin) {
+      set.status = 403;
+      return { success: false, error_code: "FORBIDDEN", message: "Only request owner or ADMIN can withdraw this request" };
+    }
+
+    const reason = String(body.reason ?? "").trim();
+    const actorName = await resolveActorName(currentUser.userId);
+    await db
+      .update(materialRequests)
+      .set({
+        status: "CANCELLED",
+        remarks: reason ? `${existing.remarks ? `${existing.remarks}\n` : ""}[WITHDRAW] ${reason}` : existing.remarks,
+        updatedAt: new Date(),
+      })
+      .where(eq(materialRequests.id, params.id));
+
+    await auditConfigChange(
+      currentUser.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "WITHDRAW",
+      { status: existing.status, dispatched_at: existing.dispatchedAt ?? null },
+      { status: "CANCELLED", reason: reason || null }
+    );
+    publishMaterialRequestUpdate({
+      event_type: "WITHDRAWN",
+      id: params.id,
+      status: "CANCELLED",
+      request_no: existing.requestNo,
+      dmi_no: existing.dmiNo,
+    });
+
+    const workflowPolicy = await getMaterialWorkflowPolicy();
+    const workflowRecipients = await resolveMaterialRequestAlertRecipients(workflowPolicy);
+    const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_withdrawn",
+      recipients: mergeAlertRecipients(workflowRecipients, requestorRecipients),
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+        reason,
+      },
+    });
+
+    return { success: true, data: { id: params.id, status: "CANCELLED", alert_status: alertStatus } };
+  },
+  {
+    body: t.Object({
+      reason: t.Optional(t.String()),
     }),
   }
 );
@@ -1627,12 +2032,106 @@ materialRequestRoutes.post(
       dmi_no: existing.dmiNo,
     });
 
-    return { success: true, data: { id: params.id, status: "REJECTED" } };
+    const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_rejected",
+      recipients: requestorRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+        reason: body.reason ?? "",
+      },
+    });
+
+    return { success: true, data: { id: params.id, status: "REJECTED", alert_status: alertStatus } };
   },
   {
     body: t.Object({
       reason: t.Optional(t.String()),
     }),
+  }
+);
+
+materialRequestRoutes.post(
+  "/:id/ack-forklift",
+  async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload | null }) => {
+    const unauthorized = checkAuth({ user, set });
+    if (unauthorized) return unauthorized;
+    const currentUser = user as AccessTokenPayload;
+    if (!hasAnyRole(currentUser, ["STORE", "OPERATOR", "SUPERVISOR", "ADMIN"])) {
+      set.status = 403;
+      return { success: false, error_code: "FORBIDDEN", message: "Requires forklift/store role" };
+    }
+
+    const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
+    if (!existing) {
+      set.status = 404;
+      return { success: false, error_code: "NOT_FOUND", message: "Requested record was not found" };
+    }
+    if (existing.status !== "ISSUED") {
+      set.status = 400;
+      return { success: false, error_code: "INVALID_STATUS", message: "Only ISSUED can be forklift-acknowledged" };
+    }
+    if (!existing.productionAcknowledgedAt) {
+      set.status = 400;
+      return {
+        success: false,
+        error_code: "INVALID_STATUS",
+        message: "Production acknowledgement is required before forklift acknowledgement",
+      };
+    }
+
+    await db
+      .update(materialRequests)
+      .set({
+        forkliftAcknowledgedByUserId: currentUser.userId,
+        forkliftAcknowledgedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(materialRequests.id, params.id));
+
+    await auditConfigChange(
+      currentUser.userId,
+      "MATERIAL_REQUEST",
+      params.id,
+      "ACK_FORKLIFT",
+      {
+        status: existing.status,
+        forklift_ack_by_user_id: existing.forkliftAcknowledgedByUserId ?? null,
+        forklift_ack_at: existing.forkliftAcknowledgedAt ?? null,
+      },
+      {
+        status: existing.status,
+        forklift_ack_by_user_id: currentUser.userId,
+        forklift_ack_at: new Date().toISOString(),
+      }
+    );
+    publishMaterialRequestUpdate({
+      event_type: "FORKLIFT_ACKNOWLEDGED",
+      id: params.id,
+      status: existing.status,
+      request_no: existing.requestNo,
+      dmi_no: existing.dmiNo,
+    });
+
+    const storeRecipients = await resolveRecipientsByRoles(["STORE", "SUPERVISOR", "ADMIN"]);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_forklift_ack",
+      recipients: storeRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: existing.dmiNo,
+        actorName,
+      },
+    });
+
+    return {
+      success: true,
+      data: { id: params.id, status: existing.status, forklift_acknowledged: true, alert_status: alertStatus },
+    };
   }
 );
 
@@ -1697,7 +2196,19 @@ materialRequestRoutes.post(
       dmi_no: body.dmi_no ?? existing.dmiNo ?? null,
     });
 
-    return { success: true, data: { id: params.id, status: "ISSUED" } };
+    const requestorRecipients = await resolveRecipientByUserId(existing.requestedByUserId);
+    const actorName = await resolveActorName(currentUser.userId);
+    const alertStatus = await sendAlertEmail({
+      templateId: "material_request_issued",
+      recipients: requestorRecipients,
+      context: {
+        requestNo: existing.requestNo,
+        dmiNo: body.dmi_no ?? existing.dmiNo ?? null,
+        actorName,
+      },
+    });
+
+    return { success: true, data: { id: params.id, status: "ISSUED", alert_status: alertStatus } };
   },
   {
     body: t.Object({

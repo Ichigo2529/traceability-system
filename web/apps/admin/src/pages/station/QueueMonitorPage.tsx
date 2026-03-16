@@ -46,6 +46,24 @@ export function QueueMonitorPage() {
       <PageHeader title="Queue Monitor" description="Inspect offline events and control replay behavior." />
       <StationHeader />
 
+      {queuedEvents.some((e) => e.last_error?.includes("INVALID_STATE_TRANSITION")) && (
+        <div style={{ marginBottom: "1rem" }}>
+          <span
+            style={{
+              display: "inline-block",
+              padding: "0.5rem 1rem",
+              borderRadius: "0.5rem",
+              background: "var(--sapWarningBackground)",
+              color: "var(--sapCriticalTextColor)",
+              fontSize: "0.875rem",
+            }}
+          >
+            Some events failed with state transition errors. Remove them or fix the unit state, then use Retry for
+            others.
+          </span>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Queue Controls</CardTitle>

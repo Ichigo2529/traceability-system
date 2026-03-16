@@ -187,6 +187,7 @@ export async function holdStaleSetRuns(
   timeoutHours: number = STALE_TIMEOUT_HOURS
 ): Promise<number> {
   const cutoff = new Date(Date.now() - timeoutHours * 60 * 60 * 1000);
+  const cutoffIso = cutoff.toISOString();
 
   // Find ACTIVE set_runs where:
   // - latest consumption_at < cutoff  OR
@@ -198,11 +199,11 @@ export async function holdStaleSetRuns(
       AND (
         -- has consumption but last one is stale
         (EXISTS (SELECT 1 FROM consumption c WHERE c.set_run_id = sr.id)
-         AND (SELECT MAX(c.consumed_at) FROM consumption c WHERE c.set_run_id = sr.id) < ${cutoff})
+         AND (SELECT MAX(c.consumed_at) FROM consumption c WHERE c.set_run_id = sr.id) < ${cutoffIso}::timestamptz)
         OR
         -- no consumption at all and started long ago
         (NOT EXISTS (SELECT 1 FROM consumption c WHERE c.set_run_id = sr.id)
-         AND sr.started_at < ${cutoff})
+         AND sr.started_at < ${cutoffIso}::timestamptz)
       )
   `) as unknown as { id: string }[];
 

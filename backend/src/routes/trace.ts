@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { db } from "../db/connection";
+import { ok, fail } from "../lib/http";
 import { units, unitLinks, events } from "../db/schema/production";
 import { inventoryDo, supplierPacks, suppliers } from "../db/schema/inventory";
 import { consumption, setRuns, containers } from "../db/schema/genealogy";
@@ -11,18 +12,14 @@ async function traceByUnitId(id: string, expectedType: string) {
   if (!unit) {
     return {
       status: 404 as const,
-      body: { success: false, error: `${expectedType}_NOT_FOUND` },
+      body: fail(`${expectedType}_NOT_FOUND`, `${expectedType} not found`),
     };
   }
 
   if (unit.unitType !== expectedType) {
     return {
       status: 409 as const,
-      body: {
-        success: false,
-        error: "UNIT_TYPE_MISMATCH",
-        message: `Expected ${expectedType}, got ${unit.unitType}`,
-      },
+      body: fail("UNIT_TYPE_MISMATCH", `Expected ${expectedType}, got ${unit.unitType}`),
     };
   }
 
@@ -67,9 +64,7 @@ async function traceByUnitId(id: string, expectedType: string) {
   ]);
 
   const upstreamRows = upstream as unknown as Array<{ related_id: string; related_type: string }>;
-  const supplierPackUnitIds = upstreamRows
-    .filter((r) => r.related_type === "SUPPLIER_PACK")
-    .map((r) => r.related_id);
+  const supplierPackUnitIds = upstreamRows.filter((r) => r.related_type === "SUPPLIER_PACK").map((r) => r.related_id);
 
   const materialOrigins = supplierPackUnitIds.length
     ? await db
@@ -93,18 +88,15 @@ async function traceByUnitId(id: string, expectedType: string) {
 
   return {
     status: 200 as const,
-    body: {
-      success: true,
-      data: {
-        unit,
-        genealogy: {
-          upstream,
-          downstream,
-        },
-        material_origins: materialOrigins,
-        events: unitEvents,
+    body: ok({
+      unit,
+      genealogy: {
+        upstream,
+        downstream,
       },
-    },
+      material_origins: materialOrigins,
+      events: unitEvents,
+    }),
   };
 }
 
@@ -153,15 +145,11 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
   .get(
     "/backward/:setId",
     async ({ params, set }) => {
-      const [setRun] = await db
-        .select()
-        .from(setRuns)
-        .where(eq(setRuns.id, params.setId))
-        .limit(1);
+      const [setRun] = await db.select().from(setRuns).where(eq(setRuns.id, params.setId)).limit(1);
 
       if (!setRun) {
         set.status = 404;
-        return { success: false, error: "SET_RUN_NOT_FOUND" };
+        return fail("SET_RUN_NOT_FOUND", "Set run not found");
       }
 
       // Get all consumption records for this set_run
@@ -210,15 +198,12 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
             .where(inArray(supplierPacks.unitId, supplierPackSourceIds))
         : [];
 
-      return {
-        success: true,
-        data: {
-          set_run: setRun,
-          consumption: consumptionRows,
-          containers: containerRows,
-          material_origins: materialOrigins,
-        },
-      };
+      return ok({
+        set_run: setRun,
+        consumption: consumptionRows,
+        containers: containerRows,
+        material_origins: materialOrigins,
+      });
     },
     {
       params: t.Object({
@@ -244,7 +229,7 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
 
       if (!pack) {
         set.status = 404;
-        return { success: false, error: "PACK_NOT_FOUND" };
+        return fail("PACK_NOT_FOUND", "Pack not found");
       }
 
       // Get all consumption records where this pack was consumed
@@ -290,20 +275,17 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
 
       const totalConsumed = consumptionRows.reduce((sum, r) => sum + r.qty, 0);
 
-      return {
-        success: true,
-        data: {
-          pack: {
-            unit_id: pack.id,
-            unit_type: pack.unitType,
-            status: pack.status,
-            ...(supplierPack ?? {}),
-          },
-          total_consumed: totalConsumed,
-          consumption: consumptionRows,
-          set_runs: setRunRows,
+      return ok({
+        pack: {
+          unit_id: pack.id,
+          unit_type: pack.unitType,
+          status: pack.status,
+          ...(supplierPack ?? {}),
         },
-      };
+        total_consumed: totalConsumed,
+        consumption: consumptionRows,
+        set_runs: setRunRows,
+      });
     },
     {
       params: t.Object({
@@ -335,7 +317,7 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
 
       if (!unit) {
         set.status = 404;
-        return { success: false, error: "UNIT_NOT_FOUND" };
+        return fail("UNIT_NOT_FOUND", "Unit not found");
       }
 
       // Parent links (who produced this unit)
@@ -392,17 +374,14 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
         .where(eq(events.unitId, params.id))
         .orderBy(events.receivedAtServer);
 
-      return {
-        success: true,
-        data: {
-          unit,
-          parent_links: parentLinks,
-          child_links: childLinks,
-          set_runs: relatedSetRuns,
-          consumption: consumptionRows,
-          events: eventRows,
-        },
-      };
+      return ok({
+        unit,
+        parent_links: parentLinks,
+        child_links: childLinks,
+        set_runs: relatedSetRuns,
+        consumption: consumptionRows,
+        events: eventRows,
+      });
     },
     {
       params: t.Object({
@@ -435,7 +414,7 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
 
       if (packs.length === 0) {
         set.status = 404;
-        return { success: false, error: "LOT_NOT_FOUND" };
+        return fail("LOT_NOT_FOUND", "Lot not found");
       }
 
       // Get all consumption records for these packs
@@ -473,16 +452,13 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
 
       const totalConsumed = consumptionRows.reduce((sum, r) => sum + r.qty, 0);
 
-      return {
-        success: true,
-        data: {
-          lot: params.lot,
-          packs,
-          total_consumed: totalConsumed,
-          consumption: consumptionRows,
-          set_runs: setRunRows,
-        },
-      };
+      return ok({
+        lot: params.lot,
+        packs,
+        total_consumed: totalConsumed,
+        consumption: consumptionRows,
+        set_runs: setRunRows,
+      });
     },
     {
       params: t.Object({
@@ -504,7 +480,7 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
 
       if (setRunRows.length === 0) {
         set.status = 404;
-        return { success: false, error: "SET_NOT_FOUND" };
+        return fail("SET_NOT_FOUND", "Set not found");
       }
 
       const setRunIds = setRunRows.map((sr) => sr.id);
@@ -557,16 +533,13 @@ export const traceRoutes = new Elysia({ prefix: "/trace" })
             .where(inArray(supplierPacks.unitId, supplierPackSourceIds))
         : [];
 
-      return {
-        success: true,
-        data: {
-          set_code: params.code,
-          set_runs: setRunRows,
-          consumption: consumptionRows,
-          containers: containerRows,
-          material_origins: materialOrigins,
-        },
-      };
+      return ok({
+        set_code: params.code,
+        set_runs: setRunRows,
+        consumption: consumptionRows,
+        containers: containerRows,
+        material_origins: materialOrigins,
+      });
     },
     {
       params: t.Object({

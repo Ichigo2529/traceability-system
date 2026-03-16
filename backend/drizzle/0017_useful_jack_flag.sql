@@ -1,0 +1,3 @@
+-- Placeholder migration file.
+-- This migration tag exists in drizzle journal and snapshot, but the SQL file was missing.
+-- Keeping this file ensures migration chain integrity.

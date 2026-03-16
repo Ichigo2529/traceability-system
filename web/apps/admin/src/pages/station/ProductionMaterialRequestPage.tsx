@@ -1,72 +1,54 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ColumnDef } from "@tanstack/react-table";
-import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail } from "@traceability/sdk";
-import { useAuth } from "../../context/AuthContext";
-import { DataTable } from "../../components/shared/DataTable";
-import { StatusBadge } from "../../components/shared/StatusBadge";
-import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
-import { formatApiError } from "../../lib/errors";
-import { formatDate, formatDateTime } from "../../lib/datetime";
-import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
-import { useDelayedBusy } from "../../hooks/useDelayedBusy";
-import { toast } from "sonner";
 import {
   confirmMaterialReceipt,
+  createMaterialQueryKeys,
   createMaterialRequest,
   getMaterialRequestById,
   getMaterialRequestCatalog,
   getMaterialRequestNextNumbers,
   getMaterialRequests,
-} from "../../lib/material-api";
-import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
+  NextNumbersResponse,
+  useProductionReceiptScanWorkbench,
+  withdrawMaterialRequest,
+} from "@traceability/material";
 import {
-    Page,
-    Bar,
-    Title,
-    TabContainer,
-    Tab,
-    TabSeparator,
-    Button,
-    Card,
-    CardHeader,
-    Input,
-    Label,
-    BusyIndicator,
-    MessageStrip,
-    Select,
-    Option,
-    TextArea,
-    Table,
-    TableHeaderRow,
-    TableHeaderCell,
-    TableRow,
-    TableCell,
-    Form,
-    FormGroup,
-    FormItem,
-    Text,
-    Dialog,
-    FlexBox,
-    FlexBoxDirection,
-    FlexBoxAlignItems,
-    FlexBoxJustifyContent,
-    Grid
+  MaterialRequestForm,
+  MaterialRequestFormErrors,
+  MaterialRequestLineForm,
+  MaterialRequestListTable,
+  validateMaterialRequestForm,
+} from "@traceability/material-ui";
+import { PageLayout } from "@traceability/ui";
+import {
+  Button,
+  FlexBox,
+  FlexBoxAlignItems,
+  Label,
+  Input,
+  InputDomRef,
+  MessageBox,
+  MessageStrip,
+  ObjectStatus,
+  Option,
+  Select,
+  Text,
+  TextArea,
+  Title,
 } from "@ui5/webcomponents-react";
+import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail, WorkflowApprovalConfig } from "@traceability/sdk";
+import { sdk, useAuth } from "../../context/AuthContext";
+import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
+import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
+import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
+import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
+import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
+import { formatDate, formatDateTime } from "../../lib/datetime";
+import { formatApiError } from "../../lib/errors";
+import { toast } from "sonner";
+import { ScanInput } from "../../components/shared/ScanInput";
 
-type LineForm = {
-  item_no: number;
-  model_id: string;
-  part_number: string;
-  description: string;
-  requested_qty?: number;
-  uom: string;
-  remarks: string;
-};
-
-type TabKey = "FORM" | "HISTORY";
-
-function blankLine(itemNo: number): LineForm {
+function blankLine(itemNo: number): MaterialRequestLineForm {
   return {
     item_no: itemNo,
     model_id: "",
@@ -78,30 +60,35 @@ function blankLine(itemNo: number): LineForm {
   };
 }
 
+const WORKFLOW_STEPS = [
+  { key: "requested",  label: "Requested",    sub: "Production" },
+  { key: "approved",   label: "Approved",      sub: "Store" },
+  { key: "dispatched", label: "Dispatched",    sub: "Store → Forklift" },
+  { key: "issued",     label: "Issued",        sub: "Forklift" },
+  { key: "prod_ack",   label: "Prod. ACK",     sub: "Production" },
+  { key: "fork_ack",   label: "Forklift ACK",  sub: "Forklift" },
+];
+
 export function ProductionMaterialRequestPage() {
   const { hasRole, user } = useAuth();
   const canUsePage = hasRole("PRODUCTION") || hasRole("OPERATOR");
+  const canReadApprovalConfig = hasRole("ADMIN");
+  const keys = createMaterialQueryKeys("production");
   const queryClient = useQueryClient();
   const [selectedCostCenterId, setSelectedCostCenterId] = useState("");
-  const [headerRemarks, setHeaderRemarks] = useState("");
-  const [lines, setLines] = useState<LineForm[]>([blankLine(1)]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [openDetails, setOpenDetails] = useState(false);
-  const [tab, setTab] = useState<TabKey>("FORM");
+  const [lines, setLines] = useState<MaterialRequestLineForm[]>([blankLine(1)]);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-  const [receivePartNo, setReceivePartNo] = useState("");
-  const [receiveDoNo, setReceiveDoNo] = useState("");
-  const [receiveScanData, setReceiveScanData] = useState("");
-  const [bulkScanData, setBulkScanData] = useState("");
-  const [receiveRemarks, setReceiveRemarks] = useState("");
-  const [scanQueue, setScanQueue] = useState<Array<{ part_number: string; do_number: string; scan_data: string }>>([]);
-  const [scanInputError, setScanInputError] = useState<string | null>(null);
-  const submittedScanCacheRef = useRef<Set<string>>(new Set());
-  const scanInputRef = useRef<any>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<MaterialRequestFormErrors | undefined>();
+  const [systemErrorMsg, setSystemErrorMsg] = useState<string | null>(null);
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
+  const [withdrawReason, setWithdrawReason] = useState("");
+  const [confirmReceiptReviewOpen, setConfirmReceiptReviewOpen] = useState(false);
+  const scanInputRef = useRef<InputDomRef>(null);
+  const showingDetails = Boolean(selectedId);
 
-  const { meta, sectionNotSet, isLoading: metaLoading } = useMaterialRequestMeta(canUsePage);
-
-  // Pre-select default cost center once meta loads
+  const { meta, sectionNotSet } = useMaterialRequestMeta(canUsePage);
   const defaultSetRef = useRef(false);
   useEffect(() => {
     if (meta?.default_cost_center_id && !defaultSetRef.current) {
@@ -110,931 +97,804 @@ export function ProductionMaterialRequestPage() {
     }
   }, [meta?.default_cost_center_id]);
 
-  const requestsQuery = useQuery({
-    queryKey: ["station-production-material-requests"],
+  const requestsQuery = useQuery<MaterialRequest[]>({
+    queryKey: keys.requests(),
     queryFn: () => getMaterialRequests(),
     enabled: canUsePage,
   });
-
-  const detailsQuery = useQuery<MaterialRequestDetail>({
-    queryKey: ["station-production-material-request", selectedId],
-    queryFn: () => getMaterialRequestById(selectedId!),
-    enabled: Boolean(selectedId),
-  });
-
-  const catalogQuery = useQuery({
-    queryKey: ["material-request-catalog"],
+  const catalogQuery = useQuery<MaterialRequestCatalogItem[]>({
+    queryKey: keys.catalog(),
     queryFn: getMaterialRequestCatalog,
     enabled: canUsePage,
   });
-
-  const nextNumbersQuery = useQuery({
-    queryKey: ["material-request-next-numbers"],
+  const nextNumbersQuery = useQuery<NextNumbersResponse>({
+    queryKey: keys.nextNumbers(),
     queryFn: getMaterialRequestNextNumbers,
     enabled: canUsePage,
     refetchOnWindowFocus: true,
   });
-
-  const realtimeQueryKeys = useMemo(
-    () => [
-      ["station-production-material-requests"],
-      ["station-production-material-request"],
-      ["material-request-next-numbers"],
-    ],
-    []
-  );
-
-  useMaterialRequestsRealtime({
-    enabled: canUsePage,
-    queryKeys: realtimeQueryKeys,
+  const detailsQuery = useQuery<MaterialRequestDetail>({
+    queryKey: keys.request(selectedId),
+    queryFn: () => getMaterialRequestById(selectedId!),
+    enabled: Boolean(selectedId),
+  });
+  const approvalsQuery = useQuery<WorkflowApprovalConfig[]>({
+    queryKey: ["workflow-approvals-preview"],
+    queryFn: () => sdk.admin.getWorkflowApprovals(),
+    enabled: canUsePage && canReadApprovalConfig && (showCreateForm || showingDetails),
+    retry: false,
   });
 
-  const modelOptions = useMemo(() => {
-    const map = new Map<string, { model_id: string; model_code: string; model_name: string }>();
-    for (const row of catalogQuery.data ?? []) {
-      if (!map.has(row.model_id)) {
-        map.set(row.model_id, {
-          model_id: row.model_id,
-          model_code: row.model_code,
-          model_name: row.model_name,
-        });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => a.model_code.localeCompare(b.model_code));
-  }, [catalogQuery.data]);
+  const realtimeQueryKeys = useMemo(
+    () => [keys.requests(), keys.nextNumbers(), keys.request(selectedId)],
+    [keys, selectedId]
+  );
+  useMaterialRequestsRealtime({ enabled: canUsePage, queryKeys: realtimeQueryKeys });
 
-  const componentOptionsByModel = useMemo(() => {
-    const mapByModel = new Map<string, Map<string, MaterialRequestCatalogItem>>();
-    for (const row of catalogQuery.data ?? []) {
-      const modelId = row.model_id;
-      if (!mapByModel.has(modelId)) mapByModel.set(modelId, new Map<string, MaterialRequestCatalogItem>());
-      const map = mapByModel.get(modelId)!;
-      const key = String(row.part_number).toUpperCase();
-      if (!key) continue;
-      if (!map.has(key)) map.set(key, row);
-    }
-    const result = new Map<string, MaterialRequestCatalogItem[]>();
-    for (const [modelId, itemMap] of mapByModel.entries()) result.set(modelId, Array.from(itemMap.values()));
-    return result;
-  }, [catalogQuery.data]);
-
-  const catalogByModelPart = useMemo(() => {
-    const map = new Map<string, MaterialRequestCatalogItem>();
-    for (const row of catalogQuery.data ?? []) {
-      const key = `${row.model_id}|${String(row.part_number).toUpperCase()}`;
-      if (!map.has(key)) map.set(key, row);
-    }
-    return map;
-  }, [catalogQuery.data]);
-
-  const departmentDisplay = (meta as any)?.department?.name || user?.department || "-";
-  const hasInvalidRequestedQty = lines
-    .filter((line) => line.part_number.trim().length > 0)
-    .some((line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
-
-  const createMutation = useMutation({
+  const createMutation = useMutation<MaterialRequest, any>({
     mutationFn: () => {
       const requestedLines = lines.filter((line) => line.part_number.trim().length > 0);
-      if (!requestedLines.length) {
-        throw new Error("At least one component line is required");
-      }
+      if (!requestedLines.length) throw new Error("At least one component line is required");
       const modelIds = Array.from(new Set(requestedLines.map((line) => line.model_id).filter(Boolean)));
-      if (modelIds.length !== 1) {
-        throw new Error("Each voucher must use one model only");
-      }
-      const invalidQtyLine = requestedLines.find(
-        (line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0
-      );
-      if (invalidQtyLine) {
-        throw new Error(`Requested quantity must be greater than 0 for part ${invalidQtyLine.part_number}`);
-      }
+      if (modelIds.length !== 1) throw new Error("Each voucher must use one model only");
       return createMaterialRequest({
         request_no: nextNumbersQuery.data?.request_no,
         dmi_no: nextNumbersQuery.data?.dmi_no,
         request_date: nextNumbersQuery.data?.request_date,
         model_id: modelIds[0],
         cost_center_id: selectedCostCenterId || undefined,
-        remarks: headerRemarks || undefined,
-        items: requestedLines
-          .map((line, idx) => ({
-            item_no: idx + 1,
-            part_number: line.part_number.trim().toUpperCase(),
-            description: line.description || undefined,
-            requested_qty: line.requested_qty,
-            uom: line.uom || "PCS",
-            remarks: line.remarks || undefined,
-          })),
+        items: requestedLines.map((line, idx) => ({
+          item_no: idx + 1,
+          part_number: line.part_number.trim().toUpperCase(),
+          description: line.description || undefined,
+          requested_qty: line.requested_qty,
+          uom: line.uom || "PCS",
+          remarks: line.remarks || undefined,
+        })),
       });
     },
     onSuccess: async (created) => {
-      setLines([blankLine(1)]);
-      setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
-      setHeaderRemarks("");
-      const recipientText =
-        (created.alert_recipients ?? []).length > 0
-          ? (created.alert_recipients ?? [])
-              .map((row) => row.display_name || row.email || "-")
-              .join(", ")
-          : "configured approver group";
-      toast.success(`Request submitted: ${created.request_no}${created.dmi_no ? ` (${created.dmi_no})` : ""}`, {
-        description:
-          created.alert_status === "QUEUED_MOCK"
-            ? `Email alert queued (mock) to: ${recipientText}`
-            : `Email alert prepared to: ${recipientText}`,
-      });
-      await queryClient.invalidateQueries({ queryKey: ["station-production-material-requests"] });
-      await queryClient.invalidateQueries({ queryKey: ["material-request-next-numbers"] });
+      const recipientList = (created.alert_recipients ?? [])
+        .map((r) => r.display_name || r.email || "")
+        .filter(Boolean)
+        .join(", ");
+      toast.success(
+        `Request ${created.request_no} submitted.` +
+          (recipientList ? ` Waiting approval from: ${recipientList}.` : " Routing to configured approvers.")
+      );
+      setFormErrors(undefined);
+      setShowCreateForm(false);
+      if (created.id) setSelectedId(created.id);
+      await queryClient.invalidateQueries({ queryKey: keys.requests() });
+      await queryClient.invalidateQueries({ queryKey: keys.nextNumbers() });
     },
     onError: (err: any) => {
-      const code = err?.error_code;
-      if (code === "SECTION_NOT_SET") {
-        toast.error("Your user has no section assigned. Contact an administrator.");
-      } else if (code === "COST_CENTER_DEFAULT_NOT_SET") {
-        toast.error("No default cost center set for your section. Contact an administrator.");
-      } else if (code === "INVALID_COST_CENTER") {
-        toast.error("Selected cost center is not allowed. Reverting to default.");
-        setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
-      } else {
-        toast.error(err?.message || "Failed to submit request");
-      }
+      // System failure → MessageBox (per docs/UI §6)
+      setSystemErrorMsg(err?.message || "Failed to submit request. Please try again.");
     },
   });
 
-  const confirmReceiptMutation = useMutation({
-    mutationFn: ({
-      id,
-      scans,
-      remarks,
-    }: {
-      id: string;
-      scans: Array<{ part_number: string; do_number: string; scan_data: string }>;
-      remarks?: string;
-    }) => confirmMaterialReceipt(id, { scans, remarks }),
-    onSuccess: async (result, variables) => {
-      for (const row of variables.scans) {
-        const key = `${row.part_number}|${row.do_number}|${row.scan_data}`;
-        submittedScanCacheRef.current.add(key);
+  const withdrawMutation = useMutation<{ id: string; status: string; alert_status?: string }, any, string>({
+    mutationFn: (id: string) => withdrawMaterialRequest(id, withdrawReason.trim() || undefined),
+    onSuccess: async () => {
+      toast.success("Material request withdrawn.");
+      setConfirmWithdrawOpen(false);
+      setWithdrawReason("");
+      await queryClient.invalidateQueries({ queryKey: keys.requests() });
+      if (selectedId) {
+        await queryClient.invalidateQueries({ queryKey: keys.request(selectedId) });
       }
-      toast.success("Material receipt confirmed", {
-        description: `Saved scans: ${result.scans_saved ?? 0}`,
-      });
-      setReceiveScanData("");
-      setBulkScanData("");
-      setReceiveRemarks("");
-      setScanQueue([]);
-      setScanInputError(null);
-      requestAnimationFrame(() => scanInputRef.current?.focus());
-      await queryClient.invalidateQueries({ queryKey: ["station-production-material-requests"] });
-      await queryClient.invalidateQueries({ queryKey: ["station-production-material-request"] });
+    },
+    onError: (err: any) => {
+      setSystemErrorMsg(err?.message || "Failed to withdraw request. Please try again.");
     },
   });
-
-  const updateLine = (index: number, patch: Partial<LineForm>) => {
-    setLines((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)));
-  };
-
-  const onModelChange = (index: number, modelId: string) => {
-    updateLine(index, {
-      model_id: modelId,
-      part_number: "",
-      description: "",
-      uom: "PCS",
-    });
-  };
-
-  const onPartNumberChange = (index: number, partNo: string) => {
-    const key = partNo.toUpperCase();
-    const modelId = lines[index]?.model_id || "";
-    const model = catalogByModelPart.get(`${modelId}|${key}`);
-    updateLine(index, {
-      part_number: key,
-      description:
-        [
-          model?.component_name || model?.model_name || "",
-          model?.rm_location ? `Loc ${model.rm_location}` : "",
-          model?.qty_per_assy ? `Use ${model.qty_per_assy}/VCM` : "",
-        ]
-          .filter(Boolean)
-          .join(" | ") || "",
-      uom: model?.uom_default ?? "PCS",
-    });
-  };
-
-  const columns = useMemo<ColumnDef<MaterialRequest>[]>(
-    () => [
-      { header: "No.", accessorKey: "request_no" },
-      { header: "Model", accessorKey: "model_code", cell: ({ row }) => row.original.model_code || "-" },
-      { header: "DMI No.", accessorKey: "dmi_no", cell: ({ row }) => row.original.dmi_no || "-" },
-      {
-        header: "Date",
-        accessorKey: "created_at",
-        cell: ({ row }) => formatDateTime((row.original.created_at ?? row.original.request_date) as any),
-      },
-      { header: "Cost Center", accessorKey: "cost_center", cell: ({ row }) => row.original.cost_center || "-" },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.status} /> },
-      {
-        header: "Actions",
-        cell: ({ row }) => (
-          <Button
-            design="Transparent"
-            icon="search"
-            onClick={() => {
-              setSelectedId(row.original.id);
-              setOpenDetails(true);
-            }}
-          >
-            View
-          </Button>
-        ),
-      },
-    ],
-    []
-  );
-
-  const receiptOptions = useMemo(() => {
-    const options: Array<{ part_number: string; do_number: string }> = [];
-    const seen = new Set<string>();
-    for (const item of detailsQuery.data?.items ?? []) {
-      for (const alloc of item.issue_allocations ?? []) {
-        const part = String(item.part_number ?? "").toUpperCase();
-        const doNo = String(alloc.do_number ?? "").toUpperCase();
-        if (!part || !doNo) continue;
-        const key = `${part}|${doNo}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        options.push({ part_number: part, do_number: doNo });
+  const confirmReceiptMutation = useMutation<
+    { id: string; status: string; scans_saved?: number },
+    any,
+    { id: string; scans: Array<{ part_number: string; do_number: string; scan_data: string }>; remarks?: string }
+  >({
+    mutationFn: ({ id, scans, remarks }) => confirmMaterialReceipt(id, { scans, remarks }),
+    onSuccess: async () => {
+      toast.success("Production receipt acknowledged successfully.");
+      setConfirmReceiptReviewOpen(false);
+      resetScanWorkbench();
+      if (selectedId) {
+        await queryClient.invalidateQueries({ queryKey: keys.request(selectedId) });
       }
-    }
-    return options;
-  }, [detailsQuery.data]);
+      await queryClient.invalidateQueries({ queryKey: keys.requests() });
+    },
+    onError: (err: any) => setSystemErrorMsg(err?.message || "Failed to confirm receipt"),
+  });
 
-  const availableDoByPart = useMemo(() => {
-    return receiptOptions
-      .filter((row) => row.part_number === receivePartNo)
-      .map((row) => row.do_number);
-  }, [receiptOptions, receivePartNo]);
-
-  useEffect(() => {
-    if (!detailsQuery.data || detailsQuery.data.status !== "ISSUED") return;
-    const first = receiptOptions[0];
-    setReceivePartNo(first?.part_number ?? "");
-    setReceiveDoNo(first?.do_number ?? "");
-    setReceiveScanData("");
-    setBulkScanData("");
-    setReceiveRemarks("");
-    setScanQueue([]);
-    setScanInputError(null);
-    submittedScanCacheRef.current.clear();
-    requestAnimationFrame(() => scanInputRef.current?.focus());
-  }, [detailsQuery.data, receiptOptions, openDetails]);
-
-  useEffect(() => {
-    if (!receivePartNo) {
-      setReceiveDoNo("");
-      return;
-    }
-    if (availableDoByPart.length === 0) {
-      setReceiveDoNo("");
-      return;
-    }
-    if (!availableDoByPart.includes(receiveDoNo)) {
-      setReceiveDoNo(availableDoByPart[0]);
-    }
-  }, [receivePartNo, availableDoByPart, receiveDoNo]);
-
-  const anyError = requestsQuery.error ?? catalogQuery.error ?? nextNumbersQuery.error ?? createMutation.error ?? detailsQuery.error;
-  const showRequestTableLoading = useDelayedBusy(
-    requestsQuery.isLoading || (requestsQuery.isFetching && !requestsQuery.data),
-    250
-  );
-  const showFormLoading = useDelayedBusy(
-    catalogQuery.isLoading || nextNumbersQuery.isLoading || metaLoading || (catalogQuery.isFetching && !catalogQuery.data),
-    250
-  );
-  const showDetailsLoading = useDelayedBusy(Boolean(selectedId) && detailsQuery.isLoading, 200);
-
-  const appendScanToQueue = (rawValue?: string) => {
-    const payload = (rawValue ?? receiveScanData).trim();
-    if (!payload) {
-      setScanInputError("Please scan 2D barcode first.");
-      return;
-    }
-    if (!receivePartNo || !receiveDoNo) {
-      setScanInputError("Please select component part and DO number.");
-      return;
-    }
-    const key = `${receivePartNo}|${receiveDoNo}|${payload}`;
-    const queuedDuplicate = scanQueue.some(
-      (row) => row.part_number === receivePartNo && row.do_number === receiveDoNo && row.scan_data === payload
-    );
-    if (queuedDuplicate || submittedScanCacheRef.current.has(key)) {
-      setScanInputError("Duplicate scan detected. This barcode is already in queue/submitted.");
-      setReceiveScanData("");
-      requestAnimationFrame(() => scanInputRef.current?.focus());
-      return;
-    }
-    setScanQueue((prev) => [
-      ...prev,
-      {
-        part_number: receivePartNo,
-        do_number: receiveDoNo,
-        scan_data: payload,
-      },
-    ]);
-    setReceiveScanData("");
-    setScanInputError(null);
-    requestAnimationFrame(() => scanInputRef.current?.focus());
-  };
-
-  const importBulkScans = () => {
-    const rows = bulkScanData
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (!rows.length) {
-      setScanInputError("Please paste at least one 2D barcode line.");
-      return;
-    }
-    if (!receivePartNo || !receiveDoNo) {
-      setScanInputError("Please select component part and DO number.");
-      return;
-    }
-    const queued = new Set(scanQueue.map((row) => `${row.part_number}|${row.do_number}|${row.scan_data}`));
-    const nextRows: Array<{ part_number: string; do_number: string; scan_data: string }> = [];
-    let skipped = 0;
-    for (const scan of rows) {
-      const key = `${receivePartNo}|${receiveDoNo}|${scan}`;
-      if (queued.has(key) || submittedScanCacheRef.current.has(key)) {
-        skipped += 1;
-        continue;
-      }
-      queued.add(key);
-      nextRows.push({
-        part_number: receivePartNo,
-        do_number: receiveDoNo,
-        scan_data: scan,
-      });
-    }
-    if (!nextRows.length) {
-      setScanInputError("All pasted scans are duplicates.");
-      return;
-    }
-    setScanQueue((prev) => [...prev, ...nextRows]);
-    setBulkScanData("");
-    setScanInputError(null);
-    toast.success(`Added ${nextRows.length} scan(s) to queue${skipped ? `, skipped ${skipped} duplicate(s)` : ""}.`);
-    requestAnimationFrame(() => scanInputRef.current?.focus());
-  };
-
-  const queueGroupSummary = useMemo(() => {
-    const map = new Map<string, { part_number: string; do_number: string; count: number }>();
-    for (const row of scanQueue) {
-      const key = `${row.part_number}|${row.do_number}`;
-      const current = map.get(key);
-      if (current) {
-        current.count += 1;
-      } else {
-        map.set(key, { part_number: row.part_number, do_number: row.do_number, count: 1 });
-      }
-    }
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.part_number === b.part_number) return a.do_number.localeCompare(b.do_number);
-      return a.part_number.localeCompare(b.part_number);
+  /** Run zod validation; if OK open confirm, if not → show inline errors */
+  const handleSubmitClick = () => {
+    const result = validateMaterialRequestForm({
+      cost_center_id: selectedCostCenterId,
+      lines: lines.map((l) => ({
+        item_no: l.item_no,
+        model_id: l.model_id,
+        part_number: l.part_number,
+        description: l.description,
+        requested_qty: l.requested_qty,
+        uom: l.uom,
+        remarks: l.remarks,
+      })),
     });
-  }, [scanQueue]);
-
-  const selectedPairQueuedCount = useMemo(
-    () => scanQueue.filter((row) => row.part_number === receivePartNo && row.do_number === receiveDoNo).length,
-    [scanQueue, receivePartNo, receiveDoNo]
-  );
-
-  useEffect(() => {
-    if (tab !== "HISTORY") {
-      setOpenDetails(false);
+    if (!result.success) {
+      setFormErrors(result.errors);
+      return;
     }
-  }, [tab]);
+    setFormErrors(undefined);
+    setConfirmSubmitOpen(true);
+  };
 
   if (!canUsePage) {
     return (
-      <Card>
-        <CardHeader titleText="Authorized Access Required" />
-        <div style={{ padding: "1rem" }}>This role is not allowed to submit material request.</div>
-      </Card>
+      <MessageStrip design="Negative" hideCloseButton>
+        This role is not allowed to submit material request.
+      </MessageStrip>
     );
   }
 
+  const anyError =
+    requestsQuery.error ??
+    catalogQuery.error ??
+    nextNumbersQuery.error ??
+    createMutation.error ??
+    detailsQuery.error ??
+    (canReadApprovalConfig ? approvalsQuery.error : null);
+
+  // ── Workflow config helpers ───────────────────────────────────────────────
+  const activeApprovals = (approvalsQuery.data ?? []).filter((row) => row.active);
+  const materialFlowApprovals = activeApprovals.filter((row) => row.flow_code === "MATERIAL_REQUEST_APPROVAL");
+  const keywordApprovals = activeApprovals.filter((row) => {
+    const flow = `${row.flow_code} ${row.flow_name}`.toLowerCase();
+    return flow.includes("material") || flow.includes("request") || flow.includes("requisition") || flow.includes("issue");
+  });
+  const scopedApprovals =
+    materialFlowApprovals.length > 0 ? materialFlowApprovals : keywordApprovals.length > 0 ? keywordApprovals : activeApprovals;
+  const approvalRows = scopedApprovals.filter((row) => row.from_status === "REQUESTED").sort((a, b) => a.level - b.level);
+  const allApprovalRows = scopedApprovals.sort((a, b) => a.level - b.level);
+
+  const formatApproverWithEmail = (entry: { display_name?: string | null; email?: string | null; user_id?: string }) => {
+    const name = entry.display_name || entry.user_id || "Approver";
+    return entry.email ? `${name} (${entry.email})` : name;
+  };
+
+  // Create-form approval preview text
+  const approvalFlowSummary =
+    approvalRows.length > 0
+      ? approvalRows
+          .map((row) => {
+            const recipients =
+              row.approver_users?.map((u) => u.display_name || u.email || u.user_id).filter(Boolean).join(", ") ||
+              row.approver_role_name ||
+              "Approver";
+            return `L${row.level}: ${recipients}`;
+          })
+          .join(" → ")
+      : null;
+  const workflowMailRecipients = Array.from(
+    new Set(approvalRows.flatMap((row) => (row.approver_users ?? []).map((u) => (u.email ?? "").trim()).filter(Boolean)))
+  );
+
+  // ── Detail-view helpers ───────────────────────────────────────────────────
+  const detailStatus = detailsQuery.data?.status;
+  const detail = detailsQuery.data;
+  const isTerminalStatus = detailStatus === "ISSUED" || detailStatus === "REJECTED" || detailStatus === "CANCELLED";
+  const selectedRequestSummary = (requestsQuery.data ?? []).find((row) => row.id === selectedId);
+  const isRequestOwner = detail?.requested_by_user_id && user?.id ? detail.requested_by_user_id === user.id : false;
+  const canWithdrawRequest =
+    Boolean(detail?.id) &&
+    (detail?.status === "REQUESTED" || detail?.status === "APPROVED") &&
+    !detail?.dispatched_at &&
+    (isRequestOwner || hasRole("ADMIN"));
+
+  // Workflow timeline step states
+  const workflowStepsDone = useMemo(() => {
+    if (!detail) return [false, false, false, false, false, false];
+    const approved = ["APPROVED", "ISSUED"].includes(detail.status ?? "") || Boolean((detail as any).dispatched_at);
+    const dispatched = Boolean((detail as any).dispatched_at);
+    const issued = detail.status === "ISSUED" || Boolean((detail as any).production_ack_at);
+    const prodAck = Boolean((detail as any).production_ack_at);
+    const forkliftAck = Boolean((detail as any).forklift_ack_at);
+    return [true, approved, dispatched, issued, prodAck, forkliftAck];
+  }, [detail]);
+
+  const firstIncompleteIdx =
+    detail?.status === "REJECTED" || detail?.status === "CANCELLED"
+      ? -1
+      : workflowStepsDone.findIndex((d) => !d);
+
+  // Fallback pending approver info (for non-admin role)
+  const fallbackApproverRows = (detail?.alert_recipients ?? selectedRequestSummary?.alert_recipients ?? []).map((row) => ({
+    display: formatApproverWithEmail(row),
+    email: row.email ?? "",
+  }));
+  const pendingRows = detail ? allApprovalRows.filter((row) => row.from_status === detailStatus) : [];
+  const issuedTargets = useMemo(() => {
+    if (!detail) return [] as Array<{ part_number: string; do_number: string; required_packs: number }>;
+    const rows = detail.items.flatMap((item) =>
+      (item.issue_allocations ?? [])
+        .map((alloc) => ({
+          part_number: String(item.part_number ?? "").toUpperCase(),
+          do_number: String(alloc.do_number ?? "").toUpperCase(),
+          required_packs: Math.max(1, Number(alloc.issued_packs ?? 1)),
+        }))
+        .filter((x) => x.part_number && x.do_number)
+    );
+    const merged = new Map<string, { part_number: string; do_number: string; required_packs: number }>();
+    for (const row of rows) {
+      const key = `${row.part_number}|${row.do_number}`;
+      const current = merged.get(key);
+      if (!current) {
+        merged.set(key, row);
+      } else {
+        merged.set(key, { ...current, required_packs: current.required_packs + row.required_packs });
+      }
+    }
+    return Array.from(merged.values());
+  }, [detail]);
+  const scanWorkbench = useProductionReceiptScanWorkbench(issuedTargets);
+  const {
+    partOptions,
+    doOptionsForPart,
+    selectedPart,
+    setSelectedPart,
+    selectedDo,
+    setSelectedDo,
+    scanData,
+    setScanData,
+    manualMode,
+    setManualMode,
+    manualReason,
+    setManualReason,
+    stagedScans,
+    coverage,
+    feedback,
+    addStagedScan,
+    removeStagedScan,
+    clearStagedScans,
+    buildPayloadScans,
+    buildManualRemarks,
+    reset: resetScanWorkbench,
+  } = scanWorkbench;
+  const pendingApprovalText =
+    pendingRows.length > 0
+      ? pendingRows
+          .map((row) => {
+            const recipients =
+              row.approver_users?.map((u) => u.display_name || u.email || u.user_id).filter(Boolean).join(", ") ||
+              row.approver_role_name ||
+              "Approver";
+            return `L${row.level}: ${recipients}`;
+          })
+          .join(" | ")
+      : fallbackApproverRows.length > 0
+      ? fallbackApproverRows.map((r) => r.display).join(", ")
+      : isTerminalStatus
+      ? `No pending approver (${detailStatus?.toLowerCase()})`
+      : "Pending approver is resolved by workflow configuration.";
+
+  const getApprovalStepState = (row: WorkflowApprovalConfig): { text: string; state: "Positive" | "Critical" | "Information" | "None" } => {
+    if (!detailStatus) return { text: "Planned", state: "Information" };
+    if (isTerminalStatus) return { text: "Completed", state: "Positive" };
+    const pendingLevelSet = new Set(pendingRows.map((r) => r.level));
+    const firstPending = pendingRows.length > 0 ? Math.min(...pendingRows.map((r) => r.level)) : Infinity;
+    if (row.from_status === detailStatus && pendingLevelSet.has(row.level)) return { text: "Pending", state: "Critical" };
+    if (row.level < firstPending) return { text: "Completed", state: "Positive" };
+    return { text: "Planned", state: "Information" };
+  };
+
+  // Preview lines for confirm dialog
+  const previewLines = lines.filter((l) => l.part_number.trim().length > 0);
+  const canScanReceive = detail?.status === "ISSUED" && !detail?.production_ack_at;
+  useEffect(() => {
+    if (!canScanReceive || manualMode) return;
+    const focusInput = () => scanInputRef.current?.focus();
+    focusInput();
+    const timer = window.setInterval(focusInput, 1200);
+    return () => window.clearInterval(timer);
+  }, [canScanReceive, manualMode, feedback.at]);
+
+  useEffect(() => {
+    if (canScanReceive) return;
+    if (stagedScans.length > 0 || selectedPart || selectedDo || scanData || manualReason || manualMode) {
+      resetScanWorkbench();
+    }
+  }, [canScanReceive, manualMode, manualReason, resetScanWorkbench, scanData, selectedDo, selectedPart, stagedScans.length]);
+
+  const detailHeaderActions = canWithdrawRequest ? (
+    <Button design="Negative" disabled={withdrawMutation.isPending} onClick={() => setConfirmWithdrawOpen(true)}>
+      {withdrawMutation.isPending ? "Withdrawing..." : "Withdraw"}
+    </Button>
+  ) : undefined;
+
   return (
-    <Page
-      header={<Bar startContent={<Title level="H2">Production Material Request</Title>} />}
-      backgroundDesign="List"
-      style={{ height: "100%" }}
-    >
-      {anyError ? <MessageStrip design="Negative" hideCloseButton>{formatApiError(anyError)}</MessageStrip> : null}
-      {sectionNotSet ? (
-        <MessageStrip design="Critical" hideCloseButton style={{ marginBottom: "0.5rem" }}>
-          Your user account has no section assigned. Please contact an administrator to set your section before creating requests.
-        </MessageStrip>
-      ) : null}
-      <TabContainer tabLayout="Standard" collapsed onTabSelect={(e) => setTab(e.detail.tab.getAttribute("data-key") as TabKey)}>
-        <Tab text="Request Form" icon="form" selected={tab === "FORM"} data-key="FORM" />
-        <TabSeparator />
-        <Tab text="History" icon="history" selected={tab === "HISTORY"} data-key="HISTORY" />
-      </TabContainer>
-      <div style={{ padding: "1rem" }}>
-      {showFormLoading ? <BusyIndicator active /> : null}
-
-      {tab === "FORM" ? (
-        <Card>
-            <div style={{ padding: "1rem" }}>
-                <div style={{ border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", padding: "1.5rem", width: "100%", boxSizing: "border-box" }}>
-                    <FlexBox style={{ gap: "1.5rem", marginBottom: "2rem", width: "100%" }} alignItems={FlexBoxAlignItems.Start}>
-                        <img src="/logo.png" alt="MMI Logo" style={{ height: "4rem", width: "auto", objectFit: "contain" }} />
-                        <FlexBox direction={FlexBoxDirection.Column}>
-                            <Title level="H3" style={{ fontStyle: "italic", marginBottom: "0.25rem" }}>MMI Precision Assembly (Thailand) Co., Ltd.</Title>
-                            <Text>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</Text>
-                            <FlexBox style={{ marginTop: "0.25rem" }}>
-                                <Text>TEL : (6644) 000188 &nbsp;&nbsp; FAX : (6644) 000199</Text>
-                            </FlexBox>
-                        </FlexBox>
-                    </FlexBox>
-
-                    <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ marginBottom: "1.5rem" }}>
-                        <Title level="H2" style={{ textDecoration: "underline" }}>DIRECT MATERIAL ISSUE VOUCHER</Title>
-                    </FlexBox>
-
-                    <Form layout="S1 M2 L2 XL2" labelSpan="M4 L4 XL4">
-                        <FormGroup headerText="Document Details">
-                            <FormItem labelContent={<Label>NO.</Label>}>
-                                <Text style={{ color: "var(--sapNegativeElementColor)", fontWeight: "bold" }}>{nextNumbersQuery.data?.request_no ?? "-"}</Text>
-                            </FormItem>
-                            <FormItem labelContent={<Label>DMI. NO.</Label>}>
-                                <Text style={{ color: "var(--sapNegativeElementColor)", fontWeight: "bold" }}>{nextNumbersQuery.data?.dmi_no ?? "-"}</Text>
-                            </FormItem>
-                            <FormItem labelContent={<Label>DATE</Label>}>
-                                <Text>{formatDate(nextNumbersQuery.data?.generated_at ?? new Date().toISOString())}</Text>
-                            </FormItem>
-                        </FormGroup>
-                        <FormGroup headerText="Requestor Details">
-                            <FormItem labelContent={<Label>DEPARTMENT</Label>}>
-                                <Text>{departmentDisplay}</Text>
-                            </FormItem>
-                            <FormItem labelContent={<Label showColon required for="cost-center-select">COST CENTER</Label>}>
-                                <Select
-                                    id="cost-center-select"
-                                    onChange={(e) => setSelectedCostCenterId(e.detail.selectedOption.getAttribute("data-value") ?? "")}
-                                >
-                                    <Option data-value="" selected={!selectedCostCenterId}>Select Cost Center</Option>
-                                    {(meta?.allowed_cost_centers ?? []).map((cc) => (
-                                        <Option
-                                            key={cc.cost_center_id}
-                                            data-value={cc.cost_center_id}
-                                            selected={selectedCostCenterId === cc.cost_center_id}
-                                        >
-                                            {cc.group_code ? `${cc.group_code} | ` : ""}{cc.cost_code}{cc.short_text ? ` — ${cc.short_text}` : ""}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </FormItem>
-                        </FormGroup>
-                    </Form> 
-                    
-                    <div style={{ marginTop: "1rem" }}>
-                        <Table
-                            headerRow={
-                                <TableHeaderRow>
-                                    <TableHeaderCell width="50px"><Label style={{ fontWeight: "bold" }}>ITEM</Label></TableHeaderCell>
-                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>MODEL</Label></TableHeaderCell>
-                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>COMPONENT PART NO.</Label></TableHeaderCell>
-                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>DESCRIPTION</Label></TableHeaderCell>
-                                    <TableHeaderCell width="100px"><Label style={{ fontWeight: "bold" }}>QTY</Label></TableHeaderCell>
-                                    <TableHeaderCell width="80px"><Label style={{ fontWeight: "bold" }}>UOM</Label></TableHeaderCell>
-                                    <TableHeaderCell><Label style={{ fontWeight: "bold" }}>REMARKS</Label></TableHeaderCell>
-                                </TableHeaderRow>
-                            }
-                        >
-                            {lines.map((line, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell><Label>{idx + 1}</Label></TableCell>
-                        <TableCell>
-                          <Select
-                            onChange={(e) => onModelChange(idx, e.detail.selectedOption.getAttribute("data-value")!)}
-                          >
-                            <Option data-value="">Select Model</Option>
-                            {modelOptions.map((model) => (
-                              <Option key={model.model_id} selected={line.model_id === model.model_id} data-value={model.model_id}>
-                                {model.model_code}
-                              </Option>
-                            ))}
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            disabled={!line.model_id}
-                            onChange={(e) => onPartNumberChange(idx, e.detail.selectedOption.getAttribute("data-value")!)}
-                          >
-                            <Option data-value="">{line.model_id ? "Select Component Part Number" : "Select model first"}</Option>
-                            {(componentOptionsByModel.get(line.model_id) ?? []).map((item) => (
-                              <Option key={`${item.model_id}-${item.part_number}`} selected={line.part_number === item.part_number} data-value={item.part_number}>
-                                {item.part_number} {item.component_name ? `- ${item.component_name}` : ""}
-                              </Option>
-                            ))}
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Label>{line.description || "-"}</Label>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="Number"
-                            value={line.requested_qty?.toString() ?? ""}
-                            onInput={(e) => updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined })}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Label>{line.uom || "PCS"}</Label>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={line.remarks}
-                            onInput={(e) => updateLine(idx, { remarks: e.target.value })}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </Table>
-
-                <FlexBox style={{ marginTop: "0.5rem", gap: "0.5rem" }}>
-                    <Button
-                        icon="add"
-                        design="Transparent"
-                        onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}
-                    >
-                        Add Item
-                    </Button>
-                    <Button
-                        icon="less"
-                        design="Transparent"
-                        onClick={() => setLines((prev) => (prev.length <= 1 ? prev : prev.slice(0, -1)))}
-                    >
-                        Remove Last
-                    </Button>
-                </FlexBox>
-
-                <Grid defaultSpan="XL6 L6 M6 S12" style={{ marginTop: "1.5rem", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", overflow: "hidden", width: "100%" }}>
-                    <div style={{ borderRight: "1px solid var(--sapGroup_ContentBorderColor)" }}>
-                        <div style={{ background: "var(--sapGroup_TitleBackground)", padding: "0.5rem 0.75rem" }}>
-                            <Text style={{ fontSize: "0.75rem", fontWeight: "bold" }}>ISSUED BY</Text>
-                        </div>
-                        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "0.75rem", gap: "1rem" }}>
-                            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.5rem" }}>
-                                <Text style={{ color: "var(--sapContent_LabelColor)", minWidth: "3.5rem" }}>NAME :</Text>
-                                <div style={{ flex: 1, borderBottom: "1px dotted var(--sapContent_LabelColor)", height: "1.25rem" }}>&nbsp;</div>
-                            </FlexBox>
-                            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.5rem" }}>
-                                <Text style={{ color: "var(--sapContent_LabelColor)", minWidth: "3.5rem" }}>DATE :</Text>
-                                <div style={{ flex: 1, borderBottom: "1px dotted var(--sapContent_LabelColor)", height: "1.25rem" }}>&nbsp;</div>
-                            </FlexBox>
-                        </FlexBox>
-                    </div>
-                    <div>
-                        <div style={{ background: "var(--sapGroup_TitleBackground)", padding: "0.5rem 0.75rem" }}>
-                            <Text style={{ fontSize: "0.75rem", fontWeight: "bold" }}>RECEIVED BY</Text>
-                        </div>
-                        <FlexBox direction={FlexBoxDirection.Column} style={{ padding: "0.75rem", gap: "1rem" }}>
-                            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.5rem" }}>
-                                <Text style={{ color: "var(--sapContent_LabelColor)", minWidth: "3.5rem" }}>NAME :</Text>
-                                <div style={{ flex: 1, borderBottom: "1px dotted var(--sapContent_LabelColor)", height: "1.25rem" }}>&nbsp;</div>
-                            </FlexBox>
-                            <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.5rem" }}>
-                                <Text style={{ color: "var(--sapContent_LabelColor)", minWidth: "3.5rem" }}>DATE :</Text>
-                                <div style={{ flex: 1, borderBottom: "1px dotted var(--sapContent_LabelColor)", height: "1.25rem" }}>&nbsp;</div>
-                            </FlexBox>
-                        </FlexBox>
-                    </div>
-                </Grid>
-
-                <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center} style={{ marginTop: "1rem" }}>
-                    <Text style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)" }}>
-                        White - STORE &nbsp; Blue - MATERIALS &nbsp; Pink - RECEIVER
-                    </Text>
-                    <Button
-                        design="Emphasized"
-                        onClick={() => {
-                            setConfirmSubmitOpen(true);
-                        }}
-                        disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty || sectionNotSet}
-                    >
-                        {createMutation.isPending ? "Submitting..." : "Submit Request"}
-                    </Button>
-                </FlexBox>
-            </div>
-            </div>
-            </div>
-        </Card>
-      ) : null}
-      {tab === "HISTORY" ? (
-        openDetails ? (
-          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.75rem", animation: "var(--ui5-element-show-animation)", width: "100%" }}>
-            <Card header={<CardHeader 
-                titleText={`Request Detail ${detailsQuery.data?.request_no ? ` - ${detailsQuery.data.request_no}` : ""}`}
-                action={
-                    <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                        <Button
-                            design="Transparent"
-                            icon="nav-back"
-                            onClick={() => {
-                                setOpenDetails(false);
-                                setSelectedId(null);
-                            }}
-                        >
-                            Back to History
-                        </Button>
-                        <StatusBadge status={detailsQuery.data?.status ?? "REQUESTED"} />
-                    </FlexBox>
-                }
-            />} />
-            
-            {showDetailsLoading ? (
-              <BusyIndicator active />
-            ) : detailsQuery.data ? (
-              <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.75rem", width: "100%" }}>
-                <MaterialRequestVoucherView detail={detailsQuery.data} />
-                {detailsQuery.data.status === "ISSUED" ? (
-                  <Card header={<CardHeader titleText="Production Receive From Forklift (High-Volume 2D Scan)" subtitleText={`Total queued: ${scanQueue.length} | Current Part/DO: ${selectedPairQueuedCount}`} />}>
-                    <div style={{ padding: "1rem" }}>
-                      <Grid defaultSpan="XL4 L4 M12 S12" style={{ gap: "1rem", width: "100%" }}>
-                        <div style={{ gridColumn: "span 8" }}>
-                           <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem", padding: "1rem", background: "var(--sapGroup_ContentBackground)", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", width: "100%", boxSizing: "border-box" }}>
-                            <Grid defaultSpan="XL6 L6 M6 S12" style={{ gap: "0.75rem" }}>
-                                <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
-                                    <Label>Component Part No.</Label>
-                                    <Select
-                                        style={{ width: "100%" }}
-                                        onChange={(e) => setReceivePartNo(e.detail.selectedOption.getAttribute("data-value")!)}
-                                    >
-                                        <Option data-value="">Select part number</Option>
-                                        {Array.from(new Set(receiptOptions.map((row) => row.part_number))).map((part) => (
-                                        <Option key={part} selected={receivePartNo === part} data-value={part}>
-                                            {part}
-                                        </Option>
-                                        ))}
-                                    </Select>
-                                </FlexBox>
-                                <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
-                                    <Label>DO No.</Label>
-                                    <Select
-                                        style={{ width: "100%" }}
-                                        disabled={!receivePartNo}
-                                        onChange={(e) => setReceiveDoNo(e.detail.selectedOption.getAttribute("data-value")!)}
-                                    >
-                                        <Option data-value="">Select DO number</Option>
-                                        {availableDoByPart.map((doNo) => (
-                                        <Option key={doNo} selected={receiveDoNo === doNo} data-value={doNo}>
-                                            {doNo}
-                                        </Option>
-                                        ))}
-                                    </Select>
-                                </FlexBox>
-                            </Grid>
-                            
-                            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
-                                <Label>2D Barcode Scan (scanner gun: Enter each pack)</Label>
-                                <FlexBox style={{ gap: "0.5rem" }}>
-                                    <Input
-                                        style={{ flex: 1 }}
-                                        ref={scanInputRef}
-                                        value={receiveScanData}
-                                        onInput={(e) => setReceiveScanData(e.target.value)}
-                                        onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            appendScanToQueue();
-                                        }
-                                        }}
-                                        placeholder="Scan vendor 2D barcode"
-                                    />
-                                    <Button
-                                        icon="scan"
-                                        onClick={() => appendScanToQueue()}
-                                        disabled={!receivePartNo || !receiveDoNo || !receiveScanData.trim()}
-                                    >
-                                        Add
-                                    </Button>
-                                </FlexBox>
-                            </FlexBox>
-                            
-                            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.25rem" }}>
-                                <Label>Bulk paste (one barcode per line)</Label>
-                                <TextArea
-                                    value={bulkScanData}
-                                    onInput={(e) => setBulkScanData(e.target.value)}
-                                    placeholder={"*P760049400-P*EA*Q160..."}
-                                    rows={3}
-                                    style={{ width: "100%" }}
-                                />
-                                <FlexBox justifyContent={FlexBoxJustifyContent.End} style={{ marginTop: "0.25rem" }}>
-                                    <Button
-                                        design="Transparent"
-                                        onClick={importBulkScans}
-                                        disabled={!bulkScanData.trim() || !receivePartNo || !receiveDoNo}
-                                    >
-                                        Import Lines
-                                    </Button>
-                                </FlexBox>
-                            </FlexBox>
-                          </FlexBox>
-                        </div>
-                        
-                        <div style={{ gridColumn: "span 4" }}>
-                            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem", padding: "1.25rem", background: "var(--sapGroup_ContentBackground)", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", height: "100%", width: "100%", boxSizing: "border-box" }}>
-                                <Text style={{ fontSize: "0.75rem", fontWeight: "bold", textTransform: "uppercase", color: "var(--sapContent_LabelColor)" }}>Queue Summary by Part / DO</Text>
-                                <div style={{ maxHeight: "200px", overflow: "auto", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
-                                    <Table
-                                        headerRow={
-                                            <TableHeaderRow>
-                                                <TableHeaderCell><Label>Part No.</Label></TableHeaderCell>
-                                                <TableHeaderCell><Label>DO No.</Label></TableHeaderCell>
-                                                <TableHeaderCell><Label>Scans</Label></TableHeaderCell>
-                                            </TableHeaderRow>
-                                        }
-                                    >
-                                        {queueGroupSummary.length ? (
-                                        queueGroupSummary.map((row) => (
-                                            <TableRow key={`${row.part_number}-${row.do_number}`}>
-                                            <TableCell><Label>{row.part_number}</Label></TableCell>
-                                            <TableCell><Label>{row.do_number}</Label></TableCell>
-                                            <TableCell><Label style={{ fontWeight: "bold" }}>{row.count}</Label></TableCell>
-                                            </TableRow>
-                                        ))
-                                        ) : (
-                                        <TableRow>
-                                            <TableCell><Label>No queue summary</Label></TableCell>
-                                            <TableCell />
-                                            <TableCell />
-                                        </TableRow>
-                                        )}
-                                    </Table>
-                                </div>
-                            </FlexBox>
-                        </div>
-                      </Grid>
-
-                      <div style={{ marginTop: "1rem" }}>
-                        {scanInputError ? (
-                            <MessageStrip design="Negative" hideCloseButton>{scanInputError}</MessageStrip>
-                        ) : null}
-                        
-                        <Card header={<CardHeader titleText={`Scanned Items Queue (${scanQueue.length})`} />} style={{ marginTop: "0.5rem" }}>
-                            <div style={{ padding: "1rem" }}>
-                                <div style={{ maxHeight: "300px", overflow: "auto", border: "1px solid var(--sapGroup_ContentBorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
-                                    <Table
-                                        headerRow={
-                                            <TableHeaderRow>
-                                                <TableHeaderCell><Label>#</Label></TableHeaderCell>
-                                                <TableHeaderCell><Label>Part No.</Label></TableHeaderCell>
-                                                <TableHeaderCell><Label>DO No.</Label></TableHeaderCell>
-                                                <TableHeaderCell><Label>2D Data</Label></TableHeaderCell>
-                                                <TableHeaderCell><Label>Action</Label></TableHeaderCell>
-                                            </TableHeaderRow>
-                                        }
-                                    >
-                                        {scanQueue.length ? (
-                                        scanQueue.map((row, idx) => (
-                                            <TableRow key={`${row.part_number}-${row.do_number}-${idx}`}>
-                                            <TableCell><Label>{idx + 1}</Label></TableCell>
-                                            <TableCell><Label>{row.part_number}</Label></TableCell>
-                                            <TableCell><Label>{row.do_number}</Label></TableCell>
-                                            <TableCell><Label>{row.scan_data}</Label></TableCell>
-                                            <TableCell>
-                                                <Button
-                                                design="Transparent"
-                                                icon="delete"
-                                                onClick={() =>
-                                                    setScanQueue((prev) => prev.filter((_, rowIdx) => rowIdx !== idx))
-                                                }
-                                                />
-                                            </TableCell>
-                                            </TableRow>
-                                        ))
-                                        ) : (
-                                        <TableRow>
-                                            <TableCell><Label>No scans queued yet</Label></TableCell>
-                                            <TableCell />
-                                            <TableCell />
-                                            <TableCell />
-                                            <TableCell />
-                                        </TableRow>
-                                        )}
-                                    </Table>
-                                </div>
-                                
-                                <FlexBox style={{ marginTop: "0.5rem", gap: "0.5rem" }}>
-                                    <Button
-                                    design="Transparent"
-                                    onClick={() => {
-                                        setScanQueue((prev) => prev.slice(0, -1));
-                                        requestAnimationFrame(() => scanInputRef.current?.focus());
-                                    }}
-                                    disabled={!scanQueue.length}
-                                    >
-                                    Undo Last
-                                    </Button>
-                                    <Button
-                                    design="Transparent"
-                                    onClick={() => {
-                                        setScanQueue([]);
-                                        setScanInputError(null);
-                                        requestAnimationFrame(() => scanInputRef.current?.focus());
-                                    }}
-                                    disabled={!scanQueue.length}
-                                    >
-                                    Clear Queue
-                                    </Button>
-                                </FlexBox>
-
-                                <Grid defaultSpan="XL8 L8 M12 S12" style={{ marginTop: "1rem", gap: "0.5rem" }}>
-                                    <div style={{ gridColumn: "span 8" }}>
-                                        <Input
-                                            style={{ width: "100%" }}
-                                            value={receiveRemarks}
-                                            onInput={(e) => setReceiveRemarks(e.target.value)}
-                                            placeholder="Receive remarks (optional)"
-                                        />
-                                    </div>
-                                    <div style={{ gridColumn: "span 4" }}>
-                                        <FlexBox style={{ gap: "0.5rem" }} justifyContent={FlexBoxJustifyContent.End}>
-                                            <Button
-                                                design="Transparent"
-                                                icon="print"
-                                                onClick={() => window.print()}
-                                            >
-                                                Print
-                                            </Button>
-                                            <Button
-                                                design="Emphasized"
-                                                onClick={() => {
-                                                    if (!detailsQuery.data?.id) return;
-                                                    if (!scanQueue.length) {
-                                                    setScanInputError("Please scan at least one pack before confirm.");
-                                                    return;
-                                                    }
-                                                    confirmReceiptMutation.mutate({
-                                                    id: detailsQuery.data.id,
-                                                    scans: scanQueue,
-                                                    remarks: receiveRemarks.trim() || undefined,
-                                                    });
-                                                }}
-                                                disabled={
-                                                    confirmReceiptMutation.isPending ||
-                                                    !scanQueue.length
-                                                }
-                                            >
-                                                {confirmReceiptMutation.isPending ? "Confirming..." : `Confirm Receipt (${scanQueue.length})`}
-                                            </Button>
-                                        </FlexBox>
-                                    </div>
-                                </Grid>
-                            </div>
-                        </Card>
-                      </div>
-                    </div>
-                  </Card>
-                ) : null}
-              </FlexBox>
-            ) : (
-              <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ padding: "2rem" }}>
-                <Text>No details loaded.</Text>
-              </FlexBox>
-            )}
-          </FlexBox>
-        ) : showRequestTableLoading ? (
-          <BusyIndicator active />
-        ) : (
-          <div style={{ padding: "1rem" }}>
-            <DataTable data={requestsQuery.data ?? []} columns={columns} />
-          </div>
-        )
-      ) : null}
-      </div>
-      
-      <Dialog 
-        open={confirmSubmitOpen} 
-        headerText="Confirm submit request"
-        onClose={() => setConfirmSubmitOpen(false)}
+    <div>
+      {/* System failure MessageBox (per docs §6: System failure → MessageBox) */}
+      <MessageBox
+        open={Boolean(systemErrorMsg)}
+        type="Error"
+        onClose={() => setSystemErrorMsg(null)}
       >
-        <div style={{ padding: "1rem" }}>
-            Submit this material request now?
+        {systemErrorMsg}
+      </MessageBox>
+
+      <PageLayout
+        title={
+          showCreateForm
+            ? "New Material Request"
+            : showingDetails
+            ? detailsQuery.data?.request_no ?? "Material Request Details"
+            : "Material Requests"
+        }
+        subtitle={
+          <FlexBox alignItems={FlexBoxAlignItems.Center}>
+            <span className="indicator-live" />
+            <Text>
+              {showCreateForm
+                ? "Create a new material request"
+                : showingDetails
+                ? "Material Request Details"
+                : "Internal warehouse transfer and material requisitions"}
+            </Text>
+          </FlexBox>
+        }
+        icon={showCreateForm ? "create-form" : "request"}
+        iconColor="blue"
+        showBackButton={showCreateForm || showingDetails}
+        onBackClick={() => {
+          if (showCreateForm) { setShowCreateForm(false); setFormErrors(undefined); }
+          if (showingDetails) setSelectedId(null);
+        }}
+        headerActions={showingDetails ? detailHeaderActions : undefined}
+      >
+        <div className="page-container motion-safe:animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
+
+          {sectionNotSet && (
+            <MessageStrip design="Critical" hideCloseButton>
+              Your user account has no section assigned. Please contact an administrator.
+            </MessageStrip>
+          )}
+
+          {/* ── CREATE FORM ───────────────────────────────── */}
+          {showCreateForm ? (
+            <>
+              <MaterialRequestForm
+                lines={lines}
+                setLines={(next) => {
+                  setLines(next);
+                  // Clear errors when user edits (per docs: real-time feedback)
+                  if (formErrors) setFormErrors(undefined);
+                }}
+                selectedCostCenterId={selectedCostCenterId}
+                setSelectedCostCenterId={(v) => {
+                  setSelectedCostCenterId(v);
+                  if (formErrors?.cost_center_id) setFormErrors((e) => e ? { ...e, cost_center_id: undefined } : e);
+                }}
+                meta={meta}
+                sectionNotSet={sectionNotSet}
+                catalog={catalogQuery.data ?? []}
+                catalogLoading={catalogQuery.isLoading}
+                requestNo={nextNumbersQuery.data?.request_no}
+                dmiNo={nextNumbersQuery.data?.dmi_no}
+                generatedAt={nextNumbersQuery.data?.generated_at}
+                requestorName={user?.display_name}
+                departmentName={meta?.department?.name ?? user?.department ?? "-"}
+                sectionDisplay={
+                  meta?.section
+                    ? `${meta.section.section_name} (${meta.section.section_code})`
+                    : `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`
+                }
+                formatDate={formatDate}
+                disabled={Boolean(createMutation.isPending)}
+                formErrors={formErrors}
+                onSubmit={handleSubmitClick}
+                submitLabel={createMutation.isPending ? "Submitting…" : "Submit Request"}
+                disableSubmit={Boolean(createMutation.isPending || sectionNotSet)}
+                onCancel={() => { setShowCreateForm(false); setFormErrors(undefined); }}
+              />
+
+              {/* Approval info card (create form) */}
+              {canReadApprovalConfig && (
+                <div
+                  style={{
+                    border: "1px solid var(--sapHighlightColor)",
+                    borderRadius: "0.5rem",
+                    background: "var(--sapHighlightBackground)",
+                    padding: "0.75rem 1rem",
+                  }}
+                >
+                  <Title level="H6" style={{ margin: "0 0 0.4rem", color: "var(--sapHighlightColor)" }}>
+                    Approval Route
+                  </Title>
+                  {approvalFlowSummary ? (
+                    <>
+                      <Text style={{ fontSize: "0.85rem" }}>{approvalFlowSummary}</Text>
+                      {workflowMailRecipients.length > 0 && (
+                        <Text style={{ fontSize: "0.8rem", color: "var(--sapContent_LabelColor)", display: "block", marginTop: "0.3rem" }}>
+                          Mail alert to: {workflowMailRecipients.join(", ")}
+                        </Text>
+                      )}
+                    </>
+                  ) : approvalsQuery.isLoading ? (
+                    <Text style={{ fontSize: "0.85rem", color: "var(--sapContent_LabelColor)" }}>Loading approval route…</Text>
+                  ) : (
+                    <Text style={{ fontSize: "0.85rem", color: "var(--sapContent_LabelColor)" }}>
+                      System will route by configured approval rules.
+                    </Text>
+                  )}
+                </div>
+              )}
+            </>
+          ) : showingDetails ? (
+            /* ── DETAIL / VOUCHER VIEW ─────────────────────── */
+            detail ? (
+              <>
+                <MaterialRequestVoucherView detail={detail} hideTopBarActions hideIssueTotalsBeforeIssued />
+                {canScanReceive && (
+                  <div
+                    style={{
+                      border: "1px solid var(--sapGroup_ContentBorderColor)",
+                      borderRadius: "0.5rem",
+                      background: "var(--sapGroup_ContentBackground)",
+                      padding: "0.75rem 1rem",
+                    }}
+                  >
+                    <Title level="H6" style={{ margin: "0 0 0.75rem" }}>
+                      Receive & Scan 2D
+                    </Title>
+                    <Text style={{ display: "block", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)", marginBottom: "0.5rem" }}>
+                      Scanner mode: choose Part + DO, then keep scanning continuously.
+                    </Text>
+                    {feedback.type !== "idle" && (
+                      <MessageStrip design={feedback.type === "success" ? "Positive" : "Negative"} hideCloseButton style={{ marginBottom: "0.6rem" }}>
+                        {feedback.message}
+                      </MessageStrip>
+                    )}
+                    <FlexBox style={{ gap: "0.75rem", flexWrap: "wrap" }}>
+                      <div style={{ minWidth: "14rem" }}>
+                        <Label>Part Number</Label>
+                        <Select value={selectedPart} onChange={(e) => { setSelectedPart(e.target.value); setSelectedDo(""); }} style={{ width: "100%" }}>
+                          <Option value="">Select part number</Option>
+                          {partOptions.map((part) => (
+                            <Option key={`part-${part}`} value={part}>{part}</Option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div style={{ minWidth: "12rem" }}>
+                        <Label>DO Number</Label>
+                        <Select value={selectedDo} onChange={(e) => setSelectedDo(e.target.value)} style={{ width: "100%" }}>
+                          <Option value="">Select DO number</Option>
+                          {doOptionsForPart.map((row) => (
+                            <Option key={`do-${selectedPart}-${row}`} value={row}>{row}</Option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div style={{ minWidth: "18rem", flex: 1 }}>
+                        <Label>{manualMode ? "Manual fallback note" : "2D Barcode Data"}</Label>
+                        {manualMode ? (
+                          <TextArea value={manualReason} onInput={(e) => setManualReason(e.target.value)} rows={2} />
+                        ) : (
+                          <div onClick={() => scanInputRef.current?.focus()}>
+                            <ScanInput
+                              ref={scanInputRef}
+                              value={scanData}
+                              onChange={setScanData}
+                              onSubmit={addStagedScan}
+                              placeholder="Scan 2D barcode and press Enter"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </FlexBox>
+                    <FlexBox style={{ gap: "0.5rem", marginTop: "0.6rem" }}>
+                      <Button design={manualMode ? "Emphasized" : "Transparent"} onClick={() => setManualMode((v) => !v)}>
+                        {manualMode ? "Manual Fallback ON" : "Use Manual Fallback"}
+                      </Button>
+                      <Button design="Emphasized" onClick={addStagedScan}>
+                        Add Scan Row
+                      </Button>
+                      <Button
+                        design="Positive"
+                        disabled={!coverage.ready || confirmReceiptMutation.isPending || stagedScans.length === 0}
+                        onClick={() => setConfirmReceiptReviewOpen(true)}
+                      >
+                        Review & Confirm ACK
+                      </Button>
+                      <Button
+                        design="Transparent"
+                        disabled={stagedScans.length === 0 || confirmReceiptMutation.isPending}
+                        onClick={clearStagedScans}
+                      >
+                        Clear All
+                      </Button>
+                    </FlexBox>
+                    <Text style={{ display: "block", marginTop: "0.4rem", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)" }}>
+                      Coverage (packs): {coverage.scannedCount}/{coverage.requiredCount}{" "}
+                      {coverage.missing.length ? `| Remaining ${coverage.missing.length}` : "| Ready"}
+                    </Text>
+                    {stagedScans.length > 0 && (
+                      <div style={{ marginTop: "0.5rem", maxHeight: "11rem", overflowY: "auto", borderTop: "1px solid var(--sapList_BorderColor)", paddingTop: "0.4rem" }}>
+                        {stagedScans.map((row, idx) => (
+                          <div key={row.id} style={{ fontSize: "0.82rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>
+                              {idx + 1}. {row.part_number} / {row.do_number} [{row.source}]
+                              {row.reason ? ` - ${row.reason}` : ""}
+                            </span>
+                            <Button design="Transparent" icon="decline" onClick={() => removeStagedScan(row.id)} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {detail?.status === "ISSUED" && Boolean(detail?.production_ack_at) && (
+                  <MessageStrip design="Positive" hideCloseButton>
+                    Production receipt already acknowledged.
+                  </MessageStrip>
+                )}
+
+                {/* Workflow Timeline */}
+                <div
+                  style={{
+                    border: "1px solid var(--sapGroup_ContentBorderColor)",
+                    borderRadius: "0.5rem",
+                    background: "var(--sapGroup_ContentBackground)",
+                    padding: "0.75rem 1rem",
+                  }}
+                >
+                  <Title level="H6" style={{ margin: "0 0 0.85rem" }}>
+                    Request Workflow
+                  </Title>
+
+                  {/* Step indicator */}
+                  <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", paddingBottom: "0.5rem" }}>
+                    {WORKFLOW_STEPS.map((step, idx) => {
+                      const done = workflowStepsDone[idx];
+                      const active = idx === firstIncompleteIdx;
+                      const rejected = (detail.status === "REJECTED" || detail.status === "CANCELLED") && idx > 0 && !done;
+                      const circleColor = done
+                        ? "var(--sapPositiveColor)"
+                        : active
+                        ? "var(--sapHighlightColor)"
+                        : rejected
+                        ? "var(--sapNeutralColor)"
+                        : "var(--sapNeutralBorderColor)";
+                      const textColor = done
+                        ? "var(--sapPositiveColor)"
+                        : active
+                        ? "var(--sapHighlightColor)"
+                        : "var(--sapContent_LabelColor)";
+                      return (
+                        <div key={step.key} style={{ display: "flex", alignItems: "flex-start", flex: idx < WORKFLOW_STEPS.length - 1 ? "1 1 auto" : "0 0 auto" }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "80px" }}>
+                            <div
+                              style={{
+                                width: "2rem",
+                                height: "2rem",
+                                borderRadius: "50%",
+                                background: circleColor,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "white",
+                                fontWeight: "bold",
+                                fontSize: "0.85rem",
+                                border: active ? "2px solid var(--sapHighlightColor)" : "none",
+                                boxSizing: "border-box",
+                              }}
+                            >
+                              {done ? "✓" : idx + 1}
+                            </div>
+                            <Text style={{ fontSize: "0.72rem", color: textColor, textAlign: "center", marginTop: "0.3rem", fontWeight: active ? "bold" : "normal" }}>
+                              {step.label}
+                            </Text>
+                            <Text style={{ fontSize: "0.65rem", color: "var(--sapContent_LabelColor)", textAlign: "center" }}>
+                              {step.sub}
+                            </Text>
+                            {active && (
+                              <ObjectStatus state="Critical" style={{ marginTop: "0.2rem", fontSize: "0.65rem" }}>
+                                Pending
+                              </ObjectStatus>
+                            )}
+                          </div>
+                          {idx < WORKFLOW_STEPS.length - 1 && (
+                            <div
+                              style={{
+                                flex: 1,
+                                height: "2px",
+                                background: done ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)",
+                                margin: "1rem 0 0",
+                                minWidth: "1rem",
+                              }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pending approver info */}
+                  {!isTerminalStatus && (
+                    <div
+                      style={{
+                        marginTop: "0.75rem",
+                        padding: "0.5rem 0.75rem",
+                        background: "var(--sapCriticalBackground)",
+                        borderRadius: "0.25rem",
+                        borderLeft: "3px solid var(--sapCriticalColor)",
+                      }}
+                    >
+                      <Text style={{ fontSize: "0.82rem" }}>
+                        <strong>Waiting for:</strong> {pendingApprovalText}
+                      </Text>
+                    </div>
+                  )}
+
+                  {/* Admin-only: full approval config table */}
+                  {canReadApprovalConfig && allApprovalRows.length > 0 && (
+                    <details style={{ marginTop: "0.85rem" }}>
+                      <summary style={{ cursor: "pointer", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)" }}>
+                        Approval Configuration ({allApprovalRows.length} step{allApprovalRows.length > 1 ? "s" : ""})
+                      </summary>
+                      <div style={{ marginTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                        {allApprovalRows.map((row) => {
+                          const stepState = getApprovalStepState(row);
+                          const processors = (row.approver_users ?? [])
+                            .map((u) => formatApproverWithEmail(u))
+                            .filter(Boolean)
+                            .join(", ");
+                          return (
+                            <div
+                              key={row.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "auto 1fr auto",
+                                gap: "0.5rem",
+                                alignItems: "center",
+                                padding: "0.4rem 0.6rem",
+                                background: "var(--sapBaseColor)",
+                                borderRadius: "0.25rem",
+                                border: "1px solid var(--sapList_BorderColor)",
+                              }}
+                            >
+                              <Label style={{ fontWeight: "bold" }}>L{row.level}</Label>
+                              <div>
+                                <Text style={{ fontSize: "0.82rem" }}>{row.flow_name}</Text>
+                                <Text style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)", display: "block" }}>
+                                  {processors || row.approver_role_name || "-"}
+                                </Text>
+                              </div>
+                              <ObjectStatus state={stepState.state}>{stepState.text}</ObjectStatus>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  )}
+
+                  {/* Fallback for non-admin when no config data */}
+                  {!canReadApprovalConfig && fallbackApproverRows.length > 0 && (
+                    <div style={{ marginTop: "0.5rem" }}>
+                      {fallbackApproverRows.map((row, idx) => (
+                        <div key={idx} style={{ fontSize: "0.82rem", color: "var(--sapContent_LabelColor)" }}>
+                          {row.display}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null
+          ) : (
+            /* ── LIST VIEW ────────────────────────────────── */
+            <MaterialRequestListTable
+              data={requestsQuery.data ?? []}
+              loading={requestsQuery.isLoading}
+              onView={(id) => setSelectedId(id)}
+              onCreate={() => {
+                setLines([blankLine(1)]);
+                setSelectedCostCenterId(meta?.default_cost_center_id ?? "");
+                setFormErrors(undefined);
+                setSystemErrorMsg(null);
+                setShowCreateForm(true);
+              }}
+              formatDateTime={formatDateTime as any}
+            />
+          )}
         </div>
-        <div slot="footer" style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", padding: "0.5rem" }}>
-            <Button design="Transparent" onClick={() => setConfirmSubmitOpen(false)}>Cancel</Button>
-            <Button design="Emphasized" onClick={() => {
-                setConfirmSubmitOpen(false);
-                createMutation.mutate();
-            }}>
-                Submit
-            </Button>
-        </div>
-      </Dialog>
-    </Page>
+
+        {/* ── CONFIRM SUBMIT DIALOG ─────────────────────────── */}
+        <ConfirmDialog
+          open={confirmSubmitOpen}
+          title="Confirm Submit Request"
+          description={`Submit material request ${nextNumbersQuery.data?.request_no ?? ""}?`}
+          confirmText="Submit"
+          submitting={createMutation.isPending}
+          onCancel={() => setConfirmSubmitOpen(false)}
+          onConfirm={() => {
+            setConfirmSubmitOpen(false);
+            createMutation.mutate();
+          }}
+        >
+          {previewLines.length > 0 && (
+            <div style={{ marginTop: "0.75rem", borderTop: "1px solid var(--sapList_BorderColor)", paddingTop: "0.75rem" }}>
+              <Label style={{ display: "block", marginBottom: "0.4rem", fontWeight: "bold" }}>Items to be requested:</Label>
+              {previewLines.map((line, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "0.3rem 0",
+                    borderBottom: "1px solid var(--sapList_BorderColor)",
+                  }}
+                >
+                  <Text style={{ fontSize: "0.85rem" }}>
+                    {`${idx + 1}. ${line.part_number}${line.description ? ` — ${line.description}` : ""}`}
+                  </Text>
+                  <Text style={{ fontWeight: "bold", marginLeft: "1rem", fontSize: "0.85rem", flexShrink: 0 }}>
+                    {`${line.requested_qty ?? "?"} ${line.uom}`}
+                  </Text>
+                </div>
+              ))}
+              {approvalFlowSummary && (
+                <Text style={{ display: "block", marginTop: "0.6rem", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)" }}>
+                  Approval route: {approvalFlowSummary}
+                </Text>
+              )}
+            </div>
+          )}
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={confirmWithdrawOpen}
+          title="Confirm Withdraw"
+          description={`Withdraw request ${detail?.request_no ?? ""}? This action cannot be undone.`}
+          confirmText="Withdraw"
+          submitting={withdrawMutation.isPending}
+          onCancel={() => {
+            setConfirmWithdrawOpen(false);
+            setWithdrawReason("");
+          }}
+          onConfirm={() => {
+            if (!selectedId) return;
+            withdrawMutation.mutate(selectedId);
+          }}
+        >
+          <div style={{ marginTop: "0.75rem" }}>
+            <Label style={{ display: "block", marginBottom: "0.4rem" }}>Reason (optional)</Label>
+            <Input
+              value={withdrawReason}
+              onInput={(e) => setWithdrawReason(e.target.value)}
+              placeholder="Optional note for workflow/audit"
+              disabled={withdrawMutation.isPending}
+            />
+          </div>
+        </ConfirmDialog>
+
+        <ConfirmDialog
+          open={confirmReceiptReviewOpen}
+          title="Review & Confirm Production ACK"
+          description={`Confirm ${stagedScans.length} scan row(s) for receipt acknowledgement?`}
+          confirmText="Confirm ACK"
+          submitting={confirmReceiptMutation.isPending}
+          onCancel={() => setConfirmReceiptReviewOpen(false)}
+          onConfirm={() => {
+            if (!selectedId) return;
+            confirmReceiptMutation.mutate({
+              id: selectedId,
+              scans: buildPayloadScans(),
+              remarks: buildManualRemarks(),
+            });
+          }}
+        />
+      </PageLayout>
+    </div>
   );
 }

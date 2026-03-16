@@ -162,6 +162,23 @@ ui5-dynamic-page-header,
 
 ui5-dynamic-page-title::part(root) {
   padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  flex-wrap: nowrap !important;
+}
+
+/* Heading takes space so actionsBar stays on the right; title visible when collapsed */
+ui5-dynamic-page-title::part(root) > *:first-child {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* Request Items panel: white content background (override UI5 Table list grey) */
+.request-items-panel,
+.request-items-panel ui5-table,
+.request-items-panel ui5-table::part(table) {
+  background: var(--sapBaseColor) !important;
 }
 
 body {
@@ -197,20 +214,7 @@ body {
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15) !important;
 }
 
-/* ShellBar Override for tighter left alignment */
-ui5-shellbar {
-  padding-left: 0 !important;
-  --_ui5_shellbar_header_height: 3rem; /* Optional: Adjust height if needed */
-}
-
-ui5-shellbar::part(root) {
-  padding-left: 0.25rem !important; /* Minimal padding */
-}
-
-/* Target the logo area specifically if possible */
-ui5-shellbar::part(logo) {
-  margin-right: 0.5rem !important;
-}
+/* Removed aggressive ShellBar overrides that caused visual glitches */
 
 /* Micro-interactions */
 .hover-scale {
@@ -556,5 +560,35 @@ ui5-tabcontainer.process-tabs::part(content) {
 @media print {
   .no-print {
     display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 10mm;
+  }
+
+  .material-voucher {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  .material-voucher .voucher-items-wrapper {
+    overflow: visible !important;
+  }
+
+  .material-voucher .voucher-items-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  .material-voucher .voucher-item-row {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .material-voucher ui5-table-header-row {
+    display: table-header-group !important;
   }
 }

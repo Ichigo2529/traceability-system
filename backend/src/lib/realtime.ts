@@ -78,16 +78,42 @@ export function publishRealtime(channel: string, event: string, payload: Record<
 
 export const REALTIME_CHANNELS = {
   MATERIAL_REQUESTS: "material_requests",
+  HANDOVER_BATCHES: "handover_batches",
 } as const;
 
 export function publishMaterialRequestUpdate(payload: {
-  event_type: "CREATED" | "APPROVED" | "REJECTED" | "ISSUED" | "RECEIPT_CONFIRMED";
+  event_type:
+    | "CREATED"
+    | "APPROVED"
+    | "REJECTED"
+    | "ISSUED"
+    | "WITHDRAWN"
+    | "RECEIPT_CONFIRMED"
+    | "DISPATCHED_TO_FORKLIFT"
+    | "FORKLIFT_ACKNOWLEDGED";
   id: string;
   status: string;
   request_no?: string | null;
   dmi_no?: string | null;
 }) {
   return publishRealtime(REALTIME_CHANNELS.MATERIAL_REQUESTS, "material-request-updated", {
+    ...payload,
+    ts: new Date().toISOString(),
+  });
+}
+
+export function publishHandoverBatchUpdate(payload: {
+  event_type:
+    | "BATCH_CREATED"
+    | "BATCH_PICKED_UP"
+    | "SCAN_SUBMITTED"
+    | "SESSION_FINALIZED"
+    | "BATCH_RECEIVED";
+  id: string;
+  status: string;
+  batchNo?: string | null;
+}) {
+  return publishRealtime(REALTIME_CHANNELS.HANDOVER_BATCHES, "handover-batch-updated", {
     ...payload,
     ts: new Date().toISOString(),
   });

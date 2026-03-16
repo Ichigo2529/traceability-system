@@ -27,11 +27,14 @@ const BarcodeTemplatesPage = lazy(() =>
 );
 const InboundPacksPage = lazy(() => import("../pages/admin/InboundPacksPage").then((m) => ({ default: m.InboundPacksPage })));
 const InventoryDoPage = lazy(() => import("../pages/admin/InventoryDoPage").then((m) => ({ default: m.InventoryDoPage })));
+const ForkliftIntakePage = lazy(() => import("../pages/admin/ForkliftIntakePage").then((m) => ({ default: m.ForkliftIntakePage })));
+const ScanSessionPage = lazy(() => import("../pages/admin/ScanSessionPage").then((m) => ({ default: m.ScanSessionPage })));
 const VendorPackDetailPage = lazy(() => import("../pages/admin/VendorPackDetailPage").then((m) => ({ default: m.VendorPackDetailPage })));
 const MaterialRequestsPage = lazy(() => import("../pages/admin/MaterialRequestsPage"));
 const MaterialRequestCreatePage = lazy(() => import("../pages/admin/MaterialRequestCreatePage").then((m) => ({ default: m.MaterialRequestCreatePage })));
 const MaterialRequestDetailsPage = lazy(() => import("../pages/admin/MaterialRequestDetailsPage").then((m) => ({ default: m.MaterialRequestDetailsPage })));
 const SetRecoveryPage = lazy(() => import("../pages/admin/SetRecoveryPage").then((m) => ({ default: m.SetRecoveryPage })));
+const EmailSettingsPage = lazy(() => import("../pages/admin/EmailSettingsPage"));
 
 const Ui5SmokeTest = lazy(() => import("../pages/Ui5SmokeTest"));
 const MachinesPage = lazy(() => import("../pages/MachinesPage"));
@@ -89,6 +92,7 @@ export function AppRoutes() {
           <Route path="stations" element={<StationsPage />} />
           <Route path="devices" element={<DevicesPage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="email-settings" element={<EmailSettingsPage />} />
           <Route path="suppliers" element={<SuppliersPage />} />
           <Route path="departments" element={<DepartmentsPage />} />
           <Route path="cost-centers" element={<CostCentersPage />} />
@@ -98,6 +102,8 @@ export function AppRoutes() {
           <Route path="inventory-do" element={<InventoryDoPage />} />
           <Route path="vendor-pack-detail" element={<VendorPackDetailPage />} />
           <Route path="inbound-packs" element={<InboundPacksPage />} />
+          <Route path="forklift-intake" element={<ForkliftIntakePage />} />
+          <Route path="scan-session/:id" element={<ScanSessionPage />} />
           <Route path="material-requests" element={<MaterialRequestsPage />} />
           <Route path="material-requests/new" element={<MaterialRequestCreatePage />} />
           <Route path="material-requests/:id" element={<MaterialRequestDetailsPage />} />

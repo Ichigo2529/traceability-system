@@ -1,0 +1,241 @@
+# Material Request Flow — Final Recommendation
+
+> วิเคราะห์ภาพรวมและเลือกแนวทางที่ดีที่สุด เน้น: error น้อยที่สุด, user friendly, ไม่ต่อต้าน
+
+---
+
+## 1. Recommended Flow — ภาพรวมที่แนะนำ
+
+```mermaid
+flowchart TD
+    A["① Production\nสร้าง Material Request\n(เลือก Model + Part)"] 
+    -->|"REQUESTED + email alert"| B["② Store\nตรวจ Stock + จัดสรร DO"]
+    B -->|"Approve + Issue"| C["③ Store\nPrint Voucher มี QR\n+ วางของที่ Staging Zone"]
+    C --> D["④ Forklift\nScan QR จากกระดาษ ที่ Kiosk\n✅ 1-tap confirm"]
+    D -->|"IN_TRANSIT"| E["⑤ Forklift ขับไปส่ง\n(ไม่ต้องดูจอ)"]
+    E --> F["⑥ Production\nScan 2D Barcode ทุก pack\n+ แก้ qty ได้ + ใส่ remarks"]
+    F -->|"RECEIVED"| G["⑦ ระบบบันทึก\nFull Traceability"]
+
+    style A fill:#4FC3F7,color:#000
+    style B fill:#FFA726,color:#000
+    style C fill:#FFA726,color:#000
+    style D fill:#66BB6A,color:#000
+    style F fill:#4FC3F7,color:#000
+    style G fill:#E8F5E9,color:#000
+```
+
+---
+
+## 2. แต่ละจุด — Recommended Approach
+
+### ① Production: สร้าง Material Request
+
+| | รายละเอียด |
+|--|--|
+| **ระบบปัจจุบัน** | ✅ ใช้งานได้ดี — เลือก Model → เลือก Part จาก BOM → ระบุจำนวน |
+| **ปรับปรุง** | ไม่ต้อง — flow ชัดเจน |
+| **Error prevention** | BOM catalog กรองให้อัตโนมัติ, qty validation |
+
+### ② Store: ตรวจ Stock + Approve + Issue
+
+| | รายละเอียด |
+|--|--|
+| **ระบบปัจจุบัน** | ✅ ใช้งานได้ดี — เห็น DO + available qty, เลือกจัดสรร |
+| **ปรับปรุง** | ไม่ต้อง — flow ชัดเจน |
+| **Error prevention** | `UNDER_ISSUE` validation, stock check อัตโนมัติ |
+
+### ③ Store: Print Voucher — **ปรับปรุง**
+
+| | รายละเอียด |
+|--|--|
+| **ปัจจุบัน** | มี `MaterialRequestVoucherView` — print ได้ |
+| **ปรับปรุง** | 🔧 **เพิ่ม QR Code ของ Batch No. ลงในใบ** |
+| **เหตุผล** | ให้ Forklift scan ที่ kiosk → จับคู่ถูกต้อง 100% |
+
+```
+┌─────────────────────────────────────┐
+│  MATERIAL REQUEST VOUCHER           │
+│  Request No: MR-20260304-001        │
+│  Date: 2026-03-04                   │
+│                                     │
+│  ┌──────┐                           │
+│  │ QR   │  Batch: HB-20260304-0001  │  ← เพิ่มตรงนี้
+│  │ CODE │                           │
+│  └──────┘                           │
+│                                     │
+│  Items:                             │
+│  1. PIN-430     × 5 packs           │
+│  2. PLATE-A     × 3 packs           │
+│  Deliver to: Line A, Section B      │
+└─────────────────────────────────────┘
+```
+
+### ④ Forklift Kiosk: Scan QR → Confirm Pickup — **ใหม่**
+
+> [!IMPORTANT]
+> **Forklift ไม่ต้องเลือกจากรายการ** — Scan QR จากกระดาษ → ระบบจับคู่ให้ → กด confirm
+
+```mermaid
+sequenceDiagram
+    participant F as Forklift
+    participant K as Kiosk (Pi5)
+    participant API as Backend
+
+    F->>K: Scan QR จากกระดาษ
+    K->>API: Lookup batch by QR
+    API-->>K: Batch details + items
+    K->>K: แสดงรายละเอียด batch
+    F->>K: กด [✅ ยืนยันรับงาน]
+    K->>API: POST /handover-batches/:id/pickup
+    API-->>K: status: IN_TRANSIT
+    K->>K: แสดง ✅ "รับงานแล้ว — ขับไปส่ง Line A"
+```
+
+**ทำไมถึง error น้อยที่สุด?**
+- ❌ ~~เลือกจากรายการ~~ → อาจกดผิด
+- ✅ **Scan QR จากกระดาษ** → match 100% ไม่มีทางเลือกผิด
+- QR encode = Batch No. → unique, ไม่ซ้ำกัน
+- กดปุ่มเดียว confirm → ใช้เวลา ~3 วินาที
+
+**Kiosk Hardware:**
+
+| อุปกรณ์ | ราคาโดยประมาณ |
+|---------|---------------|
+| Pi5 (4GB) | ₿2,000-2,500 |
+| จอ Touch 7" | ₿1,000-1,500 |
+| USB Barcode Scanner | ₿800-1,500 |
+| เคส + ขาตั้ง | ₿500-1,000 |
+| **รวม** | **₿4,300-6,500** |
+
+**ตำแหน่งติดตั้ง:** ข้างๆ Staging Zone ที่ store วางของ — จุดที่ forklift หยุดรอรับอยู่แล้ว
+
+### ⑤ Forklift ขับไปส่ง
+
+- **ไม่ต้องทำอะไรในระบบ** — ขับตามปกติ
+- มีใบกระดาษบอกว่าส่งที่ไหน
+
+### ⑥ Production: Scan 2D Barcode รับงาน — **จุดสำคัญ**
+
+| | รายละเอียด |
+|--|--|
+| **ระบบ** | Scan 2D barcode ทุก pack ที่ได้รับ |
+| **Parser Key** | ต้องตรงกับ vendor ที่ผูกไว้ใน `supplier_part_profiles` |
+| **Qty อัตโนมัติ** | จาก barcode (Q segment) หรือ `default_pack_qty` |
+| **แก้จำนวนได้** | ✅ เพราะบาง pack ถูกแกะไปทดสอบ lab |
+| **Remarks** | ✅ ใส่หมายเหตุได้ เช่น "แกะ 5 ชิ้นไป lab" |
+| **Manual Mode** | ✅ ถ้า label เสียหาย → ใส่ reason แทน |
+
+**Validation ที่เกิดขึ้นอัตโนมัติ:**
+
+```mermaid
+flowchart TD
+    A["Scan 2D Barcode"] --> B{"Parse ได้ไหม?"}
+    B -->|"ไม่ได้"| C["❌ PARSE_ERROR\nparser_key อาจไม่ตรง"]
+    B -->|"ได้"| D{"Part ตรงกับ issue?"}
+    D -->|"ไม่ตรง"| E["❌ NOT_FOUND\nforklift หยิบผิด"]
+    D -->|"ตรง"| F{"ซ้ำไหม?"}
+    F -->|"ซ้ำ"| G["⚠️ DUPLICATE\nข้าม pack นี้"]
+    F -->|"ไม่ซ้ำ"| H{"หมดอายุ?"}
+    H -->|"หมดอายุ"| I["❌ EXPIRED"]
+    H -->|"ไม่หมดอายุ"| J["✅ MATCHED\nบันทึกสำเร็จ"]
+
+    style C fill:#FFCDD2,color:#000
+    style E fill:#FFCDD2,color:#000
+    style G fill:#FFF9C4,color:#000
+    style I fill:#FFCDD2,color:#000
+    style J fill:#C8E6C9,color:#000
+```
+
+---
+
+## 3. DO Traceability — ติดตาม Store จ่าย ↔ Production รับ
+
+### สิ่งที่ต้องเพิ่ม
+
+```mermaid
+flowchart LR
+    A["DO No. X"] --> B["Store Issue\nจ่ายกี่ pack / ให้ request ไหน"]
+    B --> C["Production Scan\nรับเข้าจริงกี่ pack / scan เมื่อไร"]
+    C --> D["รายงาน\n✅ ตรงกัน / ⚠️ ไม่ครบ"]
+    
+    style D fill:#E3F2FD,color:#000
+```
+
+| สิ่งที่ต้องทำ | รายละเอียด |
+|-------------|-----------|
+| **Backend** | `GET /inventory/do/:id/history` — join ข้อมูล issue + scan สำหรับ DO นั้น |
+| **Frontend** | หน้า DO Detail + tab "Issue History" + tab "Scan History" |
+| **ข้อมูลในระบบ** | ✅ มีครบแล้ว — แค่ยังไม่มี API/UI ที่รวมให้ดู |
+
+---
+
+## 4. Error Prevention — ป้องกัน Error ทุกจุด
+
+| จุด | Error ที่อาจเกิด | วิธีป้องกัน | ใครแก้ |
+|-----|-----------------|------------|--------|
+| Store | จัดสรร DO ผิด / qty ไม่พอ | `UNDER_ISSUE` validation + stock check auto | ระบบ |
+| Voucher | ไม่มี QR → forklift เลือกผิด | **เพิ่ม QR ใน voucher** | ✅ แนะนำ |
+| Forklift Kiosk | กดผิดรายการ | **Scan QR จากกระดาษ** → match 100% | ✅ แนะนำ |
+| Forklift ลืมกด | ไม่มี pickup timestamp | Fallback: Store/Supervisor กดแทนได้ | Store |
+| Forklift ตักผิด part | Production scan → `NOT_FOUND` | Barcode validation จับทันที | Production |
+| Production parser_key ผิด | `PARSE_ERROR` | Admin แก้ supplier_part_profiles | Admin |
+| Production scan ซ้ำ | `DUPLICATE` | ระบบป้องกันอัตโนมัติ | ระบบ |
+| Pack ไม่ครบ (ไป lab) | Qty ไม่ตรง barcode | **แก้จำนวนได้ + ใส่ remarks** | Production |
+| Label เสียหาย | Scan ไม่ได้ | **Manual Mode + ระบุ reason** | Production |
+
+---
+
+## 5. User Adoption — ทำให้ User อยากใช้
+
+### หลักการออกแบบ
+
+```mermaid
+mindmap
+  root["User-Friendly\nDesign"]
+    ง่าย
+      กดน้อยที่สุด
+      ไม่ต้อง login ที่ kiosk
+      auto-fill ให้มากที่สุด
+    เร็ว
+      Kiosk gd ~3 วินาที
+      Scan barcode ~2 วินาที/pack
+      ไม่มี loading screen ยาว
+    เข้าใจ
+      สี + icon ชัดเจน
+      ข้อ error บอกภาษาคน
+      แสดง progress ชัด
+    ให้ประโยชน์
+      Forklift เห็นรายการบนจอ ลดตักผิด
+      Production เห็น qty auto ลดพิมพ์
+      Store เห็น DO history ครบ
+```
+
+### แผนนำเข้าใช้งาน (Rollout)
+
+| Phase | ระยะเวลา | สิ่งที่ทำ |
+|-------|---------|---------|
+| **Phase 0** | สัปดาห์ที่ 1 | เพิ่ม QR ใน Voucher + ติดตั้ง Kiosk 1 จุด |
+| **Phase 1** | สัปดาห์ที่ 2-3 | Pilot กับ forklift 1-2 คน + Production 1 line |
+| **Phase 2** | สัปดาห์ที่ 4 | รวบรวม feedback → ปรับ UX |
+| **Phase 3** | สัปดาห์ที่ 5+ | ขยายทุก line + เพิ่ม DO History report |
+
+### สิ่งที่ต้องหลีกเลี่ยง
+
+> [!CAUTION]
+> - ❌ อย่าบังคับ forklift scan barcode ทุก pack ที่ kiosk — **ต่อต้านทันที**
+> - ❌ อย่าใส่ขั้นตอนที่ต้อง login/พิมพ์ password ที่ kiosk — **ช้า + ยุ่งยาก**
+> - ❌ อย่า block งานถ้า forklift ลืมกด — **ให้มี fallback เสมอ**
+> - ❌ อย่า deploy ทีเดียวทุก line — **pilot ก่อน**
+
+---
+
+## 6. สรุป สิ่งที่ต้องทำ (Scope of Work)
+
+| # | งาน | Priority | Effort |
+|---|-----|----------|--------|
+| 1 | เพิ่ม QR (Batch No.) ใน `MaterialRequestVoucherView` | 🔴 High | เล็ก |
+| 2 | ปรับ Forklift Kiosk UI — scan QR → confirm 1 tap | 🔴 High | กลาง |
+| 3 | Backend: `GET /inventory/do/:id/history` | 🟡 Medium | กลาง |
+| 4 | Frontend: DO Detail + Issue/Scan History tabs | 🟡 Medium | กลาง |
+| 5 | ปรับ [ForkliftIntakePage](file:///d:/Project/Traceability-system-ui5/web/apps/admin/src/pages/admin/ForkliftIntakePage.tsx#39-190) ให้เป็น Kiosk mode | 🟢 Low | เล็ก |
+| 6 | RFID card auth สำหรับ Kiosk (Phase 2) | 🟢 Low | กลาง |

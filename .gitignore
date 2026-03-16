@@ -46,3 +46,6 @@ backups
 node_modules/
 */node_modules/
 **/node_modules/
+
+# Bun cache
+.bun-cache/

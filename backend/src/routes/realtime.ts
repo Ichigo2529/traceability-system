@@ -56,4 +56,52 @@ export const realtimeRoutes = new Elysia({ prefix: "/realtime" }).get(
       access_token: t.Optional(t.String()),
     }),
   }
+).get(
+  "/handover-batches",
+  async ({
+    query,
+    request,
+    set,
+  }: {
+    query: { access_token?: string };
+    request: Request;
+    set: any;
+  }) => {
+    const authHeader = request.headers.get("authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    const accessToken = query.access_token || bearerToken;
+
+    if (!accessToken) {
+      set.status = 401;
+      return fail("UNAUTHORIZED", "Authentication required");
+    }
+
+    let user: AccessTokenPayload | null = null;
+    try {
+      user = await verifyAccessToken(accessToken);
+    } catch {
+      set.status = 401;
+      return fail("UNAUTHORIZED", "Authentication required");
+    }
+
+    if (!hasAnyRole(user, ["FORKLIFT", "STORE", "SUPERVISOR", "ADMIN"])) {
+      set.status = 403;
+      return fail("FORBIDDEN", "No permission for handover realtime stream");
+    }
+
+    const { stream } = createSseStream(REALTIME_CHANNELS.HANDOVER_BATCHES);
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  },
+  {
+    query: t.Object({
+      access_token: t.Optional(t.String()),
+    }),
+  }
 );

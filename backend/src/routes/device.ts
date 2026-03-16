@@ -1,17 +1,14 @@
 import Elysia, { t } from "elysia";
 import { eq, and, isNull } from "drizzle-orm";
 import { db } from "../db/connection";
+import { ok, fail } from "../lib/http";
 import { devices, machines, deviceOperatorSessions } from "../db/schema/devices";
 import { users } from "../db/schema/auth";
 import { stations, processes } from "../db/schema/organization";
 import { signDeviceToken } from "../lib/jwt";
 import { verifyPassword } from "../lib/password";
 import { computeShiftDay } from "../lib/shift-day";
-import {
-  deviceDerive,
-  checkDevice,
-  checkDeviceAssigned,
-} from "../middleware/device";
+import { deviceDerive, checkDevice, checkDeviceAssigned } from "../middleware/device";
 
 // ─── Device Routes ──────────────────────────────────────
 
@@ -20,25 +17,21 @@ export const deviceRoutes = new Elysia({ prefix: "/device" })
   .post(
     "/activate",
     async ({ body, set }) => {
-      const [device] = await db
-        .select()
-        .from(devices)
-        .where(eq(devices.deviceCode, body.device_code))
-        .limit(1);
+      const [device] = await db.select().from(devices).where(eq(devices.deviceCode, body.device_code)).limit(1);
 
       if (!device) {
         set.status = 404;
-        return { success: false, error_code: "DEVICE_NOT_FOUND", message: "Device code not found" };
+        return fail("DEVICE_NOT_FOUND", "Device code not found");
       }
 
       if (device.deviceStatus === "disabled" || !device.isActive) {
         set.status = 403;
-        return { success: false, error_code: "DEVICE_DISABLED", message: "Device is disabled" };
+        return fail("DEVICE_DISABLED", "Device is disabled");
       }
 
       if (!device.activationPin || device.activationPin !== body.activation_pin) {
         set.status = 401;
-        return { success: false, error_code: "INVALID_ACTIVATION_PIN", message: "Activation PIN is invalid" };
+        return fail("INVALID_ACTIVATION_PIN", "Activation PIN is invalid");
       }
 
       await db
@@ -51,16 +44,13 @@ export const deviceRoutes = new Elysia({ prefix: "/device" })
         .where(eq(devices.id, device.id));
 
       const deviceToken = await signDeviceToken({ deviceId: device.id });
-      return {
-        success: true,
-        data: {
-          device_id: device.id,
-          device_code: device.deviceCode,
-          secret_key: device.secretKey,
-          station_locked: true,
-          device_token: deviceToken,
-        },
-      };
+      return ok({
+        device_id: device.id,
+        device_code: device.deviceCode,
+        secret_key: device.secretKey,
+        station_locked: true,
+        device_token: deviceToken,
+      });
     },
     {
       body: t.Object({
@@ -80,34 +70,23 @@ export const deviceRoutes = new Elysia({ prefix: "/device" })
       const { fingerprint, hostname } = body;
 
       // Check if device already exists
-      const [existing] = await db
-        .select()
-        .from(devices)
-        .where(eq(devices.fingerprint, fingerprint))
-        .limit(1);
+      const [existing] = await db.select().from(devices).where(eq(devices.fingerprint, fingerprint)).limit(1);
 
       if (existing) {
         if (existing.deviceStatus === "disabled" || !existing.isActive) {
           set.status = 403;
-          return {
-            success: false,
-            error_code: "DEVICE_DISABLED",
-            message: "Device is disabled",
-          };
+          return fail("DEVICE_DISABLED", "Device is disabled");
         }
         // Re-issue token for existing device
         const deviceToken = await signDeviceToken({
           deviceId: existing.id,
         });
 
-        return {
-          success: true,
-          data: {
-            device_id: existing.id,
-            device_token: deviceToken,
-            is_new: false,
-          },
-        };
+        return ok({
+          device_id: existing.id,
+          device_token: deviceToken,
+          is_new: false,
+        });
       }
 
       // Create new device
@@ -125,14 +104,11 @@ export const deviceRoutes = new Elysia({ prefix: "/device" })
         deviceId: newDevice.id,
       });
 
-      return {
-        success: true,
-        data: {
-          device_id: newDevice.id,
-          device_token: deviceToken,
-          is_new: true,
-        },
-      };
+      return ok({
+        device_id: newDevice.id,
+        device_token: deviceToken,
+        is_new: true,
+      });
     },
     {
       body: t.Object({
@@ -145,81 +121,75 @@ export const deviceRoutes = new Elysia({ prefix: "/device" })
   // ── POST /device/heartbeat ────────────────────────
   // Requires Device-Token header
   .use(deviceDerive)
-  .post(
-    "/heartbeat",
-    async ({ device, operatorSession, set }: any) => {
-      // checkDevice guard
-      const err = checkDevice({ device, set });
-      if (err) return err;
+  .post("/heartbeat", async ({ device, operatorSession, set }: any) => {
+    // checkDevice guard
+    const err = checkDevice({ device, set });
+    if (err) return err;
 
-      // Update last_seen
-      await db
-        .update(devices)
-        .set({ lastSeen: new Date(), lastHeartbeatAt: new Date() })
-        .where(eq(devices.id, device!.deviceId));
+    // Update last_seen
+    await db
+      .update(devices)
+      .set({ lastSeen: new Date(), lastHeartbeatAt: new Date() })
+      .where(eq(devices.id, device!.deviceId));
 
-      // Get assigned machine info
-      let machineInfo = null;
-      if (device!.machineId) {
-        const [m] = await db
-          .select({
-            id: machines.id,
-            name: machines.name,
-            station_type: machines.machineType,
-            line_code: machines.lineCode,
-          })
-          .from(machines)
-          .where(eq(machines.id, device!.machineId))
-          .limit(1);
-        machineInfo = m ?? null;
-      }
-
-      const [deviceRow] = await db
+    // Get assigned machine info
+    let machineInfo = null;
+    if (device!.machineId) {
+      const [m] = await db
         .select({
-          stationId: devices.stationId,
-          processId: devices.processId,
-          status: devices.deviceStatus,
+          id: machines.id,
+          name: machines.name,
+          station_type: machines.machineType,
+          line_code: machines.lineCode,
         })
-        .from(devices)
-        .where(eq(devices.id, device!.deviceId))
+        .from(machines)
+        .where(eq(machines.id, device!.machineId))
         .limit(1);
-
-      let stationInfo: { id: string; name: string | null } | null = null;
-      let processInfo: { id: string; name: string } | null = null;
-      if (deviceRow?.stationId) {
-        const [s] = await db
-          .select({ id: stations.id, name: stations.name })
-          .from(stations)
-          .where(eq(stations.id, deviceRow.stationId))
-          .limit(1);
-        stationInfo = s ?? null;
-      }
-      if (deviceRow?.processId) {
-        const [p] = await db
-          .select({ id: processes.id, name: processes.name })
-          .from(processes)
-          .where(eq(processes.id, deviceRow.processId))
-          .limit(1);
-        processInfo = p ?? null;
-      }
-
-      return {
-        success: true,
-        data: {
-          device_id: device!.deviceId,
-          status: deviceRow?.status ?? "active",
-          machine: machineInfo,
-          station: stationInfo,
-          process: processInfo,
-          operator_session: operatorSession
-            ? { session_id: operatorSession.sessionId, user_id: operatorSession.userId }
-            : null,
-          shift_day: computeShiftDay(),
-          server_time: new Date().toISOString(),
-        },
-      };
+      machineInfo = m ?? null;
     }
-  )
+
+    const [deviceRow] = await db
+      .select({
+        stationId: devices.stationId,
+        processId: devices.processId,
+        status: devices.deviceStatus,
+      })
+      .from(devices)
+      .where(eq(devices.id, device!.deviceId))
+      .limit(1);
+
+    let stationInfo: { id: string; name: string | null } | null = null;
+    let processInfo: { id: string; name: string } | null = null;
+    if (deviceRow?.stationId) {
+      const [s] = await db
+        .select({ id: stations.id, name: stations.name })
+        .from(stations)
+        .where(eq(stations.id, deviceRow.stationId))
+        .limit(1);
+      stationInfo = s ?? null;
+    }
+    if (deviceRow?.processId) {
+      const [p] = await db
+        .select({ id: processes.id, name: processes.name })
+        .from(processes)
+        .where(eq(processes.id, deviceRow.processId))
+        .limit(1);
+      processInfo = p ?? null;
+    }
+
+    return ok({
+      device_id: device!.deviceId,
+      status: deviceRow?.status ?? "active",
+      machine: machineInfo,
+      station: stationInfo,
+      process: processInfo,
+      operator_session: operatorSession
+        ? { session_id: operatorSession.sessionId, user_id: operatorSession.userId }
+        : null,
+      shift_day: computeShiftDay(),
+      server_time: new Date().toISOString(),
+    });
+  })
 
   // ── POST /device/operator/login ───────────────────
   .post(
@@ -232,41 +202,24 @@ export const deviceRoutes = new Elysia({ prefix: "/device" })
       const { username, password } = body;
 
       // Find user
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.username, username))
-        .limit(1);
+      const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1);
 
       if (!user || !user.isActive) {
         set.status = 401;
-        return {
-          success: false,
-          error_code: "UNAUTHORIZED",
-          message: "Invalid operator credentials",
-        };
+        return fail("UNAUTHORIZED", "Invalid operator credentials");
       }
 
       const valid = await verifyPassword(password, user.passwordHash);
       if (!valid) {
         set.status = 401;
-        return {
-          success: false,
-          error_code: "UNAUTHORIZED",
-          message: "Invalid operator credentials",
-        };
+        return fail("UNAUTHORIZED", "Invalid operator credentials");
       }
 
       // End any existing session on this device
       await db
         .update(deviceOperatorSessions)
         .set({ endedAt: new Date() })
-        .where(
-          and(
-            eq(deviceOperatorSessions.deviceId, device!.deviceId),
-            isNull(deviceOperatorSessions.endedAt)
-          )
-        );
+        .where(and(eq(deviceOperatorSessions.deviceId, device!.deviceId), isNull(deviceOperatorSessions.endedAt)));
 
       // Create new session
       const [session] = await db
@@ -277,17 +230,14 @@ export const deviceRoutes = new Elysia({ prefix: "/device" })
         })
         .returning({ id: deviceOperatorSessions.id });
 
-      return {
-        success: true,
-        data: {
-          session_id: session.id,
-          user: {
-            id: user.id,
-            username: user.username,
-            display_name: user.displayName,
-          },
+      return ok({
+        session_id: session.id,
+        user: {
+          id: user.id,
+          username: user.username,
+          display_name: user.displayName,
         },
-      };
+      });
     },
     {
       body: t.Object({
@@ -309,7 +259,7 @@ export const deviceRoutes = new Elysia({ prefix: "/device" })
         .where(eq(deviceOperatorSessions.id, operatorSession.sessionId));
     }
 
-    return { success: true };
+    return ok(null);
   })
 
   // ── GET /device/operator/me ───────────────────────
