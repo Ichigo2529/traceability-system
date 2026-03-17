@@ -1,5 +1,5 @@
 import React from "react";
-import { Bar, Dialog as Ui5Dialog, Title } from "@ui5/webcomponents-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./dialog";
 import { Button } from "./button";
 
 interface ModalProps {
@@ -10,29 +10,19 @@ interface ModalProps {
 }
 
 export function Modal({ isOpen, onClose, title, children }: ModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <Ui5Dialog
-      open={isOpen}
-      onClose={onClose}
-      className="admin-ui5-modal"
-      header={
-        <Bar
-          className="admin-ui5-modal-header"
-          endContent={
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Close
-            </Button>
-          }
-        >
-          <Title level="H5" size="H5">
-            {title}
-          </Title>
-        </Bar>
-      }
-    >
-      <div className="admin-ui5-modal-body">{children}</div>
-    </Ui5Dialog>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent showClose={true}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">{children}</div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

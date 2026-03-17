@@ -1,17 +1,28 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createMaterialQueryKeys, getMaterialIssueOptions, getMaterialRequestById, getMaterialRequests, getPendingMaterialRequests, issueMaterialRequestWithAllocation, rejectMaterialRequest } from "@traceability/material";
+import {
+  createMaterialQueryKeys,
+  getMaterialIssueOptions,
+  getMaterialRequestById,
+  getMaterialRequests,
+  getPendingMaterialRequests,
+  issueMaterialRequestWithAllocation,
+  rejectMaterialRequest,
+} from "@traceability/material";
 import { MaterialRequestDetail } from "@traceability/sdk";
 import { MaterialRequestListTable } from "@traceability/material-ui";
 import { PageLayout, ConfirmDialog } from "@traceability/ui";
-import { BusyIndicator, Button, FlexBox, FlexBoxAlignItems, FlexBoxDirection, MessageStrip, ObjectStatus, Tab, TabContainer, Text, TextArea, Title } from "@ui5/webcomponents-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Printer } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
 import { formatDateTime } from "../../lib/datetime";
 import { toast } from "sonner";
-import "@ui5/webcomponents-icons/dist/print.js";
 import {
   Document as PdfDocument,
   Image as PdfImage,
@@ -229,8 +240,10 @@ function StoreVoucherPdf({ detail, logoSrc }: { detail: MaterialRequestDetail; l
           </PdfView>
           <PdfView style={pdfStyles.headTextWrap}>
             <PdfText style={pdfStyles.company}>MMI Precision Assembly (Thailand) Co., Ltd.</PdfText>
-            <PdfText style={pdfStyles.subtitle}>888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand</PdfText>
-            <PdfText style={pdfStyles.subtitle}>TEL : (6644) 000188    FAX : (6644) 000199</PdfText>
+            <PdfText style={pdfStyles.subtitle}>
+              888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand
+            </PdfText>
+            <PdfText style={pdfStyles.subtitle}>TEL : (6644) 000188 FAX : (6644) 000199</PdfText>
           </PdfView>
         </PdfView>
         <PdfText style={pdfStyles.title}>DIRECT MATERIAL ISSUE VOUCHER</PdfText>
@@ -366,7 +379,8 @@ export function StoreMaterialApprovalPage() {
   const issueOptionsQuery = useQuery({
     queryKey: keys.issueOptions(selectedId),
     queryFn: () => getMaterialIssueOptions(selectedId!),
-    enabled: Boolean(selectedId) && (detailsQuery.data?.status === "REQUESTED" || detailsQuery.data?.status === "APPROVED"),
+    enabled:
+      Boolean(selectedId) && (detailsQuery.data?.status === "REQUESTED" || detailsQuery.data?.status === "APPROVED"),
   });
   const workbench = useIssueAllocationWorkbench(issueOptionsQuery.data);
 
@@ -384,7 +398,11 @@ export function StoreMaterialApprovalPage() {
       await queryClient.invalidateQueries({ queryKey: keys.request(selectedId) });
     },
   });
-  const issueMutation = useMutation<{ id: string; status: string; alert_status?: string }, any, { id: string; remarks?: string }>({
+  const issueMutation = useMutation<
+    { id: string; status: string; alert_status?: string },
+    any,
+    { id: string; remarks?: string }
+  >({
     mutationFn: ({ id, remarks }: { id: string; remarks?: string }) =>
       issueMaterialRequestWithAllocation(id, {
         remarks,
@@ -405,12 +423,17 @@ export function StoreMaterialApprovalPage() {
   });
 
   if (!canUsePage) {
-    return <MessageStrip design="Negative">Role Access Denied. Requires STORE or SUPERVISOR role.</MessageStrip>;
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>Role Access Denied. Requires STORE or SUPERVISOR role.</AlertDescription>
+      </Alert>
+    );
   }
 
   const showingDetail = Boolean(selectedId);
   const detail = detailsQuery.data;
-  const isTerminalStatus = detail?.status === "ISSUED" || detail?.status === "REJECTED" || detail?.status === "CANCELLED";
+  const isTerminalStatus =
+    detail?.status === "ISSUED" || detail?.status === "REJECTED" || detail?.status === "CANCELLED";
   const workflowStepsDone = (() => {
     if (!detail) return [false, false, false, false, false, false];
     const approved = ["APPROVED", "ISSUED"].includes(detail.status ?? "") || Boolean((detail as any).dispatched_at);
@@ -447,12 +470,12 @@ export function StoreMaterialApprovalPage() {
 
   return (
     <PageLayout
-      title={showingDetail ? detailsQuery.data?.request_no ?? "Request Detail" : "Store Material Approval"}
+      title={showingDetail ? (detailsQuery.data?.request_no ?? "Request Detail") : "Store Material Approval"}
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
-          <Text>Shared issue material flow</Text>
-        </FlexBox>
+          <span>Shared issue material flow</span>
+        </div>
       }
       icon="request"
       iconColor="blue"
@@ -460,40 +483,61 @@ export function StoreMaterialApprovalPage() {
       onBackClick={() => setSelectedId(null)}
       headerActions={
         showingDetail ? (
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+          <div className="flex items-center gap-2">
             {detailsQuery.data?.status === "ISSUED" && (
-              <Button icon="print" design="Transparent" className="no-print" onClick={handleGeneratePdf} disabled={isGeneratingPdf}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="no-print"
+                onClick={handleGeneratePdf}
+                disabled={isGeneratingPdf}
+              >
+                <Printer className="h-4 w-4 mr-2" />
                 {isGeneratingPdf ? "Generating PDF..." : "Print Form (PDF)"}
               </Button>
             )}
             {detailsQuery.data?.status === "REQUESTED" && (
-              <Button design="Negative" onClick={() => setConfirmRejectOpen(true)} disabled={rejectMutation.isPending || issueMutation.isPending}>
+              <Button
+                variant="destructive"
+                onClick={() => setConfirmRejectOpen(true)}
+                disabled={rejectMutation.isPending || issueMutation.isPending}
+              >
                 Reject
               </Button>
             )}
             {(detailsQuery.data?.status === "REQUESTED" || detailsQuery.data?.status === "APPROVED") && (
               <Button
-                design="Emphasized"
                 onClick={() => setConfirmIssueOpen(true)}
-                disabled={Boolean(workbench.issueValidationError || issueOptionsQuery.isLoading || issueMutation.isPending)}
+                disabled={Boolean(
+                  workbench.issueValidationError || issueOptionsQuery.isLoading || issueMutation.isPending
+                )}
               >
                 {detailsQuery.data?.status === "REQUESTED" ? "Approve & Issue" : "Issue"}
               </Button>
             )}
-          </FlexBox>
+          </div>
         ) : undefined
       }
     >
-      <div className="page-container motion-safe:animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div
+        className="page-container motion-safe:animate-fade-in"
+        style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+      >
         {showingDetail ? (
           detailsQuery.isLoading ? (
-            <BusyIndicator active text="Loading details..." />
+            <div className="flex items-center justify-center py-12">
+              <div
+                className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
+                aria-hidden
+              />
+              <span className="ml-2 text-sm text-muted-foreground">Loading details...</span>
+            </div>
           ) : detail ? (
             <>
               {actionNotice && (
-                <MessageStrip design="Positive" hideCloseButton>
-                  {actionNotice}
-                </MessageStrip>
+                <Alert className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+                  <AlertDescription>{actionNotice}</AlertDescription>
+                </Alert>
               )}
               <MaterialRequestVoucherView
                 detail={detail}
@@ -502,59 +546,34 @@ export function StoreMaterialApprovalPage() {
                 hideTopBarActions
               />
 
-              <div
-                className="no-print"
-                style={{
-                  border: "1px solid var(--sapGroup_ContentBorderColor)",
-                  borderRadius: "0.5rem",
-                  background: "var(--sapGroup_ContentBackground)",
-                  padding: "0.75rem 1rem",
-                }}
-              >
-                <Title level="H6" style={{ margin: "0 0 0.85rem" }}>
-                  Request Workflow
-                </Title>
-                <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", paddingBottom: "0.5rem" }}>
+              <div className="no-print rounded-lg border bg-card p-4">
+                <h6 className="mb-3 font-semibold">Request Workflow</h6>
+                <div className="flex items-start overflow-x-auto pb-2">
                   {WORKFLOW_STEPS.map((step, idx) => {
                     const done = workflowStepsDone[idx];
                     const active = idx === firstIncompleteIdx;
                     const circleColor = done
                       ? "var(--sapPositiveColor)"
                       : active
-                      ? "var(--sapHighlightColor)"
-                      : "var(--sapNeutralBorderColor)";
+                        ? "var(--sapHighlightColor)"
+                        : "var(--sapNeutralBorderColor)";
                     return (
-                      <div key={step.key} style={{ display: "flex", alignItems: "flex-start", flex: idx < WORKFLOW_STEPS.length - 1 ? "1 1 auto" : "0 0 auto" }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "80px" }}>
+                      <div key={step.key} className="flex items-start flex-1 min-w-[80px] last:flex-none">
+                        <div className="flex flex-col items-center min-w-[80px]">
                           <div
-                            style={{
-                              width: "2rem",
-                              height: "2rem",
-                              borderRadius: "50%",
-                              background: circleColor,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "white",
-                              fontWeight: "bold",
-                              fontSize: "0.85rem",
-                            }}
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
+                            style={{ background: circleColor }}
                           >
                             {done ? "✓" : idx + 1}
                           </div>
-                          <Text style={{ fontSize: "0.72rem", textAlign: "center", marginTop: "0.3rem" }}>{step.label}</Text>
-                          <Text style={{ fontSize: "0.65rem", color: "var(--sapContent_LabelColor)", textAlign: "center" }}>{step.sub}</Text>
-                          {active && <ObjectStatus state="Critical">Pending</ObjectStatus>}
+                          <span className="text-[0.72rem] text-center mt-1">{step.label}</span>
+                          <span className="text-[0.65rem] text-muted-foreground text-center">{step.sub}</span>
+                          {active && <span className="text-xs font-medium text-destructive mt-0.5">Pending</span>}
                         </div>
                         {idx < WORKFLOW_STEPS.length - 1 && (
                           <div
-                            style={{
-                              flex: 1,
-                              height: "2px",
-                              background: done ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)",
-                              margin: "1rem 0 0",
-                              minWidth: "1rem",
-                            }}
+                            className="flex-1 h-0.5 mt-4 min-w-2"
+                            style={{ background: done ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)" }}
                           />
                         )}
                       </div>
@@ -562,45 +581,70 @@ export function StoreMaterialApprovalPage() {
                   })}
                 </div>
                 {!isTerminalStatus && (
-                  <MessageStrip design="Information" hideCloseButton>
-                    Current status: {detail.status}. Next step is highlighted as Pending.
-                  </MessageStrip>
+                  <Alert className="mt-2">
+                    <AlertDescription>
+                      Current status: {detail.status}. Next step is highlighted as Pending.
+                    </AlertDescription>
+                  </Alert>
                 )}
               </div>
             </>
           ) : (
-            <MessageStrip design="Negative" hideCloseButton>
-              Unable to load request details.
-            </MessageStrip>
+            <Alert variant="destructive">
+              <AlertDescription>Unable to load request details.</AlertDescription>
+            </Alert>
           )
         ) : (
-          <TabContainer
-            onTabSelect={(e) => setTab((e.detail.tab.dataset.key as TabKey) ?? "PENDING")}
-            contentBackgroundDesign="Transparent"
-          >
-            <Tab text="Waiting Approval" data-key="PENDING" selected={tab === "PENDING"}>
-              <div style={{ paddingTop: "0.5rem" }}>
+          <div>
+            <div className="flex gap-1 border-b mb-4">
+              <button
+                type="button"
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  tab === "PENDING"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setTab("PENDING")}
+                data-key="PENDING"
+              >
+                Waiting Approval
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                  tab === "HISTORY"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setTab("HISTORY")}
+                data-key="HISTORY"
+              >
+                History
+              </button>
+            </div>
+            {tab === "PENDING" && (
+              <div className="pt-2">
                 <MaterialRequestListTable
                   data={pendingQuery.data ?? []}
                   loading={pendingQuery.isLoading}
                   onView={(id) => setSelectedId(id)}
-                  formatDateTime={formatDateTime as any}
+                  formatDateTime={(s) => formatDateTime(s ?? "")}
                   filterPlaceholder="Search waiting requests..."
                 />
               </div>
-            </Tab>
-            <Tab text="History" data-key="HISTORY" selected={tab === "HISTORY"}>
-              <div style={{ paddingTop: "0.5rem" }}>
+            )}
+            {tab === "HISTORY" && (
+              <div className="pt-2">
                 <MaterialRequestListTable
                   data={historyQuery.data ?? []}
                   loading={historyQuery.isLoading}
                   onView={(id) => setSelectedId(id)}
-                  formatDateTime={formatDateTime as any}
+                  formatDateTime={(s) => formatDateTime(s ?? "")}
                   filterPlaceholder="Search history..."
                 />
               </div>
-            </Tab>
-          </TabContainer>
+            )}
+          </div>
         )}
       </div>
 
@@ -632,10 +676,15 @@ export function StoreMaterialApprovalPage() {
           setRejectReason("");
         }}
       >
-        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem", marginTop: "0.75rem" }}>
-          <Text style={{ fontSize: "0.8rem", fontWeight: "600" }}>Reason for rejection</Text>
-          <TextArea value={rejectReason} onInput={(e) => setRejectReason(e.target.value)} rows={3} />
-        </FlexBox>
+        <div className="flex flex-col gap-2 mt-3">
+          <Label className="text-sm font-semibold">Reason for rejection</Label>
+          <Textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={3}
+            className="resize-none"
+          />
+        </div>
       </ConfirmDialog>
     </PageLayout>
   );

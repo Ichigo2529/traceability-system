@@ -13,23 +13,6 @@ import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import {
-  Button,
-  Input,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  Select,
-  Option,
-  FlexBox,
-  FlexBoxAlignItems,
-  MessageStrip,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/money-bills.js";
-import {
   AdminCostCenter,
   getCostCenters,
   createCostCenter,
@@ -37,6 +20,13 @@ import {
   deleteCostCenter,
   getSections,
 } from "../../lib/section-api";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const GROUP_CODES = ["DL", "IDL", "DIS", "ADM"] as const;
 
@@ -55,7 +45,7 @@ export function CostCentersPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AdminCostCenter | null>(null);
   const [disableTarget, setDisableTarget] = useState<AdminCostCenter | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["admin-cost-centers"],
@@ -102,34 +92,37 @@ export function CostCentersPage() {
 
   const columns = useMemo<ColumnDef<AdminCostCenter>[]>(
     () => [
-      { header: "Group", accessorKey: "group_code", size: 90 },
-      { header: "Cost Code", accessorKey: "cost_code", size: 160 },
-      { header: "Short Text", accessorKey: "short_text" },
+      { id: "group", header: "Group", accessorKey: "group_code", size: 90 },
+      { id: "cost_code", header: "Cost Code", accessorKey: "cost_code", size: 160 },
+      { id: "short_text", header: "Short Text", accessorKey: "short_text" },
       {
+        id: "section",
         header: "Section",
-        accessorFn: (row) => sections.find((s) => s.id === row.section_id)?.section_name ?? "-",
+        cell: ({ row }) =>
+          sections.find((s: { id: string; section_name: string }) => s.id === row.original.section_id)?.section_name ??
+          "-",
       },
+      { id: "default", header: "Default", cell: ({ row }) => (row.original.is_default ? "Yes" : "No") },
       {
-        header: "Default",
-        cell: ({ row }) => (row.original.is_default ? "Yes" : "No"),
-      },
-      {
+        id: "status",
         header: "Status",
         size: 100,
         cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
       },
       {
+        id: "actions",
         header: "Actions",
         size: 110,
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
-                  group_code: row.original.group_code as any,
+                  group_code: row.original.group_code as CostCenterForm["group_code"],
                   cost_code: row.original.cost_code,
                   short_text: row.original.short_text,
                   section_id: row.original.section_id || undefined,
@@ -138,16 +131,21 @@ export function CostCentersPage() {
                 });
                 setOpen(true);
               }}
-              tooltip="Edit"
+              title="Edit"
               aria-label="Edit cost center"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setDisableTarget(row.original)}
-              tooltip="Disable"
+              title="Disable"
               aria-label="Disable cost center"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
@@ -159,10 +157,10 @@ export function CostCentersPage() {
     <PageLayout
       title="Cost Centers"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Manage cost center codes by group</span>
-        </FlexBox>
+        </div>
       }
       icon="money-bills"
       iconColor="green"
@@ -186,8 +184,6 @@ export function CostCentersPage() {
           filterPlaceholder="Search cost centers..."
           actions={
             <Button
-              icon="add"
-              design="Emphasized"
               className="button-hover-scale"
               onClick={() => {
                 setEditing(null);
@@ -195,6 +191,7 @@ export function CostCentersPage() {
                 setOpen(true);
               }}
             >
+              <Plus className="h-4 w-4 mr-2" />
               Add Cost Center
             </Button>
           }
@@ -212,86 +209,104 @@ export function CostCentersPage() {
         onSubmit={form.handleSubmit((p) => (editing ? updateMut.mutate(p) : createMut.mutate(p)))}
         submitting={createMut.isPending || updateMut.isPending}
       >
-        {(createMut.isError || updateMut.isError) && (
-          <MessageStrip design="Negative" hideCloseButton style={{ margin: "0 1rem" }}>
-            {formatApiError(createMut.error ?? updateMut.error)}
-          </MessageStrip>
-        )}
-        <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label required>Group Code</Label>}>
+        <div className="grid gap-4">
+          {(createMut.isError || updateMut.isError) && (
+            <Alert variant="destructive">
+              <AlertDescription>{formatApiError(createMut.error ?? updateMut.error)}</AlertDescription>
+            </Alert>
+          )}
+          <div className="grid gap-2">
+            <Label>Group Code *</Label>
             <Controller
               name="group_code"
               control={form.control}
               render={({ field }) => (
-                <Select onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value"))}>
-                  {GROUP_CODES.map((gc) => (
-                    <Option key={gc} data-value={gc} selected={field.value === gc}>
-                      {gc}
-                    </Option>
-                  ))}
+                <Select value={field.value} onValueChange={(v) => field.onChange(v as CostCenterForm["group_code"])}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GROUP_CODES.map((gc) => (
+                      <SelectItem key={gc} value={gc}>
+                        {gc}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               )}
             />
-          </FormItem>
-          <FormItem labelContent={<Label required>Cost Code</Label>}>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="cc-cost_code">Cost Code *</Label>
             <Input
+              id="cc-cost_code"
               value={form.watch("cost_code")}
-              onInput={(e: any) => form.setValue("cost_code", e.target.value)}
-              valueState={form.formState.errors.cost_code ? "Negative" : undefined}
-              valueStateMessage={
-                form.formState.errors.cost_code ? <span>{form.formState.errors.cost_code.message}</span> : undefined
-              }
+              onChange={(e) => form.setValue("cost_code", e.target.value)}
+              className={form.formState.errors.cost_code ? "border-destructive" : ""}
             />
-          </FormItem>
-          <FormItem labelContent={<Label required>Short Text</Label>}>
+            {form.formState.errors.cost_code && (
+              <p className="text-sm text-destructive">{form.formState.errors.cost_code.message}</p>
+            )}
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="cc-short_text">Short Text *</Label>
             <Input
+              id="cc-short_text"
               value={form.watch("short_text")}
-              onInput={(e: any) => form.setValue("short_text", e.target.value)}
-              valueState={form.formState.errors.short_text ? "Negative" : undefined}
-              valueStateMessage={
-                form.formState.errors.short_text ? <span>{form.formState.errors.short_text.message}</span> : undefined
-              }
+              onChange={(e) => form.setValue("short_text", e.target.value)}
+              className={form.formState.errors.short_text ? "border-destructive" : ""}
             />
-          </FormItem>
-          <FormItem labelContent={<Label>Section</Label>}>
+            {form.formState.errors.short_text && (
+              <p className="text-sm text-destructive">{form.formState.errors.short_text.message}</p>
+            )}
+          </div>
+          <div className="grid gap-2">
+            <Label>Section</Label>
             <Controller
               name="section_id"
               control={form.control}
               render={({ field }) => (
-                <Select
-                  onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
-                >
-                  <Option data-value="" selected={!field.value}>
-                    None
-                  </Option>
-                  {sections.map((s) => (
-                    <Option key={s.id} data-value={s.id} selected={field.value === s.id}>
-                      {s.section_name}
-                    </Option>
-                  ))}
+                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v || undefined)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {sections.map((s: { id: string; section_name: string }) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.section_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               )}
             />
-          </FormItem>
-          <FormItem labelContent={<Label>Default for Section</Label>}>
+          </div>
+          <div className="flex items-center gap-2">
             <Controller
               name="is_default"
               control={form.control}
               render={({ field }) => (
-                <CheckBox text="Default" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                <Checkbox id="cc-default" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
               )}
             />
-          </FormItem>
-          <FormItem labelContent={<Label>Status</Label>}>
+            <Label htmlFor="cc-default" className="cursor-pointer">
+              Default for Section
+            </Label>
+          </div>
+          <div className="flex items-center gap-2">
             <Controller
               name="is_active"
               control={form.control}
               render={({ field }) => (
-                <CheckBox text="Active" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                <Checkbox id="cc-active" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
               )}
             />
-          </FormItem>
-        </Form>
+            <Label htmlFor="cc-active" className="cursor-pointer">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
 
       <ConfirmDialog
@@ -311,7 +326,6 @@ export function CostCentersPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

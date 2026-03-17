@@ -4,20 +4,12 @@ import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { sdk, useAuth } from "../../context/AuthContext";
-import { 
-    Page, 
-    Card, 
-    CardHeader, 
-    Input, 
-    Label, 
-    Button, 
-    MessageStrip, 
-    FlexBox, 
-    FlexBoxDirection, 
-    Icon 
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/laptop.js";
-import "@ui5/webcomponents-icons/dist/log.js";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Laptop, LogOut, XCircle } from "lucide-react";
 import layouts from "../../styles/layouts.module.css";
 
 const schema = z.object({
@@ -37,7 +29,11 @@ export function DeviceRegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
 
-  const { control, handleSubmit, formState: { isSubmitting } } = useForm<FormValues>({
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { deviceCode: "", activationPin: "" },
   });
@@ -65,120 +61,122 @@ export function DeviceRegisterPage() {
 
   if (locked) {
     return (
-      <Page style={{ height: "100vh" }} backgroundDesign="Transparent">
+      <div className="min-h-screen">
         <div className="premium-mesh-bg" />
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", padding: "2rem" }}>
-          <div style={{
-            background: "var(--glass-bg)", backdropFilter: "var(--glass-blur)",
-            border: "1px solid var(--glass-border)", boxShadow: "var(--glass-shadow)",
-            borderRadius: "20px", padding: "2rem", maxWidth: "420px", width: "100%"
-          }}>
-            <div style={{
-              width: "3rem", height: "3rem", borderRadius: "12px",
-              background: "linear-gradient(135deg,#f093fb,#f5576c)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              marginBottom: "1rem"
-            }}>
-              <Icon name="decline" style={{ color: "white", width: "1.25rem", height: "1.25rem" }} />
+        <div className="flex justify-center items-center min-h-full py-8 px-4">
+          <div
+            className="rounded-[20px] p-8 max-w-[420px] w-full"
+            style={{
+              background: "var(--glass-bg)",
+              backdropFilter: "var(--glass-blur)",
+              border: "1px solid var(--glass-border)",
+              boxShadow: "var(--glass-shadow)",
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+              style={{ background: "linear-gradient(135deg,#f093fb,#f5576c)" }}
+            >
+              <XCircle className="text-white w-5 h-5" />
             </div>
-            <MessageStrip design="Negative" hideCloseButton style={{ borderRadius: "10px" }}>
-              <strong>Device Disabled.</strong> This device has been disabled by the administrator.
-              Contact factory IT/MES support.
-            </MessageStrip>
+            <Alert variant="destructive" className="rounded-[10px]">
+              <AlertDescription>
+                <strong>Device Disabled.</strong> This device has been disabled by the administrator. Contact factory
+                IT/MES support.
+              </AlertDescription>
+            </Alert>
           </div>
         </div>
-      </Page>
+      </div>
     );
   }
 
   return (
-    <Page style={{ height: "100vh" }} backgroundDesign="Transparent">
-        <div className="premium-mesh-bg" />
-        <div className={layouts.station}>
-            <Card className={layouts.stationCard}>
-                <CardHeader
-                    titleText="Device Registration"
-                    subtitleText="First boot activation"
-                    avatar={
-                      <div style={{
-                        width: "2.25rem", height: "2.25rem", borderRadius: "8px",
-                        background: "linear-gradient(135deg,#4facfe,#00f2fe)",
-                        display: "flex", alignItems: "center", justifyContent: "center"
-                      }}>
-                        <Icon name="laptop" style={{ color: "white", width: "1rem", height: "1rem" }} />
-                      </div>
-                    }
-                />
-                
-                <div style={{ padding: "1rem 1.25rem 1.5rem 1.25rem" }}>
-                    <div style={{ marginBottom: "1.25rem", color: "var(--sapContent_LabelColor)", fontSize: "0.875rem", lineHeight: "1.5" }}>
-                        Enter the device code and activation PIN to lock this terminal into station mode.
-                    </div>
-
-                    <form onSubmit={handleSubmit(onSubmit)} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-                        <Controller
-                            name="deviceCode"
-                            control={control}
-                            render={({ field, fieldState: { error } }) => (
-                                <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.375rem" }}>
-                                    <Label style={{ fontWeight: 600 }}>Device Code</Label>
-                                    <Input
-                                        {...field}
-                                        onInput={(e) => field.onChange(e.target.value)}
-                                        valueState={error ? "Negative" : "None"}
-                                        valueStateMessage={error && <div>{error.message}</div>}
-                                        placeholder="e.g. PI5-ASM-01"
-                                        style={{ width: "100%" }}
-                                    />
-                                </FlexBox>
-                            )}
-                        />
-
-                        <Controller
-                            name="activationPin"
-                            control={control}
-                            render={({ field, fieldState: { error } }) => (
-                                <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.375rem" }}>
-                                    <Label style={{ fontWeight: 600 }}>Activation PIN</Label>
-                                    <Input
-                                        type="Password"
-                                        {...field}
-                                        onInput={(e) => field.onChange(e.target.value)}
-                                        valueState={error ? "Negative" : "None"}
-                                        valueStateMessage={error && <div>{error.message}</div>}
-                                        placeholder="••••"
-                                        style={{ width: "100%" }}
-                                    />
-                                </FlexBox>
-                            )}
-                        />
-
-                        {error && (
-                          <MessageStrip design="Negative" style={{ borderRadius: "8px" }}>{error}</MessageStrip>
-                        )}
-
-                        <Button
-                          design="Emphasized"
-                          style={{ borderRadius: "10px", height: "3rem", marginTop: "0.25rem" }}
-                          onClick={() => handleSubmit(onSubmit)()}
-                          disabled={isSubmitting}
-                        >
-                            {isSubmitting ? "Activating…" : "Activate Device"}
-                        </Button>
-                    </form>
-                </div>
-            </Card>
-
-            <div style={{ position: "absolute", top: "1rem", right: "1rem" }}>
-                <Button design="Transparent" icon="log" onClick={() => {
-                    logout();
-                    navigate("/login", { replace: true });
-                }}>
-                    Sign Out
-                </Button>
+    <div className="min-h-screen relative">
+      <div className="premium-mesh-bg" />
+      <div className={layouts.station}>
+        <Card className={layouts.stationCard}>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: "linear-gradient(135deg,#4facfe,#00f2fe)" }}
+              >
+                <Laptop className="text-white w-4 h-4" />
+              </div>
+              <div>
+                <CardTitle>Device Registration</CardTitle>
+                <CardDescription>First boot activation</CardDescription>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent className="px-6 pb-6 pt-0">
+            <p className="mb-5 text-muted-foreground text-sm leading-relaxed">
+              Enter the device code and activation PIN to lock this terminal into station mode.
+            </p>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+              <Controller
+                name="deviceCode"
+                control={control}
+                render={({ field, fieldState: { error: err } }) => (
+                  <div className="grid gap-1.5">
+                    <Label className="font-semibold">Device Code</Label>
+                    <Input
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      placeholder="e.g. PI5-ASM-01"
+                      className={err ? "border-destructive" : ""}
+                    />
+                    {err && <p className="text-sm text-destructive">{err.message}</p>}
+                  </div>
+                )}
+              />
+
+              <Controller
+                name="activationPin"
+                control={control}
+                render={({ field, fieldState: { error: err } }) => (
+                  <div className="grid gap-1.5">
+                    <Label className="font-semibold">Activation PIN</Label>
+                    <Input
+                      type="password"
+                      {...field}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      placeholder="••••"
+                      className={err ? "border-destructive" : ""}
+                    />
+                    {err && <p className="text-sm text-destructive">{err.message}</p>}
+                  </div>
+                )}
+              />
+
+              {error && (
+                <Alert variant="destructive" className="rounded-lg">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button type="submit" className="rounded-[10px] h-12 mt-1" disabled={isSubmitting}>
+                {isSubmitting ? "Activating…" : "Activate Device"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <div className="absolute top-4 right-4">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              logout();
+              navigate("/login", { replace: true });
+            }}
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </Button>
         </div>
-    </Page>
+      </div>
+    </div>
   );
 }

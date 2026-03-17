@@ -14,21 +14,12 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Input,
-  TextArea,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  FlexBox,
-  FlexBoxAlignItems
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/dimension.js";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const schema = z.object({
   code: z.string().min(1),
@@ -43,7 +34,7 @@ export function ComponentTypesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ComponentType | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ComponentType | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["component-types"],
@@ -84,17 +75,23 @@ export function ComponentTypesPage() {
 
   const columns = useMemo<ColumnDef<ComponentType>[]>(
     () => [
-      { header: "Code", accessorKey: "code" },
-      { header: "Name", accessorKey: "name" },
-      { header: "Description", cell: ({ row }) => row.original.description || "-" },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
+      { id: "code", header: "Code", accessorKey: "code" },
+      { id: "name", header: "Name", accessorKey: "name" },
+      { id: "description", header: "Description", cell: ({ row }) => row.original.description || "-" },
       {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
+      },
+      {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -105,33 +102,36 @@ export function ComponentTypesPage() {
                 });
                 setOpen(true);
               }}
-              tooltip="Edit Component Type"
+              title="Edit Component Type"
               aria-label="Edit Component Type"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
-              onClick={() => {
-                setDeleteTarget(row.original);
-              }}
-              tooltip="Delete Component Type"
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteTarget(row.original)}
+              title="Delete Component Type"
               aria-label="Delete Component Type"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
     ],
-    [deleteMutation, form]
+    [form]
   );
 
   return (
     <PageLayout
       title="Component Types"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Canonical component categories for BOM and routing</span>
-        </FlexBox>
+        </div>
       }
       icon="dimension"
       iconColor="indigo"
@@ -148,25 +148,24 @@ export function ComponentTypesPage() {
                   : undefined
           }
         />
-        <DataTable 
-            data={rows} 
-            columns={columns} 
-            loading={isLoading}
-            filterPlaceholder="Search component type..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  className="button-hover-scale"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ code: "", name: "", description: "", is_active: true });
-                    setOpen(true);
-                  }}
-                >
-                  Add Component Type
-                </Button>
-            }
+        <DataTable
+          data={rows}
+          columns={columns}
+          loading={isLoading}
+          filterPlaceholder="Search component type..."
+          actions={
+            <Button
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({ code: "", name: "", description: "", is_active: true });
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Component Type
+            </Button>
+          }
         />
       </div>
 
@@ -177,30 +176,32 @@ export function ComponentTypesPage() {
         onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>Code</Label>}>
-            <Input {...form.register("code")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Name</Label>}>
-            <Input {...form.register("name")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Status</Label>} style={{ gridColumn: "span 2" }}>
-              <Controller
-                  name="is_active"
-                  control={form.control}
-                  render={({ field }) => (
-                      <CheckBox
-                          text="Active"
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                      />
-                  )}
-              />
-          </FormItem>
-          <FormItem labelContent={<Label>Description</Label>} style={{ gridColumn: "span 2" }}>
-            <TextArea {...form.register("description")} rows={3} />
-          </FormItem>
-        </Form>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="ct-code">Code</Label>
+            <Input id="ct-code" {...form.register("code")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="ct-name">Name</Label>
+            <Input id="ct-name" {...form.register("name")} />
+          </div>
+          <div className="flex items-center gap-2">
+            <Controller
+              name="is_active"
+              control={form.control}
+              render={({ field }) => (
+                <Checkbox id="ct-active" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
+              )}
+            />
+            <Label htmlFor="ct-active" className="cursor-pointer">
+              Active
+            </Label>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="ct-desc">Description</Label>
+            <Textarea id="ct-desc" {...form.register("description")} rows={3} />
+          </div>
+        </div>
       </FormDialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -217,8 +218,6 @@ export function ComponentTypesPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }
-

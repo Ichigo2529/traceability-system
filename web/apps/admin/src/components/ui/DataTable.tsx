@@ -1,10 +1,4 @@
-import React from 'react';
-import {
-  AnalyticalTable,
-  AnalyticalTableSelectionMode,
-  AnalyticalTableScaleWidthMode,
-  BusyIndicator 
-} from "@ui5/webcomponents-react";
+import React from "react";
 
 interface Column<T> {
   header: string;
@@ -27,46 +21,61 @@ export function DataTable<T extends { id: string | number }>({
   columns,
   isLoading,
   onRowClick,
-  emptyText = "No records found"
+  emptyText = "No records found",
 }: DataTableProps<T>) {
-
   if (isLoading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", padding: "2rem" }}>
-        <BusyIndicator active />
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
-  // Map our columns definition to AnalyticalTable columns
-  const tableColumns = columns.map((col) => ({
-    Header: col.header,
-    accessor: col.accessorKey as string, 
-    Cell: (instance: any) => {
-        if (col.cell) {
-            return col.cell(instance.row.original);
-        }
-        return instance.cell.value;
-    },
-    width: col.width ? parseInt(col.width) : undefined, 
-  }));
+  if (!data.length) {
+    return (
+      <div className="admin-table-card flex items-center justify-center p-8 text-muted-foreground">{emptyText}</div>
+    );
+  }
 
   return (
-    <div className="admin-table-card" style={{ height: "100%", width: "100%" }}> 
-    <AnalyticalTable
-        data={data}
-        columns={tableColumns}
-        selectionMode={onRowClick ? AnalyticalTableSelectionMode.Single : AnalyticalTableSelectionMode.None}
-        scaleWidthMode={AnalyticalTableScaleWidthMode.Grow}
-        onRowClick={(e) => {
-            if (onRowClick) {
-                // e.detail.row.original contains the data item
-                onRowClick(e.detail.row.original as T);
-            }
-        }}
-        noDataText={emptyText}
-        minRows={1}
-    />
+    <div className="admin-table-card overflow-auto" style={{ height: "100%", width: "100%" }}>
+      <table className="w-full border-collapse">
+        <thead>
+          <tr className="border-b bg-muted/50">
+            {columns.map((col) => (
+              <th
+                key={String(col.accessorKey ?? col.header)}
+                className="px-4 py-3 text-left text-sm font-medium"
+                style={col.width ? { width: col.width, minWidth: col.width } : undefined}
+              >
+                {col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row) => (
+            <tr
+              key={String(row.id)}
+              onClick={() => onRowClick?.(row)}
+              className={`border-b hover:bg-muted/50 ${onRowClick ? "cursor-pointer" : ""}`}
+            >
+              {columns.map((col) => {
+                const value = col.accessorKey ? (row as Record<string, unknown>)[col.accessorKey as string] : null;
+                const content = col.cell ? col.cell(row) : value != null ? String(value) : "—";
+                return (
+                  <td
+                    key={String(col.accessorKey ?? col.header)}
+                    className={`px-4 py-3 text-sm ${col.className ?? ""}`}
+                  >
+                    {content}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -20,23 +20,19 @@ import {
   validateMaterialRequestForm,
 } from "@traceability/material-ui";
 import { PageLayout } from "@traceability/ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
-  Button,
-  FlexBox,
-  FlexBoxAlignItems,
-  Label,
-  Input,
-  InputDomRef,
-  MessageBox,
-  MessageStrip,
-  ObjectStatus,
-  Option,
-  Select,
-  Text,
-  TextArea,
-  Title,
-} from "@ui5/webcomponents-react";
-import { MaterialRequest, MaterialRequestCatalogItem, MaterialRequestDetail, WorkflowApprovalConfig } from "@traceability/sdk";
+  MaterialRequest,
+  MaterialRequestCatalogItem,
+  MaterialRequestDetail,
+  WorkflowApprovalConfig,
+} from "@traceability/sdk";
 import { sdk, useAuth } from "../../context/AuthContext";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
@@ -61,12 +57,12 @@ function blankLine(itemNo: number): MaterialRequestLineForm {
 }
 
 const WORKFLOW_STEPS = [
-  { key: "requested",  label: "Requested",    sub: "Production" },
-  { key: "approved",   label: "Approved",      sub: "Store" },
-  { key: "dispatched", label: "Dispatched",    sub: "Store → Forklift" },
-  { key: "issued",     label: "Issued",        sub: "Forklift" },
-  { key: "prod_ack",   label: "Prod. ACK",     sub: "Production" },
-  { key: "fork_ack",   label: "Forklift ACK",  sub: "Forklift" },
+  { key: "requested", label: "Requested", sub: "Production" },
+  { key: "approved", label: "Approved", sub: "Store" },
+  { key: "dispatched", label: "Dispatched", sub: "Store → Forklift" },
+  { key: "issued", label: "Issued", sub: "Forklift" },
+  { key: "prod_ack", label: "Prod. ACK", sub: "Production" },
+  { key: "fork_ack", label: "Forklift ACK", sub: "Forklift" },
 ];
 
 export function ProductionMaterialRequestPage() {
@@ -85,7 +81,7 @@ export function ProductionMaterialRequestPage() {
   const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   const [withdrawReason, setWithdrawReason] = useState("");
   const [confirmReceiptReviewOpen, setConfirmReceiptReviewOpen] = useState(false);
-  const scanInputRef = useRef<InputDomRef>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
   const showingDetails = Boolean(selectedId);
 
   const { meta, sectionNotSet } = useMaterialRequestMeta(canUsePage);
@@ -231,9 +227,9 @@ export function ProductionMaterialRequestPage() {
 
   if (!canUsePage) {
     return (
-      <MessageStrip design="Negative" hideCloseButton>
-        This role is not allowed to submit material request.
-      </MessageStrip>
+      <Alert variant="destructive">
+        <AlertDescription>This role is not allowed to submit material request.</AlertDescription>
+      </Alert>
     );
   }
 
@@ -250,14 +246,26 @@ export function ProductionMaterialRequestPage() {
   const materialFlowApprovals = activeApprovals.filter((row) => row.flow_code === "MATERIAL_REQUEST_APPROVAL");
   const keywordApprovals = activeApprovals.filter((row) => {
     const flow = `${row.flow_code} ${row.flow_name}`.toLowerCase();
-    return flow.includes("material") || flow.includes("request") || flow.includes("requisition") || flow.includes("issue");
+    return (
+      flow.includes("material") || flow.includes("request") || flow.includes("requisition") || flow.includes("issue")
+    );
   });
   const scopedApprovals =
-    materialFlowApprovals.length > 0 ? materialFlowApprovals : keywordApprovals.length > 0 ? keywordApprovals : activeApprovals;
-  const approvalRows = scopedApprovals.filter((row) => row.from_status === "REQUESTED").sort((a, b) => a.level - b.level);
+    materialFlowApprovals.length > 0
+      ? materialFlowApprovals
+      : keywordApprovals.length > 0
+        ? keywordApprovals
+        : activeApprovals;
+  const approvalRows = scopedApprovals
+    .filter((row) => row.from_status === "REQUESTED")
+    .sort((a, b) => a.level - b.level);
   const allApprovalRows = scopedApprovals.sort((a, b) => a.level - b.level);
 
-  const formatApproverWithEmail = (entry: { display_name?: string | null; email?: string | null; user_id?: string }) => {
+  const formatApproverWithEmail = (entry: {
+    display_name?: string | null;
+    email?: string | null;
+    user_id?: string;
+  }) => {
     const name = entry.display_name || entry.user_id || "Approver";
     return entry.email ? `${name} (${entry.email})` : name;
   };
@@ -268,7 +276,10 @@ export function ProductionMaterialRequestPage() {
       ? approvalRows
           .map((row) => {
             const recipients =
-              row.approver_users?.map((u) => u.display_name || u.email || u.user_id).filter(Boolean).join(", ") ||
+              row.approver_users
+                ?.map((u) => u.display_name || u.email || u.user_id)
+                .filter(Boolean)
+                .join(", ") ||
               row.approver_role_name ||
               "Approver";
             return `L${row.level}: ${recipients}`;
@@ -276,7 +287,9 @@ export function ProductionMaterialRequestPage() {
           .join(" → ")
       : null;
   const workflowMailRecipients = Array.from(
-    new Set(approvalRows.flatMap((row) => (row.approver_users ?? []).map((u) => (u.email ?? "").trim()).filter(Boolean)))
+    new Set(
+      approvalRows.flatMap((row) => (row.approver_users ?? []).map((u) => (u.email ?? "").trim()).filter(Boolean))
+    )
   );
 
   // ── Detail-view helpers ───────────────────────────────────────────────────
@@ -303,15 +316,15 @@ export function ProductionMaterialRequestPage() {
   }, [detail]);
 
   const firstIncompleteIdx =
-    detail?.status === "REJECTED" || detail?.status === "CANCELLED"
-      ? -1
-      : workflowStepsDone.findIndex((d) => !d);
+    detail?.status === "REJECTED" || detail?.status === "CANCELLED" ? -1 : workflowStepsDone.findIndex((d) => !d);
 
   // Fallback pending approver info (for non-admin role)
-  const fallbackApproverRows = (detail?.alert_recipients ?? selectedRequestSummary?.alert_recipients ?? []).map((row) => ({
-    display: formatApproverWithEmail(row),
-    email: row.email ?? "",
-  }));
+  const fallbackApproverRows = (detail?.alert_recipients ?? selectedRequestSummary?.alert_recipients ?? []).map(
+    (row) => ({
+      display: formatApproverWithEmail(row),
+      email: row.email ?? "",
+    })
+  );
   const pendingRows = detail ? allApprovalRows.filter((row) => row.from_status === detailStatus) : [];
   const issuedTargets = useMemo(() => {
     if (!detail) return [] as Array<{ part_number: string; do_number: string; required_packs: number }>;
@@ -365,24 +378,30 @@ export function ProductionMaterialRequestPage() {
       ? pendingRows
           .map((row) => {
             const recipients =
-              row.approver_users?.map((u) => u.display_name || u.email || u.user_id).filter(Boolean).join(", ") ||
+              row.approver_users
+                ?.map((u) => u.display_name || u.email || u.user_id)
+                .filter(Boolean)
+                .join(", ") ||
               row.approver_role_name ||
               "Approver";
             return `L${row.level}: ${recipients}`;
           })
           .join(" | ")
       : fallbackApproverRows.length > 0
-      ? fallbackApproverRows.map((r) => r.display).join(", ")
-      : isTerminalStatus
-      ? `No pending approver (${detailStatus?.toLowerCase()})`
-      : "Pending approver is resolved by workflow configuration.";
+        ? fallbackApproverRows.map((r) => r.display).join(", ")
+        : isTerminalStatus
+          ? `No pending approver (${detailStatus?.toLowerCase()})`
+          : "Pending approver is resolved by workflow configuration.";
 
-  const getApprovalStepState = (row: WorkflowApprovalConfig): { text: string; state: "Positive" | "Critical" | "Information" | "None" } => {
+  const getApprovalStepState = (
+    row: WorkflowApprovalConfig
+  ): { text: string; state: "Positive" | "Critical" | "Information" | "None" } => {
     if (!detailStatus) return { text: "Planned", state: "Information" };
     if (isTerminalStatus) return { text: "Completed", state: "Positive" };
     const pendingLevelSet = new Set(pendingRows.map((r) => r.level));
     const firstPending = pendingRows.length > 0 ? Math.min(...pendingRows.map((r) => r.level)) : Infinity;
-    if (row.from_status === detailStatus && pendingLevelSet.has(row.level)) return { text: "Pending", state: "Critical" };
+    if (row.from_status === detailStatus && pendingLevelSet.has(row.level))
+      return { text: "Pending", state: "Critical" };
     if (row.level < firstPending) return { text: "Completed", state: "Positive" };
     return { text: "Planned", state: "Information" };
   };
@@ -403,61 +422,81 @@ export function ProductionMaterialRequestPage() {
     if (stagedScans.length > 0 || selectedPart || selectedDo || scanData || manualReason || manualMode) {
       resetScanWorkbench();
     }
-  }, [canScanReceive, manualMode, manualReason, resetScanWorkbench, scanData, selectedDo, selectedPart, stagedScans.length]);
+  }, [
+    canScanReceive,
+    manualMode,
+    manualReason,
+    resetScanWorkbench,
+    scanData,
+    selectedDo,
+    selectedPart,
+    stagedScans.length,
+  ]);
 
   const detailHeaderActions = canWithdrawRequest ? (
-    <Button design="Negative" disabled={withdrawMutation.isPending} onClick={() => setConfirmWithdrawOpen(true)}>
+    <Button variant="destructive" disabled={withdrawMutation.isPending} onClick={() => setConfirmWithdrawOpen(true)}>
       {withdrawMutation.isPending ? "Withdrawing..." : "Withdraw"}
     </Button>
   ) : undefined;
 
   return (
     <div>
-      {/* System failure MessageBox (per docs §6: System failure → MessageBox) */}
-      <MessageBox
-        open={Boolean(systemErrorMsg)}
-        type="Error"
-        onClose={() => setSystemErrorMsg(null)}
-      >
-        {systemErrorMsg}
-      </MessageBox>
+      <Dialog open={Boolean(systemErrorMsg)} onOpenChange={(o) => !o && setSystemErrorMsg(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Error</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">{systemErrorMsg}</p>
+          <DialogFooter>
+            <Button onClick={() => setSystemErrorMsg(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PageLayout
         title={
           showCreateForm
             ? "New Material Request"
             : showingDetails
-            ? detailsQuery.data?.request_no ?? "Material Request Details"
-            : "Material Requests"
+              ? (detailsQuery.data?.request_no ?? "Material Request Details")
+              : "Material Requests"
         }
         subtitle={
-          <FlexBox alignItems={FlexBoxAlignItems.Center}>
+          <div className="flex items-center gap-2">
             <span className="indicator-live" />
-            <Text>
+            <span>
               {showCreateForm
                 ? "Create a new material request"
                 : showingDetails
-                ? "Material Request Details"
-                : "Internal warehouse transfer and material requisitions"}
-            </Text>
-          </FlexBox>
+                  ? "Material Request Details"
+                  : "Internal warehouse transfer and material requisitions"}
+            </span>
+          </div>
         }
         icon={showCreateForm ? "create-form" : "request"}
         iconColor="blue"
         showBackButton={showCreateForm || showingDetails}
         onBackClick={() => {
-          if (showCreateForm) { setShowCreateForm(false); setFormErrors(undefined); }
+          if (showCreateForm) {
+            setShowCreateForm(false);
+            setFormErrors(undefined);
+          }
           if (showingDetails) setSelectedId(null);
         }}
         headerActions={showingDetails ? detailHeaderActions : undefined}
       >
-        <div className="page-container motion-safe:animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div
+          className="page-container motion-safe:animate-fade-in"
+          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+        >
           <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
           {sectionNotSet && (
-            <MessageStrip design="Critical" hideCloseButton>
-              Your user account has no section assigned. Please contact an administrator.
-            </MessageStrip>
+            <Alert variant="destructive">
+              <AlertDescription>
+                Your user account has no section assigned. Please contact an administrator.
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* ── CREATE FORM ───────────────────────────────── */}
@@ -473,7 +512,7 @@ export function ProductionMaterialRequestPage() {
                 selectedCostCenterId={selectedCostCenterId}
                 setSelectedCostCenterId={(v) => {
                   setSelectedCostCenterId(v);
-                  if (formErrors?.cost_center_id) setFormErrors((e) => e ? { ...e, cost_center_id: undefined } : e);
+                  if (formErrors?.cost_center_id) setFormErrors((e) => (e ? { ...e, cost_center_id: undefined } : e));
                 }}
                 meta={meta}
                 sectionNotSet={sectionNotSet}
@@ -495,37 +534,29 @@ export function ProductionMaterialRequestPage() {
                 onSubmit={handleSubmitClick}
                 submitLabel={createMutation.isPending ? "Submitting…" : "Submit Request"}
                 disableSubmit={Boolean(createMutation.isPending || sectionNotSet)}
-                onCancel={() => { setShowCreateForm(false); setFormErrors(undefined); }}
+                onCancel={() => {
+                  setShowCreateForm(false);
+                  setFormErrors(undefined);
+                }}
               />
 
               {/* Approval info card (create form) */}
               {canReadApprovalConfig && (
-                <div
-                  style={{
-                    border: "1px solid var(--sapHighlightColor)",
-                    borderRadius: "0.5rem",
-                    background: "var(--sapHighlightBackground)",
-                    padding: "0.75rem 1rem",
-                  }}
-                >
-                  <Title level="H6" style={{ margin: "0 0 0.4rem", color: "var(--sapHighlightColor)" }}>
-                    Approval Route
-                  </Title>
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                  <h3 className="text-sm font-semibold text-primary mb-1">Approval Route</h3>
                   {approvalFlowSummary ? (
                     <>
-                      <Text style={{ fontSize: "0.85rem" }}>{approvalFlowSummary}</Text>
+                      <p className="text-sm">{approvalFlowSummary}</p>
                       {workflowMailRecipients.length > 0 && (
-                        <Text style={{ fontSize: "0.8rem", color: "var(--sapContent_LabelColor)", display: "block", marginTop: "0.3rem" }}>
+                        <p className="text-xs text-muted-foreground mt-1 block">
                           Mail alert to: {workflowMailRecipients.join(", ")}
-                        </Text>
+                        </p>
                       )}
                     </>
                   ) : approvalsQuery.isLoading ? (
-                    <Text style={{ fontSize: "0.85rem", color: "var(--sapContent_LabelColor)" }}>Loading approval route…</Text>
+                    <p className="text-sm text-muted-foreground">Loading approval route…</p>
                   ) : (
-                    <Text style={{ fontSize: "0.85rem", color: "var(--sapContent_LabelColor)" }}>
-                      System will route by configured approval rules.
-                    </Text>
+                    <p className="text-sm text-muted-foreground">System will route by configured approval rules.</p>
                   )}
                 </div>
               )}
@@ -536,48 +567,59 @@ export function ProductionMaterialRequestPage() {
               <>
                 <MaterialRequestVoucherView detail={detail} hideTopBarActions hideIssueTotalsBeforeIssued />
                 {canScanReceive && (
-                  <div
-                    style={{
-                      border: "1px solid var(--sapGroup_ContentBorderColor)",
-                      borderRadius: "0.5rem",
-                      background: "var(--sapGroup_ContentBackground)",
-                      padding: "0.75rem 1rem",
-                    }}
-                  >
-                    <Title level="H6" style={{ margin: "0 0 0.75rem" }}>
-                      Receive & Scan 2D
-                    </Title>
-                    <Text style={{ display: "block", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)", marginBottom: "0.5rem" }}>
+                  <div className="rounded-lg border bg-card p-4">
+                    <h3 className="font-semibold mb-3">Receive & Scan 2D</h3>
+                    <p className="text-sm text-muted-foreground mb-2 block">
                       Scanner mode: choose Part + DO, then keep scanning continuously.
-                    </Text>
+                    </p>
                     {feedback.type !== "idle" && (
-                      <MessageStrip design={feedback.type === "success" ? "Positive" : "Negative"} hideCloseButton style={{ marginBottom: "0.6rem" }}>
-                        {feedback.message}
-                      </MessageStrip>
+                      <Alert variant={feedback.type === "success" ? "default" : "destructive"} className="mb-2">
+                        <AlertDescription>{feedback.message}</AlertDescription>
+                      </Alert>
                     )}
-                    <FlexBox style={{ gap: "0.75rem", flexWrap: "wrap" }}>
-                      <div style={{ minWidth: "14rem" }}>
+                    <div className="flex gap-3 flex-wrap">
+                      <div className="min-w-[14rem] space-y-1">
                         <Label>Part Number</Label>
-                        <Select value={selectedPart} onChange={(e) => { setSelectedPart(e.target.value); setSelectedDo(""); }} style={{ width: "100%" }}>
-                          <Option value="">Select part number</Option>
-                          {partOptions.map((part) => (
-                            <Option key={`part-${part}`} value={part}>{part}</Option>
-                          ))}
+                        <Select
+                          value={selectedPart}
+                          onValueChange={(v) => {
+                            setSelectedPart(v);
+                            setSelectedDo("");
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select part number" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Select part number</SelectItem>
+                            {partOptions.map((part) => (
+                              <SelectItem key={`part-${part}`} value={part}>
+                                {part}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       </div>
-                      <div style={{ minWidth: "12rem" }}>
+                      <div className="min-w-[12rem] space-y-1">
                         <Label>DO Number</Label>
-                        <Select value={selectedDo} onChange={(e) => setSelectedDo(e.target.value)} style={{ width: "100%" }}>
-                          <Option value="">Select DO number</Option>
-                          {doOptionsForPart.map((row) => (
-                            <Option key={`do-${selectedPart}-${row}`} value={row}>{row}</Option>
-                          ))}
+                        <Select value={selectedDo} onValueChange={setSelectedDo}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select DO number" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Select DO number</SelectItem>
+                            {doOptionsForPart.map((row) => (
+                              <SelectItem key={`do-${selectedPart}-${row}`} value={row}>
+                                {row}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       </div>
-                      <div style={{ minWidth: "18rem", flex: 1 }}>
+                      <div className="min-w-[18rem] flex-1 space-y-1">
                         <Label>{manualMode ? "Manual fallback note" : "2D Barcode Data"}</Label>
                         {manualMode ? (
-                          <TextArea value={manualReason} onInput={(e) => setManualReason(e.target.value)} rows={2} />
+                          <Textarea value={manualReason} onChange={(e) => setManualReason(e.target.value)} rows={2} />
                         ) : (
                           <div onClick={() => scanInputRef.current?.focus()}>
                             <ScanInput
@@ -590,42 +632,55 @@ export function ProductionMaterialRequestPage() {
                           </div>
                         )}
                       </div>
-                    </FlexBox>
-                    <FlexBox style={{ gap: "0.5rem", marginTop: "0.6rem" }}>
-                      <Button design={manualMode ? "Emphasized" : "Transparent"} onClick={() => setManualMode((v) => !v)}>
+                    </div>
+                    <div className="flex gap-2 mt-3 flex-wrap">
+                      <Button
+                        variant={manualMode ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setManualMode((v) => !v)}
+                      >
                         {manualMode ? "Manual Fallback ON" : "Use Manual Fallback"}
                       </Button>
-                      <Button design="Emphasized" onClick={addStagedScan}>
+                      <Button size="sm" onClick={addStagedScan}>
                         Add Scan Row
                       </Button>
                       <Button
-                        design="Positive"
+                        variant="default"
+                        size="sm"
                         disabled={!coverage.ready || confirmReceiptMutation.isPending || stagedScans.length === 0}
                         onClick={() => setConfirmReceiptReviewOpen(true)}
                       >
                         Review & Confirm ACK
                       </Button>
                       <Button
-                        design="Transparent"
+                        variant="ghost"
+                        size="sm"
                         disabled={stagedScans.length === 0 || confirmReceiptMutation.isPending}
                         onClick={clearStagedScans}
                       >
                         Clear All
                       </Button>
-                    </FlexBox>
-                    <Text style={{ display: "block", marginTop: "0.4rem", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)" }}>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1 block">
                       Coverage (packs): {coverage.scannedCount}/{coverage.requiredCount}{" "}
                       {coverage.missing.length ? `| Remaining ${coverage.missing.length}` : "| Ready"}
-                    </Text>
+                    </p>
                     {stagedScans.length > 0 && (
-                      <div style={{ marginTop: "0.5rem", maxHeight: "11rem", overflowY: "auto", borderTop: "1px solid var(--sapList_BorderColor)", paddingTop: "0.4rem" }}>
+                      <div className="mt-2 max-h-[11rem] overflow-y-auto border-t pt-2">
                         {stagedScans.map((row, idx) => (
-                          <div key={row.id} style={{ fontSize: "0.82rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div key={row.id} className="text-sm flex justify-between items-center py-1">
                             <span>
                               {idx + 1}. {row.part_number} / {row.do_number} [{row.source}]
                               {row.reason ? ` - ${row.reason}` : ""}
                             </span>
-                            <Button design="Transparent" icon="decline" onClick={() => removeStagedScan(row.id)} />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeStagedScan(row.id)}
+                              aria-label="Remove"
+                            >
+                              ×
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -633,84 +688,49 @@ export function ProductionMaterialRequestPage() {
                   </div>
                 )}
                 {detail?.status === "ISSUED" && Boolean(detail?.production_ack_at) && (
-                  <MessageStrip design="Positive" hideCloseButton>
-                    Production receipt already acknowledged.
-                  </MessageStrip>
+                  <Alert className="border-green-500/50 bg-green-50 dark:bg-green-900/20">
+                    <AlertDescription>Production receipt already acknowledged.</AlertDescription>
+                  </Alert>
                 )}
 
                 {/* Workflow Timeline */}
-                <div
-                  style={{
-                    border: "1px solid var(--sapGroup_ContentBorderColor)",
-                    borderRadius: "0.5rem",
-                    background: "var(--sapGroup_ContentBackground)",
-                    padding: "0.75rem 1rem",
-                  }}
-                >
-                  <Title level="H6" style={{ margin: "0 0 0.85rem" }}>
-                    Request Workflow
-                  </Title>
+                <div className="rounded-lg border bg-card p-4">
+                  <h3 className="font-semibold mb-3">Request Workflow</h3>
 
-                  {/* Step indicator */}
-                  <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", paddingBottom: "0.5rem" }}>
+                  <div className="flex items-start overflow-x-auto pb-2">
                     {WORKFLOW_STEPS.map((step, idx) => {
                       const done = workflowStepsDone[idx];
                       const active = idx === firstIncompleteIdx;
-                      const rejected = (detail.status === "REJECTED" || detail.status === "CANCELLED") && idx > 0 && !done;
-                      const circleColor = done
-                        ? "var(--sapPositiveColor)"
+                      const rejected =
+                        (detail.status === "REJECTED" || detail.status === "CANCELLED") && idx > 0 && !done;
+                      const circleClass = done
+                        ? "bg-green-600"
                         : active
-                        ? "var(--sapHighlightColor)"
-                        : rejected
-                        ? "var(--sapNeutralColor)"
-                        : "var(--sapNeutralBorderColor)";
-                      const textColor = done
-                        ? "var(--sapPositiveColor)"
+                          ? "bg-primary border-2 border-primary"
+                          : rejected
+                            ? "bg-muted-foreground/50"
+                            : "bg-muted";
+                      const textClass = done
+                        ? "text-green-600"
                         : active
-                        ? "var(--sapHighlightColor)"
-                        : "var(--sapContent_LabelColor)";
+                          ? "text-primary font-semibold"
+                          : "text-muted-foreground";
                       return (
-                        <div key={step.key} style={{ display: "flex", alignItems: "flex-start", flex: idx < WORKFLOW_STEPS.length - 1 ? "1 1 auto" : "0 0 auto" }}>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: "80px" }}>
+                        <div key={step.key} className="flex items-start flex-1 min-w-0">
+                          <div className="flex flex-col items-center min-w-[80px]">
                             <div
-                              style={{
-                                width: "2rem",
-                                height: "2rem",
-                                borderRadius: "50%",
-                                background: circleColor,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                color: "white",
-                                fontWeight: "bold",
-                                fontSize: "0.85rem",
-                                border: active ? "2px solid var(--sapHighlightColor)" : "none",
-                                boxSizing: "border-box",
-                              }}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${circleClass}`}
                             >
                               {done ? "✓" : idx + 1}
                             </div>
-                            <Text style={{ fontSize: "0.72rem", color: textColor, textAlign: "center", marginTop: "0.3rem", fontWeight: active ? "bold" : "normal" }}>
-                              {step.label}
-                            </Text>
-                            <Text style={{ fontSize: "0.65rem", color: "var(--sapContent_LabelColor)", textAlign: "center" }}>
-                              {step.sub}
-                            </Text>
-                            {active && (
-                              <ObjectStatus state="Critical" style={{ marginTop: "0.2rem", fontSize: "0.65rem" }}>
-                                Pending
-                              </ObjectStatus>
-                            )}
+                            <span className={`text-xs text-center mt-1 ${textClass}`}>{step.label}</span>
+                            <span className="text-[0.65rem] text-muted-foreground text-center">{step.sub}</span>
+                            {active && <span className="text-xs text-destructive mt-0.5">Pending</span>}
                           </div>
                           {idx < WORKFLOW_STEPS.length - 1 && (
                             <div
-                              style={{
-                                flex: 1,
-                                height: "2px",
-                                background: done ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)",
-                                margin: "1rem 0 0",
-                                minWidth: "1rem",
-                              }}
+                              className={`flex-1 h-0.5 mt-4 min-w-2 self-center ${done ? "bg-green-600" : "bg-muted"}`}
+                              aria-hidden
                             />
                           )}
                         </div>
@@ -718,58 +738,45 @@ export function ProductionMaterialRequestPage() {
                     })}
                   </div>
 
-                  {/* Pending approver info */}
                   {!isTerminalStatus && (
-                    <div
-                      style={{
-                        marginTop: "0.75rem",
-                        padding: "0.5rem 0.75rem",
-                        background: "var(--sapCriticalBackground)",
-                        borderRadius: "0.25rem",
-                        borderLeft: "3px solid var(--sapCriticalColor)",
-                      }}
-                    >
-                      <Text style={{ fontSize: "0.82rem" }}>
+                    <div className="mt-3 py-2 px-3 rounded bg-destructive/10 border-l-4 border-destructive">
+                      <p className="text-sm">
                         <strong>Waiting for:</strong> {pendingApprovalText}
-                      </Text>
+                      </p>
                     </div>
                   )}
 
-                  {/* Admin-only: full approval config table */}
                   {canReadApprovalConfig && allApprovalRows.length > 0 && (
-                    <details style={{ marginTop: "0.85rem" }}>
-                      <summary style={{ cursor: "pointer", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)" }}>
+                    <details className="mt-3">
+                      <summary className="cursor-pointer text-sm text-muted-foreground">
                         Approval Configuration ({allApprovalRows.length} step{allApprovalRows.length > 1 ? "s" : ""})
                       </summary>
-                      <div style={{ marginTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+                      <div className="mt-2 flex flex-col gap-2">
                         {allApprovalRows.map((row) => {
                           const stepState = getApprovalStepState(row);
                           const processors = (row.approver_users ?? [])
                             .map((u) => formatApproverWithEmail(u))
                             .filter(Boolean)
                             .join(", ");
+                          const stateClass =
+                            stepState.state === "Positive"
+                              ? "text-green-600"
+                              : stepState.state === "Critical"
+                                ? "text-destructive"
+                                : "text-muted-foreground";
                           return (
                             <div
                               key={row.id}
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "auto 1fr auto",
-                                gap: "0.5rem",
-                                alignItems: "center",
-                                padding: "0.4rem 0.6rem",
-                                background: "var(--sapBaseColor)",
-                                borderRadius: "0.25rem",
-                                border: "1px solid var(--sapList_BorderColor)",
-                              }}
+                              className="grid grid-cols-[auto_1fr_auto] gap-2 items-center p-2 rounded border bg-background"
                             >
-                              <Label style={{ fontWeight: "bold" }}>L{row.level}</Label>
+                              <Label className="font-bold">L{row.level}</Label>
                               <div>
-                                <Text style={{ fontSize: "0.82rem" }}>{row.flow_name}</Text>
-                                <Text style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)", display: "block" }}>
+                                <p className="text-sm">{row.flow_name}</p>
+                                <p className="text-xs text-muted-foreground block">
                                   {processors || row.approver_role_name || "-"}
-                                </Text>
+                                </p>
                               </div>
-                              <ObjectStatus state={stepState.state}>{stepState.text}</ObjectStatus>
+                              <span className={`text-sm ${stateClass}`}>{stepState.text}</span>
                             </div>
                           );
                         })}
@@ -777,13 +784,12 @@ export function ProductionMaterialRequestPage() {
                     </details>
                   )}
 
-                  {/* Fallback for non-admin when no config data */}
                   {!canReadApprovalConfig && fallbackApproverRows.length > 0 && (
-                    <div style={{ marginTop: "0.5rem" }}>
+                    <div className="mt-2">
                       {fallbackApproverRows.map((row, idx) => (
-                        <div key={idx} style={{ fontSize: "0.82rem", color: "var(--sapContent_LabelColor)" }}>
+                        <p key={idx} className="text-sm text-muted-foreground">
                           {row.display}
-                        </div>
+                        </p>
                       ))}
                     </div>
                   )}
@@ -822,31 +828,16 @@ export function ProductionMaterialRequestPage() {
           }}
         >
           {previewLines.length > 0 && (
-            <div style={{ marginTop: "0.75rem", borderTop: "1px solid var(--sapList_BorderColor)", paddingTop: "0.75rem" }}>
-              <Label style={{ display: "block", marginBottom: "0.4rem", fontWeight: "bold" }}>Items to be requested:</Label>
+            <div className="mt-3 pt-3 border-t">
+              <Label className="block mb-2 font-bold">Items to be requested:</Label>
               {previewLines.map((line, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "0.3rem 0",
-                    borderBottom: "1px solid var(--sapList_BorderColor)",
-                  }}
-                >
-                  <Text style={{ fontSize: "0.85rem" }}>
-                    {`${idx + 1}. ${line.part_number}${line.description ? ` — ${line.description}` : ""}`}
-                  </Text>
-                  <Text style={{ fontWeight: "bold", marginLeft: "1rem", fontSize: "0.85rem", flexShrink: 0 }}>
-                    {`${line.requested_qty ?? "?"} ${line.uom}`}
-                  </Text>
+                <div key={idx} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                  <span className="text-sm">{`${idx + 1}. ${line.part_number}${line.description ? ` — ${line.description}` : ""}`}</span>
+                  <span className="font-bold ml-4 text-sm shrink-0">{`${line.requested_qty ?? "?"} ${line.uom}`}</span>
                 </div>
               ))}
               {approvalFlowSummary && (
-                <Text style={{ display: "block", marginTop: "0.6rem", fontSize: "0.8rem", color: "var(--sapContent_LabelColor)" }}>
-                  Approval route: {approvalFlowSummary}
-                </Text>
+                <p className="mt-2 text-sm text-muted-foreground block">Approval route: {approvalFlowSummary}</p>
               )}
             </div>
           )}
@@ -867,11 +858,11 @@ export function ProductionMaterialRequestPage() {
             withdrawMutation.mutate(selectedId);
           }}
         >
-          <div style={{ marginTop: "0.75rem" }}>
-            <Label style={{ display: "block", marginBottom: "0.4rem" }}>Reason (optional)</Label>
+          <div className="mt-3">
+            <Label className="block mb-2">Reason (optional)</Label>
             <Input
               value={withdrawReason}
-              onInput={(e) => setWithdrawReason(e.target.value)}
+              onChange={(e) => setWithdrawReason(e.target.value)}
               placeholder="Optional note for workflow/audit"
               disabled={withdrawMutation.isPending}
             />

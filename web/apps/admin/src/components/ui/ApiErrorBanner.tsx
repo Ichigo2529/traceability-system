@@ -1,11 +1,11 @@
-import { MessageStrip } from "@ui5/webcomponents-react";
+import { Alert } from "./alert";
 
 export function ApiErrorBanner({ message }: { message?: string }) {
   if (!message) return null;
 
   return (
-    <MessageStrip design="Negative" className="admin-ui5-api-error" hideCloseButton>
+    <Alert variant="destructive" className="w-full">
       {message}
-    </MessageStrip>
+    </Alert>
   );
 }

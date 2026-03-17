@@ -7,32 +7,16 @@ import { RevisionStatus, Variant, BomRow, RoutingStep, LabelBinding, LabelTempla
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { DataTable } from "../components/shared/DataTable";
-import {
-  Button,
-  FlexBox,
-  FlexBoxAlignItems,
-  FlexBoxDirection,
-  Label,
-  TabContainer,
-  Tab,
-  ObjectStatus,
-  BusyIndicator,
-  MessageStrip,
-} from "@ui5/webcomponents-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageLayout } from "@traceability/ui";
 import { BomRowDialog, BomRowForm } from "../components/shared/BomRowDialog";
 import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { VariantDialog, VariantForm } from "../components/shared/VariantDialog";
 import { RoutingDialog, RoutingForm } from "../components/shared/RoutingDialog";
 import { BindingDialog, BindingForm } from "../components/shared/BindingDialog";
-import "@ui5/webcomponents-icons/dist/nav-back.js";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/action.js";
-import "@ui5/webcomponents-icons/dist/shipping-status.js";
-import "@ui5/webcomponents-icons/dist/list.js";
-import "@ui5/webcomponents-icons/dist/chain-link.js";
+import { ArrowLeft, Plus, Pencil, Trash2, Layers, Package, List, Link2 } from "lucide-react";
 
 // Schemas and types moved to shared component files
 
@@ -49,7 +33,10 @@ export default function RevisionDetailsPage() {
   const [editingRouting, setEditingRouting] = useState<RoutingStep | null>(null);
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false);
   const [editingBinding, setEditingBinding] = useState<LabelBinding | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; type: "variant" | "bom" | "routing" | "binding" } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    type: "variant" | "bom" | "routing" | "binding";
+  } | null>(null);
 
   const { data: revision, isLoading } = useQuery({
     queryKey: ["revision", modelId, revisionId],
@@ -107,13 +94,10 @@ export default function RevisionDetailsPage() {
     queryFn: () => sdk.admin.getMasterRoutingSteps(),
   });
 
-  const usedPartNumbers = useMemo(() => 
-    new Set(bom.map(row => row.component_part_number).filter(Boolean)),
-    [bom]
-  );
+  const usedPartNumbers = useMemo(() => new Set(bom.map((row) => row.component_part_number).filter(Boolean)), [bom]);
 
   const filteredPartNumbers = useMemo(() => {
-    return partNumbers.filter(pn => {
+    return partNumbers.filter((pn) => {
       // If adding new row: hide if already used
       // If editing row: show if it's the current row's part number OR not used yet
       if (!editingBomRow) {
@@ -311,249 +295,299 @@ export default function RevisionDetailsPage() {
     const first = errors.find(Boolean);
     return first ? formatApiError(first) : undefined;
   }, [
-    createVariant.error, editVariant.error, deleteVariant.error, setDefaultVariant.error,
-    createBom.error, editBom.error, deleteBom.error,
-    createRouting.error, editRouting.error, deleteRouting.error,
-    createBinding.error, editBinding.error, deleteBinding.error,
+    createVariant.error,
+    editVariant.error,
+    deleteVariant.error,
+    setDefaultVariant.error,
+    createBom.error,
+    editBom.error,
+    deleteBom.error,
+    createRouting.error,
+    editRouting.error,
+    deleteRouting.error,
+    createBinding.error,
+    editBinding.error,
+    deleteBinding.error,
   ]);
 
   // ── Column definitions ───────────────────────────────────────────────────────
 
-  const variantColumns = useMemo<ColumnDef<Variant>[]>(() => [
-    {
-      header: "Code",
-      accessorKey: "code",
-      cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.code}</span>,
-    },
-    {
-      header: "Default",
-      accessorKey: "is_default",
-      size: 100,
-      cell: ({ row }) =>
-        row.original.is_default
-          ? <ObjectStatus state="Positive">Default</ObjectStatus>
-          : <span style={{ opacity: 0.35 }}>—</span>,
-    },
-    {
-      header: "Description",
-      accessorKey: "description",
-      cell: ({ row }) => row.original.description || "—",
-    },
-    {
-      header: "Actions",
-      size: 220,
-      cell: ({ row }) => {
-        const v = row.original;
-        if (isReadOnly) return null;
-        return (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <Button
-              onClick={(e) => { e.stopPropagation(); setDefaultVariant.mutate(v.id); }}
-              design="Transparent"
-              style={{ fontSize: "0.8rem" }}
-            >
-              Set Default
-            </Button>
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingVariant(v);
-                setVariantDialogOpen(true);
-              }}
-              icon="edit"
-              design="Transparent"
-            />
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteTarget({ id: v.id, type: "variant" });
-              }}
-              icon="delete"
-              design="Transparent"
-            />
-          </div>
-        );
+  const variantColumns = useMemo<ColumnDef<Variant>[]>(
+    () => [
+      {
+        header: "Code",
+        accessorKey: "code",
+        cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.code}</span>,
       },
-    },
-  ], [isReadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+      {
+        header: "Default",
+        accessorKey: "is_default",
+        size: 100,
+        cell: ({ row }) =>
+          row.original.is_default ? (
+            <span className="text-green-600 font-medium">Default</span>
+          ) : (
+            <span className="opacity-35">—</span>
+          ),
+      },
+      {
+        header: "Description",
+        accessorKey: "description",
+        cell: ({ row }) => row.original.description || "—",
+      },
+      {
+        header: "Actions",
+        size: 220,
+        cell: ({ row }) => {
+          const v = row.original;
+          if (isReadOnly) return null;
+          return (
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDefaultVariant.mutate(v.id);
+                }}
+              >
+                Set Default
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingVariant(v);
+                  setVariantDialogOpen(true);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget({ id: v.id, type: "variant" });
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [isReadOnly]
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const bomColumns = useMemo<ColumnDef<BomRow>[]>(() => [
-    {
-      header: "Component",
-      accessorKey: "component_name",
-      cell: ({ row }) => (
-        <span style={{ fontWeight: 600 }}>{row.original.component_name || row.original.component_unit_type}</span>
-      ),
-    },
-    {
-      header: "Part Number",
-      accessorKey: "component_part_number",
-      cell: ({ row }) => row.original.component_part_number || "—",
-    },
-    {
-      header: "Location",
-      accessorKey: "rm_location",
-      cell: ({ row }) => row.original.rm_location || "—",
-    },
-    {
-      header: "Qty",
-      accessorKey: "qty_per_assy",
-      size: 70,
-    },
-    {
-      header: "Required",
-      accessorKey: "required",
-      size: 100,
-      cell: ({ row }) =>
-        row.original.required
-          ? <ObjectStatus state="Positive">Yes</ObjectStatus>
-          : <ObjectStatus state="None">No</ObjectStatus>,
-    },
-    {
-      header: "Actions",
-      size: 120,
-      cell: ({ row }) => {
-        const b = row.original;
-        if (isReadOnly) return null;
-        return (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <Button
-              onClick={(e) => { e.stopPropagation(); setEditingBomRow(b); setBomDialogOpen(true); }}
-              icon="edit"
-              design="Transparent"
-            />
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteTarget({ id: b.id, type: "bom" });
-              }}
-              icon="delete"
-              design="Transparent"
-            />
-          </div>
-        );
+  const bomColumns = useMemo<ColumnDef<BomRow>[]>(
+    () => [
+      {
+        header: "Component",
+        accessorKey: "component_name",
+        cell: ({ row }) => (
+          <span style={{ fontWeight: 600 }}>{row.original.component_name || row.original.component_unit_type}</span>
+        ),
       },
-    },
-  ], [isReadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+      {
+        header: "Part Number",
+        accessorKey: "component_part_number",
+        cell: ({ row }) => row.original.component_part_number || "—",
+      },
+      {
+        header: "Location",
+        accessorKey: "rm_location",
+        cell: ({ row }) => row.original.rm_location || "—",
+      },
+      {
+        header: "Qty",
+        accessorKey: "qty_per_assy",
+        size: 70,
+      },
+      {
+        header: "Required",
+        accessorKey: "required",
+        size: 100,
+        cell: ({ row }) =>
+          row.original.required ? (
+            <span className="text-green-600">Yes</span>
+          ) : (
+            <span className="text-muted-foreground">No</span>
+          ),
+      },
+      {
+        header: "Actions",
+        size: 120,
+        cell: ({ row }) => {
+          const b = row.original;
+          if (isReadOnly) return null;
+          return (
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingBomRow(b);
+                  setBomDialogOpen(true);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget({ id: b.id, type: "bom" });
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [isReadOnly]
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const routingColumns = useMemo<ColumnDef<RoutingStep>[]>(() => [
-    {
-      header: "#",
-      accessorKey: "sequence",
-      size: 60,
-    },
-    {
-      header: "Step Code",
-      accessorKey: "step_code",
-      cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.step_code}</span>,
-    },
-    {
-      header: "Mandatory",
-      accessorKey: "mandatory",
-      size: 110,
-      cell: ({ row }) =>
-        row.original.mandatory
-          ? <ObjectStatus state="Positive">Yes</ObjectStatus>
-          : <ObjectStatus state="None">No</ObjectStatus>,
-    },
-    {
-      header: "Component Type",
-      accessorKey: "component_type",
-      cell: ({ row }) => row.original.component_type || "—",
-    },
-    {
-      header: "Description",
-      accessorKey: "description",
-      cell: ({ row }) => row.original.description || "—",
-    },
-    {
-      header: "Actions",
-      size: 120,
-      cell: ({ row }) => {
-        const r = row.original;
-        if (isReadOnly) return null;
-        return (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingRouting(r);
-                setRoutingDialogOpen(true);
-              }}
-              icon="edit"
-              design="Transparent"
-            />
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteTarget({ id: r.id, type: "routing" });
-              }}
-              icon="delete"
-              design="Transparent"
-            />
-          </div>
-        );
+  const routingColumns = useMemo<ColumnDef<RoutingStep>[]>(
+    () => [
+      {
+        header: "#",
+        accessorKey: "sequence",
+        size: 60,
       },
-    },
-  ], [isReadOnly]); // eslint-disable-line react-hooks/exhaustive-deps
+      {
+        header: "Step Code",
+        accessorKey: "step_code",
+        cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.step_code}</span>,
+      },
+      {
+        header: "Mandatory",
+        accessorKey: "mandatory",
+        size: 110,
+        cell: ({ row }) =>
+          row.original.mandatory ? (
+            <span className="text-green-600">Yes</span>
+          ) : (
+            <span className="text-muted-foreground">No</span>
+          ),
+      },
+      {
+        header: "Component Type",
+        accessorKey: "component_type",
+        cell: ({ row }) => row.original.component_type || "—",
+      },
+      {
+        header: "Description",
+        accessorKey: "description",
+        cell: ({ row }) => row.original.description || "—",
+      },
+      {
+        header: "Actions",
+        size: 120,
+        cell: ({ row }) => {
+          const r = row.original;
+          if (isReadOnly) return null;
+          return (
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingRouting(r);
+                  setRoutingDialogOpen(true);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget({ id: r.id, type: "routing" });
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [isReadOnly]
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const bindingColumns = useMemo<ColumnDef<LabelBinding>[]>(() => [
-    {
-      header: "Unit Type",
-      accessorKey: "unit_type",
-      cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.unit_type}</span>,
-    },
-    {
-      header: "Process Point",
-      accessorKey: "process_point",
-    },
-    {
-      header: "Template",
-      accessorKey: "label_template_id",
-      cell: ({ row }) =>
-        (templates as LabelTemplate[]).find((t) => t.id === row.original.label_template_id)?.name ||
-        row.original.label_template_id,
-    },
-    {
-      header: "Actions",
-      size: 120,
-      cell: ({ row }) => {
-        const b = row.original;
-        if (isReadOnly) return null;
-        return (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingBinding(b);
-                setBindingDialogOpen(true);
-              }}
-              icon="edit"
-              design="Transparent"
-            />
-            <Button
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteTarget({ id: b.id, type: "binding" });
-              }}
-              icon="delete"
-              design="Transparent"
-            />
-          </div>
-        );
+  const bindingColumns = useMemo<ColumnDef<LabelBinding>[]>(
+    () => [
+      {
+        header: "Unit Type",
+        accessorKey: "unit_type",
+        cell: ({ row }) => <span style={{ fontWeight: 600 }}>{row.original.unit_type}</span>,
       },
-    },
-  ], [isReadOnly, templates]); // eslint-disable-line react-hooks/exhaustive-deps
+      {
+        header: "Process Point",
+        accessorKey: "process_point",
+      },
+      {
+        header: "Template",
+        accessorKey: "label_template_id",
+        cell: ({ row }) =>
+          (templates as LabelTemplate[]).find((t) => t.id === row.original.label_template_id)?.name ||
+          row.original.label_template_id,
+      },
+      {
+        header: "Actions",
+        size: 120,
+        cell: ({ row }) => {
+          const b = row.original;
+          if (isReadOnly) return null;
+          return (
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingBinding(b);
+                  setBindingDialogOpen(true);
+                }}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteTarget({ id: b.id, type: "binding" });
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          );
+        },
+      },
+    ],
+    [isReadOnly, templates]
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Early returns ────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center" }}>
-        <FlexBox direction={FlexBoxDirection.Column} alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem" }}>
-          <BusyIndicator active size="L" />
-          <Label style={{ opacity: 0.65 }}>Loading revision…</Label>
-        </FlexBox>
+      <div className="flex h-full items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden />
+          <Label className="opacity-65">Loading revision…</Label>
+        </div>
       </div>
     );
   }
@@ -561,76 +595,78 @@ export default function RevisionDetailsPage() {
   if (!revision) {
     return (
       <PageLayout title="Not Found" icon="warning" iconColor="red">
-        <MessageStrip design="Negative" hideCloseButton style={{ borderRadius: "8px" }}>
-          Revision not found. It may have been deleted.
-        </MessageStrip>
+        <Alert variant="destructive" className="rounded-lg">
+          <AlertDescription>Revision not found. It may have been deleted.</AlertDescription>
+        </Alert>
       </PageLayout>
     );
   }
-
-  const handleTabChange = (e: any) => {
-    setTab(e.detail.tab.dataset.key);
-  };
 
   const revCode = revision.revision_code;
   const modelName = (revision as any).model?.name || "Model";
   const modelCode = (revision as any).model?.code || "";
 
+  const tabButtons = [
+    { key: "variants" as const, label: "Variants", icon: Layers },
+    { key: "bom" as const, label: "BOM", icon: Package },
+    { key: "routing" as const, label: "Routing", icon: List },
+    { key: "bindings" as const, label: "Bindings", icon: Link2 },
+  ];
+
   return (
     <PageLayout
       title={`Revision: ${revCode}`}
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
-          <span>{modelName} ({modelCode}) — Revision details and BOM profile</span>
-        </FlexBox>
+          <span>
+            {modelName} ({modelCode}) — Revision details and BOM profile
+          </span>
+        </div>
       }
       icon="product"
       iconColor="indigo"
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        <div>
-            <ApiErrorBanner message={errorMessage} />
-        </div>
+      <div className="flex flex-col gap-4">
+        <ApiErrorBanner message={errorMessage} />
 
-        <div style={{ position: "relative" }}>
+        <div className="relative">
           {isReadOnly && (
-            <div className="tab-header-status">
-              <ObjectStatus state="Positive" style={{ fontSize: "0.875rem", fontWeight: 600 }}>
-                Read-only (ACTIVE)
-              </ObjectStatus>
+            <div className="mb-2">
+              <span className="text-sm font-semibold text-green-600">Read-only (ACTIVE)</span>
             </div>
           )}
-          <TabContainer 
-            onTabSelect={handleTabChange} 
-            contentBackgroundDesign="Transparent" 
-            tabLayout="Inline"
-            className="process-tabs"
-            style={{ marginTop: "0.25rem" }}
-          >
+          <div className="flex gap-1 border-b mb-3">
+            {tabButtons.map(({ key, label, icon: Icon }) => (
+              <Button key={key} variant={tab === key ? "secondary" : "ghost"} size="sm" onClick={() => setTab(key)}>
+                <Icon className="h-4 w-4 mr-1" />
+                {label}
+              </Button>
+            ))}
+          </div>
 
-          {/* ── Variants ─────────────────────────────────────────────────────── */}
-          <Tab text="Variants" icon="action" selected={tab === "variants"} data-key="variants">
-            <div key={tab} className="page-container tab-content-container">
+          {tab === "variants" && (
+            <div className="page-container tab-content-container">
               <DataTable
                 data={variants as Variant[]}
                 columns={variantColumns}
                 filterPlaceholder="Search variants…"
                 hideEmptyState={true}
                 actions={
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                      <ArrowLeft className="h-4 w-4 mr-1" />
                       Back to Revisions
                     </Button>
                     {!isReadOnly && (
                       <Button
-                        icon="add"
-                        design="Emphasized"
+                        size="sm"
                         onClick={() => {
                           setEditingVariant(null);
                           setVariantDialogOpen(true);
                         }}
                       >
+                        <Plus className="h-4 w-4 mr-1" />
                         Add Variant
                       </Button>
                     )}
@@ -638,30 +674,30 @@ export default function RevisionDetailsPage() {
                 }
               />
             </div>
-          </Tab>
+          )}
 
-          {/* ── BOM ──────────────────────────────────────────────────────────── */}
-          <Tab text="BOM" icon="shipping-status" selected={tab === "bom"} data-key="bom">
-            <div key={tab} className="page-container tab-content-container">
+          {tab === "bom" && (
+            <div className="page-container tab-content-container">
               <DataTable
                 data={bom as BomRow[]}
                 columns={bomColumns}
                 filterPlaceholder="Search BOM…"
                 hideEmptyState={true}
                 actions={
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                      <ArrowLeft className="h-4 w-4 mr-1" />
                       Back to Revisions
                     </Button>
                     {!isReadOnly && (
                       <Button
-                        icon="add"
-                        design="Emphasized"
+                        size="sm"
                         onClick={() => {
                           setEditingBomRow(null);
                           setBomDialogOpen(true);
                         }}
                       >
+                        <Plus className="h-4 w-4 mr-1" />
                         Add Row
                       </Button>
                     )}
@@ -669,30 +705,30 @@ export default function RevisionDetailsPage() {
                 }
               />
             </div>
-          </Tab>
+          )}
 
-          {/* ── Routing ──────────────────────────────────────────────────────── */}
-          <Tab text="Routing" icon="list" selected={tab === "routing"} data-key="routing">
-            <div key={tab} className="page-container tab-content-container">
+          {tab === "routing" && (
+            <div className="page-container tab-content-container">
               <DataTable
                 data={routing as RoutingStep[]}
                 columns={routingColumns}
                 filterPlaceholder="Search steps…"
                 hideEmptyState={true}
                 actions={
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                      <ArrowLeft className="h-4 w-4 mr-1" />
                       Back to Revisions
                     </Button>
                     {!isReadOnly && (
                       <Button
-                        icon="add"
-                        design="Emphasized"
+                        size="sm"
                         onClick={() => {
                           setEditingRouting(null);
                           setRoutingDialogOpen(true);
                         }}
                       >
+                        <Plus className="h-4 w-4 mr-1" />
                         Add Step
                       </Button>
                     )}
@@ -700,30 +736,30 @@ export default function RevisionDetailsPage() {
                 }
               />
             </div>
-          </Tab>
+          )}
 
-          {/* ── Bindings ─────────────────────────────────────────────────────── */}
-          <Tab text="Bindings" icon="chain-link" selected={tab === "bindings"} data-key="bindings">
-            <div key={tab} className="page-container tab-content-container">
+          {tab === "bindings" && (
+            <div className="page-container tab-content-container">
               <DataTable
                 data={bindings as LabelBinding[]}
                 columns={bindingColumns}
                 filterPlaceholder="Search bindings…"
                 hideEmptyState={true}
                 actions={
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <Button icon="nav-back" design="Transparent" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/models/${modelId}`)}>
+                      <ArrowLeft className="h-4 w-4 mr-1" />
                       Back to Revisions
                     </Button>
                     {!isReadOnly && (
                       <Button
-                        icon="add"
-                        design="Emphasized"
+                        size="sm"
                         onClick={() => {
                           setEditingBinding(null);
                           setBindingDialogOpen(true);
                         }}
                       >
+                        <Plus className="h-4 w-4 mr-1" />
                         Add Binding
                       </Button>
                     )}
@@ -731,9 +767,7 @@ export default function RevisionDetailsPage() {
                 }
               />
             </div>
-          </Tab>
-
-        </TabContainer>
+          )}
         </div>
       </div>
 
@@ -779,27 +813,27 @@ export default function RevisionDetailsPage() {
       />
 
       {/* ── Routing Dialog ───────────────────────────────────────────────────── */}
-        {routingDialogOpen && (
-          <RoutingDialog
-            open={routingDialogOpen}
-            step={editingRouting}
-            nextSequence={routing.length > 0 ? Math.max(...routing.map((r) => r.sequence)) + 10 : 10}
-            modelCode={modelCode}
-            masterSteps={masterSteps}
-            onClose={() => {
-              setRoutingDialogOpen(false);
-              setEditingRouting(null);
-            }}
-            onSubmit={(v) => {
-              if (editingRouting) {
-                editRouting.mutate(v);
-              } else {
-                createRouting.mutate(v);
-              }
-            }}
-            submitting={createRouting.isPending || editRouting.isPending}
-          />
-        )}
+      {routingDialogOpen && (
+        <RoutingDialog
+          open={routingDialogOpen}
+          step={editingRouting}
+          nextSequence={routing.length > 0 ? Math.max(...routing.map((r) => r.sequence)) + 10 : 10}
+          modelCode={modelCode}
+          masterSteps={masterSteps}
+          onClose={() => {
+            setRoutingDialogOpen(false);
+            setEditingRouting(null);
+          }}
+          onSubmit={(v) => {
+            if (editingRouting) {
+              editRouting.mutate(v);
+            } else {
+              createRouting.mutate(v);
+            }
+          }}
+          submitting={createRouting.isPending || editRouting.isPending}
+        />
+      )}
 
       {/* ── Binding Dialog ───────────────────────────────────────────────────── */}
       <BindingDialog
@@ -825,17 +859,14 @@ export default function RevisionDetailsPage() {
         confirmText="Delete"
         destructive
         submitting={
-          deleteVariant.isPending || 
-          deleteBom.isPending || 
-          deleteRouting.isPending || 
-          deleteBinding.isPending
+          deleteVariant.isPending || deleteBom.isPending || deleteRouting.isPending || deleteBinding.isPending
         }
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
           const { id, type } = deleteTarget;
           const options = { onSuccess: () => setDeleteTarget(null) };
-          
+
           if (type === "variant") deleteVariant.mutate(id, options);
           else if (type === "bom") deleteBom.mutate(id, options);
           else if (type === "routing") deleteRouting.mutate(id, options);

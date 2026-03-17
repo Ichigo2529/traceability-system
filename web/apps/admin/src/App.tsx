@@ -26,7 +26,7 @@ export default function App() {
               closeButton
               duration={5000}
               toastOptions={{
-                style: { fontFamily: "var(--sapFontFamily, inherit)" },
+                style: { fontFamily: "Inter, sans-serif" },
               }}
             />
           </BrowserRouter>

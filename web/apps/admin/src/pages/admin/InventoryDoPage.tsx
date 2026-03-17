@@ -10,30 +10,14 @@ import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Input,
-  Label,
-  DatePicker,
-  Form,
-  FormItem,
-  Select,
-  Option,
-  FlexBox,
-  FlexBoxAlignItems,
-  MessageStrip,
-  Text,
-  Dialog,
-  Bar,
-} from "@ui5/webcomponents-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { FileSpreadsheet, Plus, History, Pencil, Trash2 } from "lucide-react";
 import { PartNumberMaster } from "@traceability/sdk";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/excel-attachment.js";
-import "@ui5/webcomponents-icons/dist/document.js";
-import "@ui5/webcomponents-icons/dist/history.js";
-import "@ui5/webcomponents-icons/dist/information.js";
 import { sdk } from "../../context/AuthContext";
 import {
   InventoryDo,
@@ -46,8 +30,6 @@ import {
   getDoIssueHistory,
   DoIssueHistoryRow,
 } from "../../lib/inventory-api";
-
-// ── Form schema ───────────────────────────────────────────
 
 const schema = z.object({
   do_number: z.string().min(1, "Required"),
@@ -76,13 +58,9 @@ const DEFAULT_VALUES: DoForm = {
   received_date: "",
 };
 
-// ── Helpers ───────────────────────────────────────────────
-
 function netQty(row: InventoryDo) {
   return (row.qty_received ?? 0) - (row.reject_qty ?? 0);
 }
-
-// ── Import Result Dialog ──────────────────────────────────
 
 function ImportResultDialog({
   open,
@@ -95,74 +73,49 @@ function ImportResultDialog({
 }) {
   if (!result) return null;
   return (
-    <Dialog
-      open={open}
-      headerText="Excel Import Result"
-      onClose={onClose}
-      style={{ width: "min(600px, 90vw)" }}
-      footer={
-        <Bar
-          design="Footer"
-          endContent={
-            <Button design="Emphasized" onClick={onClose}>
-              OK
-            </Button>
-          }
-        />
-      }
-    >
-      <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-        {/* Summary chips */}
-        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0.5rem 1rem", borderRadius: "0.5rem", background: "var(--sapPositiveBackground)", minWidth: "80px" }}>
-            <Text style={{ fontWeight: "700", fontSize: "1.5rem", color: "var(--sapPositiveColor)" }}>{result.inserted}</Text>
-            <Text style={{ fontSize: "0.75rem", color: "var(--sapPositiveColor)" }}>Inserted</Text>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[min(600px,90vw)]">
+        <DialogHeader>
+          <DialogTitle>Excel Import Result</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-4 py-2">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex flex-col items-center rounded-lg bg-green-50 dark:bg-green-900/20 min-w-[80px] p-3">
+              <span className="text-2xl font-bold text-green-600 dark:text-green-400">{result.inserted}</span>
+              <span className="text-xs text-green-600 dark:text-green-400">Inserted</span>
+            </div>
+            <div className="flex flex-col items-center rounded-lg bg-blue-50 dark:bg-blue-900/20 min-w-[80px] p-3">
+              <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{result.updated}</span>
+              <span className="text-xs text-blue-600 dark:text-blue-400">Updated</span>
+            </div>
+            {result.failed > 0 && (
+              <div className="flex flex-col items-center rounded-lg bg-destructive/10 min-w-[80px] p-3">
+                <span className="text-2xl font-bold text-destructive">{result.failed}</span>
+                <span className="text-xs text-destructive">Failed</span>
+              </div>
+            )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0.5rem 1rem", borderRadius: "0.5rem", background: "var(--sapInformativeBackground)", minWidth: "80px" }}>
-            <Text style={{ fontWeight: "700", fontSize: "1.5rem", color: "var(--sapInformativeColor)" }}>{result.updated}</Text>
-            <Text style={{ fontSize: "0.75rem", color: "var(--sapInformativeColor)" }}>Updated</Text>
-          </div>
-          {result.failed > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "0.5rem 1rem", borderRadius: "0.5rem", background: "var(--sapNegativeBackground)", minWidth: "80px" }}>
-              <Text style={{ fontWeight: "700", fontSize: "1.5rem", color: "var(--sapNegativeColor)" }}>{result.failed}</Text>
-              <Text style={{ fontSize: "0.75rem", color: "var(--sapNegativeColor)" }}>Failed</Text>
+          {result.errors.length > 0 && (
+            <div>
+              <Label className="font-semibold block mb-2">Row Errors ({result.errors.length})</Label>
+              <div className="max-h-[200px] overflow-y-auto border rounded-md">
+                {result.errors.map((e, i) => (
+                  <div key={i} className="flex gap-3 px-3 py-2 text-sm border-b last:border-b-0">
+                    <span className="font-semibold text-destructive min-w-[50px]">Row {e.row_no}</span>
+                    <span>{e.message}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
-        </FlexBox>
-
-        {/* Row errors */}
-        {result.errors.length > 0 && (
-          <div>
-            <Label style={{ fontWeight: "600", marginBottom: "0.5rem", display: "block" }}>
-              Row Errors ({result.errors.length})
-            </Label>
-            <div style={{ maxHeight: "200px", overflowY: "auto", border: "1px solid var(--sapList_BorderColor)", borderRadius: "0.25rem" }}>
-              {result.errors.map((e, i) => (
-                <div
-                  key={i}
-                  style={{
-                    padding: "0.35rem 0.75rem",
-                    display: "flex",
-                    gap: "0.75rem",
-                    borderBottom: i < result.errors.length - 1 ? "1px solid var(--sapList_BorderColor)" : undefined,
-                    fontSize: "0.8125rem",
-                  }}
-                >
-                  <Text style={{ fontWeight: "600", color: "var(--sapNegativeColor)", minWidth: "50px" }}>
-                    Row {e.row_no}
-                  </Text>
-                  <Text style={{ color: "var(--sapTextColor)" }}>{e.message}</Text>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose}>OK</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }
-
-// ── DO Issue History Dialog ───────────────────────────────
 
 function DoIssueHistoryDialog({
   open,
@@ -183,17 +136,17 @@ function DoIssueHistoryDialog({
     () => [
       { header: "MR No.", accessorKey: "request_no", size: 140 },
       { header: "Part Number", accessorKey: "part_number", size: 140 },
-      { 
-        header: "Issue Date", 
-        accessorKey: "issued_at", 
+      {
+        header: "Issue Date",
+        accessorKey: "issued_at",
         size: 160,
-        cell: ({ row }) => row.original.issued_at ? new Date(row.original.issued_at).toLocaleString() : "-"
+        cell: ({ row }) => (row.original.issued_at ? new Date(row.original.issued_at).toLocaleString() : "-"),
       },
-      { 
-        header: "Qty", 
-        accessorKey: "issued_qty", 
+      {
+        header: "Qty",
+        accessorKey: "issued_qty",
         size: 100,
-        cell: ({ row }) => <Text style={{ textAlign: "right", display: "block", fontWeight: "bold" }}>{row.original.issued_qty}</Text>
+        cell: ({ row }) => <span className="text-right block font-bold">{row.original.issued_qty}</span>,
       },
       { header: "Remarks", accessorKey: "remarks" },
     ],
@@ -201,34 +154,25 @@ function DoIssueHistoryDialog({
   );
 
   return (
-    <Dialog
-      open={open}
-      headerText={`Issue History — ${doRow?.do_number ?? ""}`}
-      onClose={onClose}
-      style={{ width: "min(800px, 90vw)" }}
-      footer={
-        <Bar
-          design="Footer"
-          endContent={<Button design="Emphasized" onClick={onClose}>Close</Button>}
-        />
-      }
-    >
-      <div style={{ padding: "1rem" }}>
-        <DataTable
-          data={history}
-          columns={columns}
-          loading={isLoading}
-        />
-      </div>
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[min(800px,90vw)]">
+        <DialogHeader>
+          <DialogTitle>Issue History — {doRow?.do_number ?? ""}</DialogTitle>
+        </DialogHeader>
+        <div className="py-2">
+          <DataTable data={history} columns={columns} loading={isLoading} />
+        </div>
+        <DialogFooter>
+          <Button onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }
 
-// ── Component ─────────────────────────────────────────────
-
 export function InventoryDoPage() {
   const queryClient = useQueryClient();
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<InventoryDo | null>(null);
@@ -238,8 +182,6 @@ export function InventoryDoPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importResult, setImportResult] = useState<DoImportResult | null>(null);
   const [importResultOpen, setImportResultOpen] = useState(false);
-
-  // ── Queries ──────────────────────────────────────────────
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["inventory-do-page"],
@@ -256,16 +198,12 @@ export function InventoryDoPage() {
     queryFn: () => sdk.admin.getPartNumbers(),
   });
 
-  // ── Form ─────────────────────────────────────────────────
-
   const form = useForm<DoForm>({
     resolver: zodResolver(schema),
     defaultValues: DEFAULT_VALUES,
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["inventory-do-page"] });
-
-  // ── Mutations ─────────────────────────────────────────────
 
   const createMut = useMutation({
     mutationFn: (p: DoForm) =>
@@ -333,8 +271,6 @@ export function InventoryDoPage() {
     },
   });
 
-  // ── Helpers ───────────────────────────────────────────────
-
   function openCreate() {
     setEditing(null);
     form.reset(DEFAULT_VALUES);
@@ -362,8 +298,6 @@ export function InventoryDoPage() {
     setOpen(true);
   }
 
-  // ── Columns ───────────────────────────────────────────────
-
   const columns = useMemo<ColumnDef<InventoryDo>[]>(
     () => [
       { header: "DO No.", accessorKey: "do_number", size: 140 },
@@ -378,37 +312,20 @@ export function InventoryDoPage() {
         size: 130,
         cell: ({ row }) => row.original.part_number || "-",
       },
-      {
-        header: "Description",
-        cell: ({ row }) => row.original.description || "-",
-      },
-      {
-        header: "Lot No.",
-        accessorKey: "lot_number",
-        size: 120,
-        cell: ({ row }) => row.original.lot_number || "-",
-      },
-      {
-        header: "GR No.",
-        accessorKey: "gr_number",
-        size: 110,
-        cell: ({ row }) => row.original.gr_number || "-",
-      },
+      { header: "Description", cell: ({ row }) => row.original.description || "-" },
+      { header: "Lot No.", accessorKey: "lot_number", size: 120, cell: ({ row }) => row.original.lot_number || "-" },
+      { header: "GR No.", accessorKey: "gr_number", size: 110, cell: ({ row }) => row.original.gr_number || "-" },
       {
         header: "Rcvd Qty",
         accessorKey: "qty_received",
         size: 85,
-        cell: ({ row }) => (
-          <Text style={{ textAlign: "right", display: "block" }}>{row.original.qty_received}</Text>
-        ),
+        cell: ({ row }) => <span className="block text-right">{row.original.qty_received}</span>,
       },
       {
         header: "Issued",
         accessorKey: "qty_issued",
         size: 75,
-        cell: ({ row }) => (
-          <Text style={{ textAlign: "right", display: "block" }}>{row.original.qty_issued}</Text>
-        ),
+        cell: ({ row }) => <span className="block text-right">{row.original.qty_issued}</span>,
       },
       {
         header: "Reject",
@@ -416,30 +333,13 @@ export function InventoryDoPage() {
         size: 75,
         cell: ({ row }) => {
           const rq = row.original.reject_qty ?? 0;
-          return (
-            <Text
-              style={{
-                textAlign: "right",
-                display: "block",
-                color: rq > 0 ? "var(--sapNegativeColor)" : undefined,
-              }}
-            >
-              {rq}
-            </Text>
-          );
+          return <span className={`block text-right ${rq > 0 ? "text-destructive" : ""}`}>{rq}</span>;
         },
       },
       {
         header: "Net",
         size: 75,
-        cell: ({ row }) => {
-          const net = netQty(row.original);
-          return (
-            <Text style={{ textAlign: "right", display: "block", fontWeight: "600" }}>
-              {net}
-            </Text>
-          );
-        },
+        cell: ({ row }) => <span className="block text-right font-semibold">{netQty(row.original)}</span>,
       },
       {
         header: "Received Date",
@@ -451,46 +351,49 @@ export function InventoryDoPage() {
         header: "Actions",
         size: 100,
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="history"
-              design="Transparent"
-              tooltip="Issue History"
+              variant="ghost"
+              size="icon"
+              title="Issue History"
               aria-label="View Issue History"
               onClick={() => setHistoryTarget(row.original)}
-            />
+            >
+              <History className="h-4 w-4" />
+            </Button>
             <Button
-              icon="edit"
-              design="Transparent"
-              tooltip="Edit"
+              variant="ghost"
+              size="icon"
+              title="Edit"
               aria-label="Edit DO"
               onClick={() => openEdit(row.original)}
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
-              tooltip="Delete"
+              variant="ghost"
+              size="icon"
+              title="Delete"
               aria-label="Delete DO"
               onClick={() => setDeleteTarget(row.original)}
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
-
-  // ── Render ────────────────────────────────────────────────
 
   return (
     <PageLayout
       title="Delivery Orders"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Manage incoming Delivery Orders (DO) — must be entered before material issuing</span>
-        </FlexBox>
+        </div>
       }
       icon="document"
       iconColor="blue"
@@ -502,41 +405,36 @@ export function InventoryDoPage() {
           loading={isLoading}
           filterPlaceholder="Search DO number, part number, supplier, lot..."
           actions={
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+            <div className="flex items-center gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
                 accept=".xlsx,.xls"
-                style={{ display: "none" }}
+                className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) importMut.mutate(file);
                 }}
               />
               <Button
-                icon="excel-attachment"
-                design="Default"
-                className="button-hover-scale"
+                variant="outline"
+                size="sm"
                 disabled={importMut.isPending}
                 onClick={() => fileInputRef.current?.click()}
-                tooltip="Import from Excel (.xlsx) — columns: DO. No., Part No., Description, Vendor, Lot No., Receive Date, Quantity, GR"
+                title="Import from Excel (.xlsx) — columns: DO. No., Part No., Description, Vendor, Lot No., Receive Date, Quantity, GR"
               >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
                 {importMut.isPending ? "Importing..." : "Import Excel"}
               </Button>
-              <Button
-                icon="add"
-                design="Emphasized"
-                className="button-hover-scale"
-                onClick={openCreate}
-              >
+              <Button size="sm" onClick={openCreate}>
+                <Plus className="h-4 w-4 mr-2" />
                 Add DO
               </Button>
-            </FlexBox>
+            </div>
           }
         />
       </div>
 
-      {/* ── Create / Edit Dialog ─────────────────────── */}
       <FormDialog
         open={open}
         title={editing ? `Edit DO — ${editing.do_number}` : "Create Delivery Order"}
@@ -552,149 +450,107 @@ export function InventoryDoPage() {
         onSubmit={form.handleSubmit((p) => (editing ? updateMut.mutate(p) : createMut.mutate(p)))}
       >
         {(createMut.isError || updateMut.isError) && (
-          <MessageStrip design="Negative" hideCloseButton style={{ margin: "0 1rem" }}>
-            {formatApiError(createMut.error ?? updateMut.error)}
-          </MessageStrip>
+          <Alert variant="destructive" className="mx-4">
+            <AlertDescription>{formatApiError(createMut.error ?? updateMut.error)}</AlertDescription>
+          </Alert>
         )}
 
-        <Form layout="S2 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          {/* Row 1: DO No + Supplier */}
-          <FormItem labelContent={<Label required>DO Number</Label>}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>DO Number *</Label>
             <Input
-              value={form.watch("do_number")}
-              onInput={(e: any) => form.setValue("do_number", e.target.value)}
-              valueState={form.formState.errors.do_number ? "Negative" : "None"}
-              valueStateMessage={
-                form.formState.errors.do_number && (
-                  <div>{form.formState.errors.do_number.message}</div>
-                )
-              }
+              {...form.register("do_number")}
               placeholder="e.g. MB25051900"
+              className={form.formState.errors.do_number ? "border-destructive" : ""}
             />
-          </FormItem>
-
-          <FormItem labelContent={<Label>Supplier (Vendor)</Label>}>
+            {form.formState.errors.do_number && (
+              <p className="text-sm text-destructive">{form.formState.errors.do_number.message}</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label>Supplier (Vendor)</Label>
             <Controller
               name="supplier_id"
               control={form.control}
               render={({ field }) => (
-                <Select
-                  onChange={(e) =>
-                    field.onChange(e.detail.selectedOption.getAttribute("data-value") ?? "")
-                  }
-                  style={{ width: "100%" }}
-                >
-                  <Option data-value="">-- None --</Option>
-                  {(suppliers as any[]).map((s) => (
-                    <Option key={s.id} data-value={s.id} selected={field.value === s.id}>
-                      {s.code} — {s.name}
-                    </Option>
-                  ))}
+                <Select value={field.value || ""} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="-- None --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">-- None --</SelectItem>
+                    {(suppliers as { id: string; code: string; name: string }[]).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.code} — {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               )}
             />
-          </FormItem>
-
-          {/* Row 2: Part No + Lot No */}
-          <FormItem labelContent={<Label>Part Number</Label>}>
+          </div>
+          <div className="space-y-2">
+            <Label>Part Number</Label>
             <Controller
               name="part_number"
               control={form.control}
               render={({ field }) => (
-                <Select
-                  onChange={(e) =>
-                    field.onChange(e.detail.selectedOption.getAttribute("data-value") ?? "")
-                  }
-                  style={{ width: "100%" }}
-                >
-                  <Option data-value="">-- Select or type --</Option>
-                  {(partNumbers as PartNumberMaster[]).map((pn) => (
-                    <Option
-                      key={pn.id}
-                      data-value={pn.part_number}
-                      selected={field.value === pn.part_number}
-                    >
-                      {pn.part_number}
-                      {(pn as any).description ? ` — ${(pn as any).description}` : ""}
-                    </Option>
-                  ))}
+                <Select value={field.value || ""} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="-- Select or type --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">-- Select or type --</SelectItem>
+                    {(partNumbers as PartNumberMaster[]).map((pn) => (
+                      <SelectItem key={pn.id} value={pn.part_number}>
+                        {pn.part_number}
+                        {(pn as { description?: string }).description
+                          ? ` — ${(pn as { description?: string }).description}`
+                          : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               )}
             />
-          </FormItem>
-
-          <FormItem labelContent={<Label>Lot Number</Label>}>
-            <Input
-              value={form.watch("lot_number") ?? ""}
-              onInput={(e: any) => form.setValue("lot_number", e.target.value)}
-              placeholder="e.g. 112"
-            />
-          </FormItem>
-
-          {/* Row 3: GR No + Received Date */}
-          <FormItem labelContent={<Label>GR Number</Label>}>
-            <Input
-              value={form.watch("gr_number") ?? ""}
-              onInput={(e: any) => form.setValue("gr_number", e.target.value)}
-              placeholder="e.g. 5001434805"
-            />
-          </FormItem>
-
-          <FormItem labelContent={<Label>Received Date</Label>}>
+          </div>
+          <div className="space-y-2">
+            <Label>Lot Number</Label>
+            <Input {...form.register("lot_number")} placeholder="e.g. 112" />
+          </div>
+          <div className="space-y-2">
+            <Label>GR Number</Label>
+            <Input {...form.register("gr_number")} placeholder="e.g. 5001434805" />
+          </div>
+          <div className="space-y-2">
+            <Label>Received Date</Label>
             <Controller
               name="received_date"
               control={form.control}
               render={({ field }) => (
-                <DatePicker
-                  value={field.value ?? ""}
-                  formatPattern="yyyy-MM-dd"
-                  onChange={(e: any) => field.onChange(e.detail.value ?? "")}
-                  style={{ width: "100%" }}
-                />
+                <Input type="date" value={field.value ?? ""} onChange={(e) => field.onChange(e.target.value)} />
               )}
             />
-          </FormItem>
-
-          {/* Row 4: Total Qty + Qty Received */}
-          <FormItem labelContent={<Label>Total Qty</Label>}>
-            <Input
-              type="Number"
-              value={form.watch("total_qty")?.toString() ?? ""}
-              onInput={(e: any) => form.setValue("total_qty", Number(e.target.value))}
-              placeholder="0"
-            />
-          </FormItem>
-
-          <FormItem labelContent={<Label>Qty Received</Label>}>
-            <Input
-              type="Number"
-              value={form.watch("qty_received")?.toString() ?? ""}
-              onInput={(e: any) => form.setValue("qty_received", Number(e.target.value))}
-              placeholder="0"
-            />
-          </FormItem>
-
-          {/* Row 5: Reject Qty + Description */}
-          <FormItem labelContent={<Label>Reject Qty</Label>}>
-            <Input
-              type="Number"
-              value={form.watch("reject_qty")?.toString() ?? "0"}
-              onInput={(e: any) => form.setValue("reject_qty", Number(e.target.value))}
-              placeholder="0"
-            />
-          </FormItem>
-
-          <FormItem labelContent={<Label>Description</Label>}>
-            <Input
-              value={form.watch("description") ?? ""}
-              onInput={(e: any) => form.setValue("description", e.target.value)}
-              placeholder="e.g. Marlin Magnet"
-            />
-          </FormItem>
-        </Form>
+          </div>
+          <div className="space-y-2">
+            <Label>Total Qty</Label>
+            <Input type="number" {...form.register("total_qty", { valueAsNumber: true })} placeholder="0" />
+          </div>
+          <div className="space-y-2">
+            <Label>Qty Received</Label>
+            <Input type="number" {...form.register("qty_received", { valueAsNumber: true })} placeholder="0" />
+          </div>
+          <div className="space-y-2">
+            <Label>Reject Qty</Label>
+            <Input type="number" {...form.register("reject_qty", { valueAsNumber: true })} placeholder="0" />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Description</Label>
+            <Input {...form.register("description")} placeholder="e.g. Marlin Magnet" />
+          </div>
+        </div>
       </FormDialog>
 
-      {/* ── Delete Confirm ───────────────────────────── */}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete DO record"
@@ -709,27 +565,17 @@ export function InventoryDoPage() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
           if (!deleteTarget) return;
-          deleteMut.mutate(deleteTarget.id, {
-            onSuccess: () => setDeleteTarget(null),
-          });
+          deleteMut.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) });
         }}
       />
 
-      {/* ── DO Issue History ─────────────────────────── */}
       <DoIssueHistoryDialog
         open={Boolean(historyTarget)}
         doRow={historyTarget}
         onClose={() => setHistoryTarget(null)}
       />
 
-      {/* ── Import Result ────────────────────────────── */}
-      <ImportResultDialog
-        open={importResultOpen}
-        result={importResult}
-        onClose={() => setImportResultOpen(false)}
-      />
-
-      <ToastComponent />
+      <ImportResultDialog open={importResultOpen} result={importResult} onClose={() => setImportResultOpen(false)} />
     </PageLayout>
   );
 }

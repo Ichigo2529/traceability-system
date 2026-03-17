@@ -13,28 +13,14 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Label,
-  Input,
-  Select,
-  Option,
-  FlexBox,
-  FlexBoxAlignItems,
-  Form,
-  FormItem,
-  FlexBoxDirection
-} from "@ui5/webcomponents-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/refresh.js";
-import "@ui5/webcomponents-icons/dist/shield.js";
-import "@ui5/webcomponents-icons/dist/wrench.js";
-import "@ui5/webcomponents-icons/dist/cancel.js";
-import "@ui5/webcomponents-icons/dist/accept.js";
+import { Alert } from "@/components/ui/alert";
+import { Plus, Pencil, Wrench, Power, PowerOff, RefreshCw, Trash2 } from "lucide-react";
 
 const NONE = "__none__";
 
@@ -59,20 +45,40 @@ export function DevicesPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<DeviceInfo | null>(null);
-  const [statusTarget, setStatusTarget] = useState<{ device: DeviceInfo; status: "active" | "disabled" | "maintenance" } | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{
+    device: DeviceInfo;
+    status: "active" | "disabled" | "maintenance";
+  } | null>(null);
   const [secretTarget, setSecretTarget] = useState<DeviceInfo | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeviceInfo | null>(null);
   const [newSecret, setNewSecret] = useState<string | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
-  const { data: devices = [], isLoading: devicesLoading } = useQuery({ queryKey: ["devices"], queryFn: () => sdk.admin.getDevices() });
-  const { data: stations = [], isLoading: stationsLoading } = useQuery({ queryKey: ["stations"], queryFn: () => sdk.admin.getStations() });
-  const { data: processes = [], isLoading: processesLoading } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
-  const { data: heartbeatSettings, isLoading: settingsLoading } = useQuery({ queryKey: ["heartbeat-settings"], queryFn: () => sdk.admin.getHeartbeatSettings() });
+  const { data: devices = [], isLoading: devicesLoading } = useQuery({
+    queryKey: ["devices"],
+    queryFn: () => sdk.admin.getDevices(),
+  });
+  const { data: stations = [], isLoading: stationsLoading } = useQuery({
+    queryKey: ["stations"],
+    queryFn: () => sdk.admin.getStations(),
+  });
+  const { data: processes = [], isLoading: processesLoading } = useQuery({
+    queryKey: ["processes"],
+    queryFn: () => sdk.admin.getProcesses(),
+  });
+  const { data: heartbeatSettings, isLoading: settingsLoading } = useQuery({
+    queryKey: ["heartbeat-settings"],
+    queryFn: () => sdk.admin.getHeartbeatSettings(),
+  });
 
   const onlineWindowMin = heartbeatSettings?.online_window_minutes ?? 2;
 
-  const { control, handleSubmit, reset, formState: { errors } } = useForm<DeviceForm>({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<DeviceForm>({
     resolver: zodResolver(schema),
     defaultValues: {
       device_type: "pi",
@@ -124,7 +130,8 @@ export function DevicesPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: "active" | "disabled" | "maintenance" }) => sdk.admin.setDeviceStatus(id, status),
+    mutationFn: ({ id, status }: { id: string; status: "active" | "disabled" | "maintenance" }) =>
+      sdk.admin.setDeviceStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       setStatusTarget(null);
@@ -149,327 +156,361 @@ export function DevicesPage() {
     },
   });
 
-  const stationMap = useMemo(() => stations.reduce<Record<string, string>>((acc, row) => ({ ...acc, [row.id]: row.name }), {}), [stations]);
-  const processMap = useMemo(() => processes.reduce<Record<string, string>>((acc, row) => ({ ...acc, [row.id]: row.name }), {}), [processes]);
+  const stationMap = useMemo(
+    () => stations.reduce<Record<string, string>>((acc, row) => ({ ...acc, [row.id]: row.name }), {}),
+    [stations]
+  );
+  const processMap = useMemo(
+    () => processes.reduce<Record<string, string>>((acc, row) => ({ ...acc, [row.id]: row.name }), {}),
+    [processes]
+  );
 
   const columns = useMemo<ColumnDef<DeviceInfo>[]>(
     () => [
-      { header: "Code", accessorKey: "device_code" },
-      { header: "Name", accessorKey: "name" },
+      { id: "device_code", header: "Code", accessorKey: "device_code" },
+      { id: "name", header: "Name", accessorKey: "name" },
       {
+        id: "station",
         header: "Station",
         cell: ({ row }) => row.original.assigned_station?.name ?? stationMap[row.original.station_id || ""] ?? "-",
       },
       {
+        id: "process",
         header: "Process",
         cell: ({ row }) => row.original.assigned_process?.name ?? processMap[row.original.process_id || ""] ?? "-",
       },
-      { header: "Type", accessorKey: "device_type" },
-      { header: "IP", accessorKey: "ip_address", cell: ({ row }) => row.original.ip_address || "-" },
+      { id: "device_type", header: "Type", accessorKey: "device_type" },
+      { id: "ip_address", header: "IP", accessorKey: "ip_address", cell: ({ row }) => row.original.ip_address || "-" },
       {
+        id: "status",
         header: "Status",
         cell: ({ row }) => {
           const hb = row.original.last_heartbeat_at;
           const seen = hb ? Date.now() - new Date(hb).getTime() : Number.MAX_SAFE_INTEGER;
           const online = seen <= onlineWindowMin * 60 * 1000 && row.original.status === "active";
           return (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div className="flex items-center gap-2">
               <span
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  background: online ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)",
-                  display: "inline-block"
-                }}
+                className="inline-block w-2 h-2 rounded-full shrink-0"
+                style={{ background: online ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)" }}
               />
               <StatusBadge status={row.original.status || "disabled"} />
             </div>
           );
         },
       },
-      { header: "Last Seen", cell: ({ row }) => toDateText(row.original.last_heartbeat_at) },
+      { id: "last_heartbeat_at", header: "Last Seen", cell: ({ row }) => toDateText(row.original.last_heartbeat_at) },
       {
+        id: "actions",
         header: "Actions",
         size: 250,
         cell: ({ row }) => (
-          <FlexBox style={{ gap: "0.25rem", flexWrap: "nowrap" }}>
+          <div className="flex gap-1 flex-wrap">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               className="button-hover-scale"
               onClick={() => {
                 setEditing(row.original);
                 reset({
                   device_code: row.original.device_code || "",
                   name: row.original.name || "",
-                  device_type: (row.original.device_type as any) || "pi",
+                  device_type: (row.original.device_type as DeviceForm["device_type"]) || "pi",
                   station_id: row.original.station_id || "",
                   process_id: row.original.process_id || "",
                   ip_address: row.original.ip_address || "",
-                  status: (row.original.status as any) || "active",
+                  status: (row.original.status as DeviceForm["status"]) || "active",
                   activation_pin: "000000",
                 });
                 setOpen(true);
               }}
-              tooltip="Edit Device"
+              title="Edit Device"
               aria-label="Edit Device"
-            />
-            <Button 
-                icon="wrench" 
-                design="Transparent"
-                className="button-hover-scale"
-                onClick={() => setStatusTarget({ device: row.original, status: "maintenance" })}
-                tooltip="Set to Maintenance"
-                aria-label="Set to Maintenance"
-            />
-            <Button 
-                icon={row.original.status === "disabled" ? "accept" : "cancel"}
-                design="Transparent"
-                className="button-hover-scale"
-                onClick={() => setStatusTarget({ device: row.original, status: row.original.status === "disabled" ? "active" : "disabled" })}
-                tooltip={row.original.status === "disabled" ? "Enable Device" : "Disable Device"}
-                aria-label={row.original.status === "disabled" ? "Enable Device" : "Disable Device"}
-            />
-            <Button 
-                icon="refresh"
-                design="Transparent"
-                className="button-hover-scale"
-                onClick={() => setSecretTarget(row.original)}
-                tooltip="Regenerate Secret Key"
-                aria-label="Regenerate Secret Key"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               className="button-hover-scale"
-              style={{ color: "var(--sapNegativeColor)" }}
-              onClick={() => {
-                if (!row.original.id) return;
-                setDeleteTarget(row.original);
-              }}
-              tooltip="Delete Device"
+              onClick={() => setStatusTarget({ device: row.original, status: "maintenance" })}
+              title="Set to Maintenance"
+              aria-label="Set to Maintenance"
+            >
+              <Wrench className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="button-hover-scale"
+              onClick={() =>
+                setStatusTarget({
+                  device: row.original,
+                  status: row.original.status === "disabled" ? "active" : "disabled",
+                })
+              }
+              title={row.original.status === "disabled" ? "Enable Device" : "Disable Device"}
+              aria-label={row.original.status === "disabled" ? "Enable Device" : "Disable Device"}
+            >
+              {row.original.status === "disabled" ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="button-hover-scale"
+              onClick={() => setSecretTarget(row.original)}
+              title="Regenerate Secret Key"
+              aria-label="Regenerate Secret Key"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="button-hover-scale text-destructive"
+              onClick={() => row.original.id && setDeleteTarget(row.original)}
+              title="Delete Device"
               aria-label="Delete Device"
-            />
-          </FlexBox>
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         ),
       },
     ],
-    [deleteMutation, reset, onlineWindowMin, processMap, stationMap]
+    [reset, onlineWindowMin, processMap, stationMap]
   );
 
   return (
     <PageLayout
       title="Devices & Terminals"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Hardware terminals and scanner registration</span>
-        </FlexBox>
+        </div>
       }
       icon="wrench"
       iconColor="indigo"
     >
       <div className="page-container">
-        <ApiErrorBanner 
-            message={
-                createMutation.isError ? formatApiError(createMutation.error) :
-                updateMutation.isError ? formatApiError(updateMutation.error) :
-                statusMutation.isError ? formatApiError(statusMutation.error) :
-                secretMutation.isError ? formatApiError(secretMutation.error) :
-                deleteMutation.isError ? formatApiError(deleteMutation.error) :
-                undefined
-            } 
-        />
-      {newSecret && (
-          <div style={{ margin: "1rem", padding: "1rem", border: "1px solid var(--sapInformationBorderColor)", background: "var(--sapInformationBackground)", borderRadius: "var(--sapElement_BorderCornerRadius)" }}>
-              <FlexBox direction={FlexBoxDirection.Column}>
-                  <Label style={{ fontWeight: "bold" }}>Latest secret key:</Label>
-                  <code style={{ fontSize: "1.2rem", color: "var(--sapContent_MonospaceFontFamily)" }}>{newSecret}</code>
-              </FlexBox>
-          </div>
-      )}
-
-      <DataTable 
-          data={devices} 
-          columns={columns} 
-          loading={devicesLoading || stationsLoading || processesLoading || settingsLoading}
-          filterPlaceholder="Search device code, station, IP..." 
-          actions={
-              <Button
-                icon="add"
-                design="Emphasized"
-                className="button-hover-scale"
-                onClick={() => {
-                  setEditing(null);
-                  reset({
-                    device_code: "",
-                    name: "",
-                    device_type: "pi",
-                    station_id: "",
-                    process_id: "",
-                    ip_address: "",
-                    status: "active",
-                    activation_pin: "123456",
-                  });
-                  setOpen(true);
-                }}
-              >
-                Add Device
-              </Button>
+        <ApiErrorBanner
+          message={
+            createMutation.isError
+              ? formatApiError(createMutation.error)
+              : updateMutation.isError
+                ? formatApiError(updateMutation.error)
+                : statusMutation.isError
+                  ? formatApiError(statusMutation.error)
+                  : secretMutation.isError
+                    ? formatApiError(secretMutation.error)
+                    : deleteMutation.isError
+                      ? formatApiError(deleteMutation.error)
+                      : undefined
           }
-      />
+        />
+        {newSecret && (
+          <Alert className="my-4 border-primary/50 bg-primary/5">
+            <Label className="font-bold">Latest secret key:</Label>
+            <code className="text-lg font-mono block mt-1">{newSecret}</code>
+          </Alert>
+        )}
 
-      {/* Create/Edit Dialog */}
-      <FormDialog
+        <DataTable
+          data={devices}
+          columns={columns}
+          loading={devicesLoading || stationsLoading || processesLoading || settingsLoading}
+          filterPlaceholder="Search device code, station, IP..."
+          actions={
+            <Button
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                reset({
+                  device_code: "",
+                  name: "",
+                  device_type: "pi",
+                  station_id: "",
+                  process_id: "",
+                  ip_address: "",
+                  status: "active",
+                  activation_pin: "123456",
+                });
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Device
+            </Button>
+          }
+        />
+
+        <FormDialog
           open={open}
           title={editing ? "Edit Device" : "Create Device"}
           onClose={() => setOpen(false)}
           onSubmit={handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
           submitting={createMutation.isPending || updateMutation.isPending}
-      >
-              <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-                  <FormItem labelContent={<Label required>Device Code</Label>}>
-                      <Controller
-                          name="device_code"
-                          control={control}
-                          render={({ field }) => (
-                              <Input 
-                                  {...field} 
-                                  value={field.value || ""} 
-                                  placeholder="PI5-ASM-01" 
-                                  valueState={errors.device_code ? "Negative" : "None"}
-                                  valueStateMessage={errors.device_code && <div>{errors.device_code.message}</div>}
-                              />
-                          )}
-                      />
-                  </FormItem>
-                  <FormItem labelContent={<Label required>Name</Label>}>
-                      <Controller
-                          name="name"
-                          control={control}
-                          render={({ field }) => (
-                              <Input 
-                                  {...field} 
-                                  value={field.value || ""} 
-                                  placeholder="ASM Scanner 01" 
-                                  valueState={errors.name ? "Negative" : "None"}
-                                  valueStateMessage={errors.name && <div>{errors.name.message}</div>}
-                              />
-                          )}
-                      />
-                  </FormItem>
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label>Device Code *</Label>
+              <Controller
+                name="device_code"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    value={field.value || ""}
+                    placeholder="PI5-ASM-01"
+                    className={errors.device_code ? "border-destructive" : ""}
+                  />
+                )}
+              />
+              {errors.device_code && <p className="text-sm text-destructive">{errors.device_code.message}</p>}
+            </div>
+            <div className="grid gap-2">
+              <Label>Name *</Label>
+              <Controller
+                name="name"
+                control={control}
+                render={({ field }) => (
+                  <Input
+                    {...field}
+                    value={field.value || ""}
+                    placeholder="ASM Scanner 01"
+                    className={errors.name ? "border-destructive" : ""}
+                  />
+                )}
+              />
+              {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+            </div>
+            <div className="grid gap-2 sm:col-span-2">
+              <Label>Device Type</Label>
+              <Controller
+                name="device_type"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pi">pi</SelectItem>
+                      <SelectItem value="pc">pc</SelectItem>
+                      <SelectItem value="tablet">tablet</SelectItem>
+                      <SelectItem value="kiosk">kiosk</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="grid gap-2 sm:col-span-2">
+              <Label>IP Address</Label>
+              <Controller
+                name="ip_address"
+                control={control}
+                render={({ field }) => <Input {...field} value={field.value || ""} placeholder="192.168.10.35" />}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Station</Label>
+              <Controller
+                name="station_id"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value || NONE} onValueChange={(v) => field.onChange(v === NONE ? "" : v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>Unassigned</SelectItem>
+                      {stations.map((row) => (
+                        <SelectItem key={row.id} value={row.id}>
+                          {row.station_code} - {row.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Process</Label>
+              <Controller
+                name="process_id"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value || NONE} onValueChange={(v) => field.onChange(v === NONE ? "" : v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Unassigned" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NONE}>Unassigned</SelectItem>
+                      {processes.map((row) => (
+                        <SelectItem key={row.id} value={row.id}>
+                          {row.process_code} - {row.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Status</Label>
+              <Controller
+                name="status"
+                control={control}
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">active</SelectItem>
+                      <SelectItem value="maintenance">maintenance</SelectItem>
+                      <SelectItem value="disabled">disabled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Activation PIN</Label>
+              <Controller
+                name="activation_pin"
+                control={control}
+                render={({ field }) => <Input {...field} value={field.value || ""} disabled={Boolean(editing)} />}
+              />
+            </div>
+          </div>
+        </FormDialog>
 
-                  <FormItem labelContent={<Label>Device Type</Label>} style={{ gridColumn: "span 2" }}>
-                      <Controller
-                          name="device_type"
-                          control={control}
-                          render={({ field }) => (
-                              <Select
-                                  onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
-                                  value={field.value}
-                              >
-                                  <Option value="pi" data-value="pi" selected={field.value === "pi"}>pi</Option>
-                                  <Option value="pc" data-value="pc" selected={field.value === "pc"}>pc</Option>
-                                  <Option value="tablet" data-value="tablet" selected={field.value === "tablet"}>tablet</Option>
-                                  <Option value="kiosk" data-value="kiosk" selected={field.value === "kiosk"}>kiosk</Option>
-                              </Select>
-                          )}
-                      />
-                  </FormItem>
-
-                  <FormItem labelContent={<Label>IP Address</Label>} style={{ gridColumn: "span 2" }}>
-                      <Controller
-                          name="ip_address"
-                          control={control}
-                          render={({ field }) => (<Input {...field} value={field.value || ""} placeholder="192.168.10.35" />)}
-                      />
-                  </FormItem>
-
-                  <FormItem labelContent={<Label>Station</Label>}>
-                      <Controller
-                          name="station_id"
-                          control={control}
-                          render={({ field }) => (
-                              <Select
-                                  onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
-                                  value={field.value || NONE}
-                              >
-                                  <Option value={NONE} data-value={NONE}>Unassigned</Option>
-                                  {stations.map((row) => (
-                                      <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
-                                          {row.station_code} - {row.name}
-                                      </Option>
-                                  ))}
-                              </Select>
-                          )}
-                      />
-                  </FormItem>
-
-                  <FormItem labelContent={<Label>Process</Label>}>
-                      <Controller
-                          name="process_id"
-                          control={control}
-                          render={({ field }) => (
-                              <Select
-                                  onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value === NONE ? "" : (e.target.selectedOption as any).dataset.value)}
-                                  value={field.value || NONE}
-                              >
-                                  <Option value={NONE} data-value={NONE}>Unassigned</Option>
-                                  {processes.map((row) => (
-                                      <Option key={row.id} value={row.id} data-value={row.id} selected={row.id === field.value}>
-                                          {row.process_code} - {row.name}
-                                      </Option>
-                                  ))}
-                              </Select>
-                          )}
-                      />
-                  </FormItem>
-
-                   <FormItem labelContent={<Label>Status</Label>}>
-                      <Controller
-                          name="status"
-                          control={control}
-                          render={({ field }) => (
-                              <Select
-                                  onChange={(e) => field.onChange((e.target.selectedOption as any).dataset.value)}
-                                  value={field.value}
-                              >
-                                  <Option value="active" data-value="active" selected={field.value === "active"}>active</Option>
-                                  <Option value="maintenance" data-value="maintenance" selected={field.value === "maintenance"}>maintenance</Option>
-                                  <Option value="disabled" data-value="disabled" selected={field.value === "disabled"}>disabled</Option>
-                              </Select>
-                          )}
-                      />
-                  </FormItem>
-
-                  <FormItem labelContent={<Label>Activation PIN</Label>}>
-                      <Controller
-                          name="activation_pin"
-                          control={control}
-                          render={({ field }) => (<Input {...field} value={field.value || ""} disabled={Boolean(editing)} />)}
-                      />
-                  </FormItem>
-              </Form>
-      </FormDialog>
-
-      {/* Status Confirmation */}
-      <ConfirmDialog
+        <ConfirmDialog
           open={Boolean(statusTarget)}
           title="Change Device Status"
-          description={statusTarget ? `Are you sure you want to set ${statusTarget.device.device_code} to ${statusTarget.status.toUpperCase()}?` : ""}
+          description={
+            statusTarget
+              ? `Are you sure you want to set ${statusTarget.device.device_code} to ${statusTarget.status.toUpperCase()}?`
+              : ""
+          }
           confirmText="Change Status"
           submitting={statusMutation.isPending}
           onCancel={() => setStatusTarget(null)}
           onConfirm={() => {
-              if (statusTarget?.device.id) {
-                  statusMutation.mutate({ id: statusTarget.device.id, status: statusTarget.status });
-              }
+            if (statusTarget?.device.id) {
+              statusMutation.mutate({ id: statusTarget.device.id, status: statusTarget.status });
+            }
           }}
-      />
-      
-      {/* Secret Confirmation */}
-      <ConfirmDialog
+        />
+
+        <ConfirmDialog
           open={Boolean(secretTarget)}
           title="Regenerate Device Secret"
           description="Existing signatures will be invalid until station is re-activated with new secret. This action cannot be undone."
@@ -478,14 +519,13 @@ export function DevicesPage() {
           submitting={secretMutation.isPending}
           onCancel={() => setSecretTarget(null)}
           onConfirm={() => {
-              if (secretTarget?.id) {
-                  secretMutation.mutate(secretTarget.id);
-              }
+            if (secretTarget?.id) {
+              secretMutation.mutate(secretTarget.id);
+            }
           }}
-      />
+        />
 
-      {/* Delete Confirmation */}
-      <ConfirmDialog
+        <ConfirmDialog
           open={Boolean(deleteTarget)}
           title="Delete device"
           description={deleteTarget ? `Delete device ${deleteTarget.device_code}? This action cannot be undone.` : ""}
@@ -494,15 +534,14 @@ export function DevicesPage() {
           submitting={deleteMutation.isPending}
           onCancel={() => setDeleteTarget(null)}
           onConfirm={() => {
-              if (deleteTarget?.id) {
-                  deleteMutation.mutate(deleteTarget.id, {
-                    onSuccess: () => setDeleteTarget(null)
-                  });
-              }
+            if (deleteTarget?.id) {
+              deleteMutation.mutate(deleteTarget.id, {
+                onSuccess: () => setDeleteTarget(null),
+              });
+            }
           }}
-      />
-       </div>
-      <ToastComponent />
+        />
+      </div>
     </PageLayout>
   );
 }

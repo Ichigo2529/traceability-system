@@ -2,27 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
-
 import { ScanInput } from "../../components/shared/ScanInput";
 import { StatusBadge } from "../../components/shared/StatusBadge";
-import {
-  Page,
-  Bar,
-  Title,
-  Card,
-  CardHeader,
-  Label,
-  Input,
-  Button,
-  InputDomRef,
-  FlexBox,
-  FlexBoxDirection,
-  FlexBoxAlignItems,
-  FlexBoxJustifyContent,
-  MessageStrip,
-  BusyIndicator,
-  Icon,
-} from "@ui5/webcomponents-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert } from "@/components/ui/alert";
+import { Loader2, AlertTriangle, Laptop, Factory, Cog, User } from "lucide-react";
 import layouts from "../../styles/layouts.module.css";
 
 function getShiftByTime(date: Date) {
@@ -32,7 +19,6 @@ function getShiftByTime(date: Date) {
   return { code: "C", window: "22:00–06:00" };
 }
 
-// ─── Shared inline glass style (avoids repetition) ──────────────────────────
 const glassStyle: React.CSSProperties = {
   background: "var(--glass-bg)",
   backdropFilter: "var(--glass-blur)",
@@ -42,25 +28,18 @@ const glassStyle: React.CSSProperties = {
   borderRadius: "20px",
 };
 
-// ─── Centred loading/error shell ─────────────────────────────────────────────
 function StationShell({ children }: { children: React.ReactNode }) {
   return (
-    <Page backgroundDesign="Transparent" style={{ height: "100%", position: "relative" }}>
+    <div className="h-full relative">
       <div className="premium-mesh-bg" />
-      <FlexBox
-        alignItems={FlexBoxAlignItems.Center}
-        justifyContent={FlexBoxJustifyContent.Center}
-        style={{ height: "100%", padding: "2rem" }}
-      >
-        {children}
-      </FlexBox>
-    </Page>
+      <div className="flex items-center justify-center h-full p-8">{children}</div>
+    </div>
   );
 }
 
 export function OperatorLoginPage() {
   const navigate = useNavigate();
-  const badgeRef = useRef<InputDomRef>(null);
+  const badgeRef = useRef<HTMLInputElement>(null);
   const [badge, setBadge] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -103,47 +82,37 @@ export function OperatorLoginPage() {
       operatorQuery.refetch();
       setBadge("");
       setPassword("");
-      setTimeout(() => { (badgeRef.current as any)?.focus(); }, 100);
+      setTimeout(() => badgeRef.current?.focus(), 100);
     },
   });
 
   const shift = useMemo(() => getShiftByTime(new Date()), []);
 
-  // ── Loading state ──────────────────────────────────────────────────────────
   if (heartbeatQuery.isLoading || operatorQuery.isLoading) {
     return (
       <StationShell>
-        <FlexBox direction={FlexBoxDirection.Column} alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem" }}>
-          <BusyIndicator active delay={0} size="L" />
-          <Label style={{ opacity: 0.65 }}>Loading station info…</Label>
-        </FlexBox>
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+          <Label className="opacity-65">Loading station info…</Label>
+        </div>
       </StationShell>
     );
   }
 
-  // ── Hard error (no heartbeat) ─────────────────────────────────────────────
   if (heartbeatQuery.error) {
     return (
       <StationShell>
         <div style={{ ...glassStyle, padding: "2rem", maxWidth: "480px", width: "100%" }}>
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.75rem", marginBottom: "1rem" }}>
-            <div style={{
-              width: "2.5rem", height: "2.5rem", borderRadius: "10px",
-              background: "linear-gradient(135deg,#f093fb,#f5576c)",
-              display: "flex", alignItems: "center", justifyContent: "center"
-            }}>
-              <Icon name="warning" style={{ color: "white", width: "1.25rem", height: "1.25rem" }} />
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-pink-400 to-rose-500">
+              <AlertTriangle className="w-5 h-5 text-white" />
             </div>
-            <Title level="H4" style={{ margin: 0 }}>Station Unavailable</Title>
-          </FlexBox>
-          <MessageStrip design="Negative" hideCloseButton style={{ borderRadius: "10px" }}>
+            <h2 className="text-lg font-semibold m-0">Station Unavailable</h2>
+          </div>
+          <Alert variant="destructive" className="rounded-lg">
             Cannot connect to station. Device token missing or invalid. Please register this device first.
-          </MessageStrip>
-          <Button
-            design="Emphasized"
-            style={{ width: "100%", marginTop: "1.25rem", borderRadius: "10px" }}
-            onClick={() => navigate("/station/register")}
-          >
+          </Alert>
+          <Button className="w-full mt-5 rounded-lg" onClick={() => navigate("/station/register")}>
             Register Device
           </Button>
         </div>
@@ -153,101 +122,73 @@ export function OperatorLoginPage() {
 
   const station = heartbeatQuery.data?.station?.name || "Unassigned";
   const process = heartbeatQuery.data?.process?.name || "Unassigned";
-  const status  = heartbeatQuery.data?.status || "active";
+  const status = heartbeatQuery.data?.status || "active";
 
-  // ── Device disabled ───────────────────────────────────────────────────────
   if (status === "disabled") {
     return (
       <StationShell>
         <div style={{ ...glassStyle, padding: "2rem", maxWidth: "480px", width: "100%" }}>
-          <MessageStrip design="Negative" hideCloseButton style={{ borderRadius: "10px" }}>
+          <Alert variant="destructive" className="rounded-lg">
             This device has been <strong>disabled</strong> by the administrator. Contact your supervisor.
-          </MessageStrip>
+          </Alert>
         </div>
       </StationShell>
     );
   }
 
-  // ── Main login layout ──────────────────────────────────────────────────────
   return (
-    <Page
-      backgroundDesign="Transparent"
-      header={
-        <Bar
-          style={{ background: "transparent", borderBottom: "1px solid var(--glass-border)" }}
-          startContent={<Title level="H2" style={{ color: "var(--sapTitleColor)" }}>Operator Login</Title>}
-        />
-      }
-      style={{ height: "100%", position: "relative" }}
-    >
+    <div className="h-full relative">
       <div className="premium-mesh-bg" />
-
+      <header className="bg-transparent border-b border-border py-4 px-4">
+        <h1 className="text-xl font-semibold text-foreground">Operator Login</h1>
+      </header>
       <div className={layouts.station} style={{ padding: "2rem", paddingTop: "3rem" }}>
-        {/* ── Device Info Card ── */}
-        <Card
-          className={layouts.stationCard}
-          header={
-            <CardHeader
-              titleText="Current Device"
-              subtitleText={`Shift ${shift.code} · ${shift.window}`}
-              avatar={
-                <div style={{
-                  width: "2.25rem", height: "2.25rem", borderRadius: "8px",
-                  background: "linear-gradient(135deg,#4facfe,#00f2fe)",
-                  display: "flex", alignItems: "center", justifyContent: "center"
-                }}>
-                  <Icon name="laptop" style={{ color: "white", width: "1rem", height: "1rem" }} />
-                </div>
-              }
-            />
-          }
-        >
-          <div style={{ padding: "0.75rem 1.25rem 1.25rem 1.25rem", display: "flex", flexDirection: "column", gap: "0.625rem" }}>
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-              <Icon name="factory" style={{ width: "1rem", height: "1rem", color: "var(--icon-orange)" }} />
-              <Label style={{ fontWeight: 600 }}>Station:</Label>
-              <span style={{ color: "var(--sapTitleColor)", fontWeight: 700 }}>{station}</span>
-            </FlexBox>
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-              <Icon name="process" style={{ width: "1rem", height: "1rem", color: "var(--icon-green)" }} />
-              <Label style={{ fontWeight: 600 }}>Process:</Label>
-              <span style={{ color: "var(--sapTitleColor)", fontWeight: 700 }}>{process}</span>
-            </FlexBox>
-            <div style={{ marginTop: "0.25rem" }}>
+        <Card className={layouts.stationCard}>
+          <CardHeader className="flex flex-row items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-r from-cyan-400 to-cyan-500">
+              <Laptop className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">Current Device</p>
+              <p className="text-xs text-muted-foreground">
+                Shift {shift.code} · {shift.window}
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 flex flex-col gap-2.5">
+            <div className="flex items-center gap-2">
+              <Factory className="w-4 h-4 text-orange-500" />
+              <Label className="font-semibold">Station:</Label>
+              <span className="font-bold text-foreground">{station}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Cog className="w-4 h-4 text-green-600" />
+              <Label className="font-semibold">Process:</Label>
+              <span className="font-bold text-foreground">{process}</span>
+            </div>
+            <div className="mt-1">
               <StatusBadge status={status} />
             </div>
-          </div>
+          </CardContent>
         </Card>
 
-        {/* ── Auth Card ── */}
-        <Card
-          className={layouts.stationCard}
-          header={
-            <CardHeader
-              titleText="Badge Authentication"
-              subtitleText="Scan badge or enter Employee ID"
-              avatar={
-                <div style={{
-                  width: "2.25rem", height: "2.25rem", borderRadius: "8px",
-                  background: "linear-gradient(135deg,#667eea,#764ba2)",
-                  display: "flex", alignItems: "center", justifyContent: "center"
-                }}>
-                  <Icon name="employee" style={{ color: "white", width: "1rem", height: "1rem" }} />
-                </div>
-              }
-            />
-          }
-        >
-          <div style={{ padding: "0.75rem 1.25rem 1.25rem 1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-
+        <Card className={layouts.stationCard}>
+          <CardHeader className="flex flex-row items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-r from-violet-500 to-purple-600">
+              <User className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm">Badge Authentication</p>
+              <p className="text-xs text-muted-foreground">Scan badge or enter Employee ID</p>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0 flex flex-col gap-4">
             {operatorQuery.data && (
-              <MessageStrip design="Information" hideCloseButton style={{ borderRadius: "8px" }}>
-                An operator session is currently active on this device.
-              </MessageStrip>
+              <Alert className="rounded-lg">An operator session is currently active on this device.</Alert>
             )}
 
-            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.375rem" }}>
-              <Label style={{ fontWeight: 600 }}>Badge / Employee ID</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label className="font-semibold">Badge / Employee ID</Label>
               <ScanInput
                 ref={badgeRef}
                 value={badge}
@@ -255,47 +196,45 @@ export function OperatorLoginPage() {
                 onSubmit={() => loginMutation.mutate()}
                 placeholder="Scan badge or type ID…"
               />
-            </FlexBox>
+            </div>
 
-            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.375rem" }}>
-              <Label style={{ fontWeight: 600 }}>Password / PIN</Label>
+            <div className="flex flex-col gap-1.5">
+              <Label className="font-semibold">Password / PIN</Label>
               <Input
-                type="Password"
+                type="password"
                 value={password}
-                onInput={(e) => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••"
-                style={{ width: "100%" }}
+                className="w-full"
               />
-            </FlexBox>
+            </div>
 
             {error && (
-              <MessageStrip design="Negative" style={{ borderRadius: "8px" }}>
+              <Alert variant="destructive" className="rounded-lg">
                 {error}
-              </MessageStrip>
+              </Alert>
             )}
 
-            <FlexBox style={{ gap: "0.75rem", marginTop: "0.5rem" }}>
+            <div className="flex gap-3 mt-2">
               <Button
-                design="Emphasized"
-                style={{ flex: 1, borderRadius: "10px", height: "3rem" }}
+                className="flex-1 rounded-lg h-12"
                 onClick={() => loginMutation.mutate()}
                 disabled={loginMutation.isPending || !badge || !password}
               >
                 {loginMutation.isPending ? "Signing in…" : "Login"}
               </Button>
               <Button
-                design="Default"
-                style={{ borderRadius: "10px", height: "3rem" }}
+                variant="secondary"
+                className="rounded-lg h-12"
                 onClick={() => logoutMutation.mutate()}
                 disabled={logoutMutation.isPending}
               >
                 Logout Operator
               </Button>
-            </FlexBox>
-
-          </div>
+            </div>
+          </CardContent>
         </Card>
       </div>
-    </Page>
+    </div>
   );
 }

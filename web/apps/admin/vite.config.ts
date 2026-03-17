@@ -16,7 +16,6 @@ export default defineConfig({
           if (id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("axios")) return "vendor-axios";
           if (id.includes("@react-pdf/")) return "vendor-pdf";
-          // Do not chunk @ui5 separately to avoid circular dependency with vendor-tanstack
           return undefined;
         },
       },
@@ -30,6 +29,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ["react", "react-dom", "react/jsx-runtime"],
   },
   envDir: "../../", // Load .env from web root
 });

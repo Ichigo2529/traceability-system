@@ -1,5 +1,4 @@
-import React from 'react';
-import { Label } from '@ui5/webcomponents-react';
+import React from "react";
 
 export interface FormFieldProps {
   label: string;
@@ -8,24 +7,15 @@ export interface FormFieldProps {
   children: React.ReactNode;
 }
 
-export const FormField: React.FC<FormFieldProps> = ({
-  label,
-  required = false,
-  error,
-  children,
-}) => {
+export const FormField: React.FC<FormFieldProps> = ({ label, required = false, error, children }) => {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      <Label style={{ fontSize: '0.875rem', fontWeight: 600 }}>
+    <div className="flex flex-col gap-2">
+      <label className="text-sm font-semibold leading-none">
         {label}
-        {required && <span style={{ color: '#ef4444', marginLeft: '0.25rem' }}>*</span>}
-      </Label>
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
       {children}
-      {error && (
-        <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>
-          {error}
-        </span>
-      )}
+      {error && <span className="text-xs text-red-500">{error}</span>}
     </div>
   );
 };
@@ -36,24 +26,13 @@ export interface FormProps {
   onSubmit?: (e: React.FormEvent<HTMLFormElement>) => void;
 }
 
-export const Form: React.FC<FormProps> = ({
-  children,
-  gap = '1rem',
-  onSubmit,
-}) => {
+export const Form: React.FC<FormProps> = ({ children, gap = "1rem", onSubmit }) => {
   return (
-    <form
-      onSubmit={onSubmit}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap,
-      }}
-    >
+    <form onSubmit={onSubmit} className="flex flex-col" style={{ gap }}>
       {children}
     </form>
   );
 };
 
-Form.displayName = 'Form';
-FormField.displayName = 'FormField';
+Form.displayName = "Form";
+FormField.displayName = "FormField";

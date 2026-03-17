@@ -2,18 +2,27 @@
 node_modules/
 .DS_Store
 Thumbs.db
+desktop.ini
 *.log
 *.tmp
 *.temp
 *.swp
 *.swo
+*~
 *.tsbuildinfo
+
+# Env / secrets (do not commit)
 .env
 .env.*
 !.env.example
+**/secrets.json
+**/secrets*.local.json
+**/*.pem
+**/*.key
 
 # Bun
 .bun/
+.bun-cache/
 
 # Vite / React build output
 web/apps/**/dist/
@@ -27,25 +36,36 @@ backend/.cache/
 
 # Test / coverage
 coverage/
+*.lcov
 
-# IDE
+# IDE / editor (local state, do not commit)
 .vscode/
 .idea/
+.cursor/
+.claude/
+**/settings.local.json
+
+# Debug / package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn/
+.pnpm-debug.log*
+
+# Turbo / Vercel
+.turbo/
+.vercel/
 
 # Misc
 *.sqlite
 *.db
 
-#document
-docs
-
-#backup
-backups
+# Document / backup (optional)
+docs/
+backups/
 
 # Dependencies
-node_modules/
 */node_modules/
 **/node_modules/
-
-# Bun cache
-.bun-cache/

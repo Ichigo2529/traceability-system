@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { MaterialRequest } from "@traceability/sdk";
 import { DataTable, StatusBadge } from "@traceability/ui";
-import { Button } from "@ui5/webcomponents-react";
 
 type MaterialRequestListTableProps = {
   data: MaterialRequest[];
@@ -85,11 +84,18 @@ export function MaterialRequestListTable({
         minSize: 220,
         size: 240,
       },
-      { header: "Process", accessorKey: "process_name", cell: ({ row }) => row.original.process_name || "-", size: 100 },
+      {
+        header: "Process",
+        accessorKey: "process_name",
+        cell: ({ row }) => row.original.process_name || "-",
+        size: 100,
+      },
       {
         header: "Items",
         accessorKey: "item_count",
-        cell: ({ row }) => <span style={{ display: "block", textAlign: "right" }}>{row.original.item_count ?? "-"}</span>,
+        cell: ({ row }) => (
+          <span style={{ display: "block", textAlign: "right" }}>{row.original.item_count ?? "-"}</span>
+        ),
         size: 72,
       },
       {
@@ -105,21 +111,18 @@ export function MaterialRequestListTable({
         size: 88,
         cell: ({ row }) => {
           const requestId =
-            row.original.id ??
-            (row.original as any).request_id ??
-            (row.original as any).material_request_id ??
-            "";
+            row.original.id ?? (row.original as any).request_id ?? (row.original as any).material_request_id ?? "";
           return (
-            <Button
-              icon="show-edit"
-              design="Transparent"
+            <button
+              type="button"
               onClick={() => requestId && onView(requestId)}
               disabled={!requestId}
-              tooltip={requestId ? "View Details" : "Missing request id"}
+              title={requestId ? "View Details" : "Missing request id"}
               aria-label="View Details"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-transparent px-3 py-1 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
             >
               View
-            </Button>
+            </button>
           );
         },
       },
@@ -135,9 +138,13 @@ export function MaterialRequestListTable({
       filterPlaceholder={filterPlaceholder}
       actions={
         onCreate ? (
-          <Button icon="add" design="Emphasized" className="button-hover-scale" onClick={onCreate}>
+          <button
+            type="button"
+            onClick={onCreate}
+            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+          >
             {createLabel}
-          </Button>
+          </button>
         ) : undefined
       }
     />

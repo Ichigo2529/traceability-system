@@ -15,8 +15,6 @@
     "@traceability/material": "*",
     "@traceability/sdk": "*",
     "@traceability/ui": "*",
-    "@ui5/webcomponents-icons": "^2.20.0",
-    "@ui5/webcomponents-react": "^2.20.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

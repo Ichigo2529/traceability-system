@@ -2,33 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
-import { 
-    DynamicPage,
-    DynamicPageTitle,
-    DynamicPageHeader,
-    Title, 
-    Button, 
-    Card, 
-    CardHeader, 
-    Label, 
-    MessageStrip, 
-    FlexBox, 
-    FlexBoxAlignItems,
-    FlexBoxDirection,
-    Grid,
-    Table,
-    TableHeaderRow,
-    TableHeaderCell,
-    TableRow,
-    TableCell,
-    Text
-} from "@ui5/webcomponents-react";
 import { ScanComponent } from "../../components/patterns/ScanComponent";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { formatTime } from "../../lib/datetime";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import layouts from "../../styles/layouts.module.css";
 
 type ScanRow = {
@@ -143,135 +126,181 @@ export function ScanStationPage() {
     return { pass, ng };
   }, [history]);
 
-  if (heartbeatQuery.isLoading) return <div style={{ padding: "2rem", textAlign: "center" }}>Connecting station...</div>;
-  if (heartbeatQuery.error) return <MessageStrip design="Negative">Station unavailable. Register device and verify assignment.</MessageStrip>;
-  if (deviceStatus === "disabled") return <MessageStrip design="Negative">Device Disabled. This terminal has been disabled by admin.</MessageStrip>;
+  if (heartbeatQuery.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden />
+        <span className="ml-3 text-muted-foreground">Connecting station...</span>
+      </div>
+    );
+  }
+  if (heartbeatQuery.error) {
+    return (
+      <div className="p-4">
+        <Alert variant="destructive">
+          <AlertDescription>Station unavailable. Register device and verify assignment.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+  if (deviceStatus === "disabled") {
+    return (
+      <div className="p-4">
+        <Alert variant="destructive">
+          <AlertDescription>Device Disabled. This terminal has been disabled by admin.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
-    <DynamicPage
-      titleArea={
-        <DynamicPageTitle 
-          heading={<Title level="H2">Assembly Station</Title>}
-          actionsBar={<StatusBadge status={deviceStatus} />}
-        />
-      }
-      headerArea={
-        <DynamicPageHeader>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "2rem" }}>
-                    <FlexBox direction={FlexBoxDirection.Column}>
-                        <Label>Station</Label>
-                        <span style={{ fontWeight: "bold", fontSize: "1.1rem" }}>{stationName}</span>
-                    </FlexBox>
-                    <FlexBox direction={FlexBoxDirection.Column}>
-                        <Label>Process</Label>
-                        <span style={{ fontWeight: "bold", fontSize: "1.1rem" }}>{processName}</span>
-                    </FlexBox>
-                </FlexBox>
-                
-                <FlexBox direction={FlexBoxDirection.Column} alignItems={FlexBoxAlignItems.End}>
-                    <Label>Current Quantity</Label>
-                    <Title level="H1" style={{ fontSize: "3rem", lineHeight: "1", margin: 0 }}>{quantity}</Title>
-                </FlexBox>
-            </div>
-        </DynamicPageHeader>
-      }
-      style={{ height: "100vh" }}
-      showFooter={false}
-    >
-      <div className={layouts.station}>
-         <Grid defaultSpan="XL4 L4 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%", maxWidth: "1200px" }}>
-             {/* Step Control */}
-             <Card header={<CardHeader titleText="Step Control" />} style={{ gridColumn: "span 4" }}>
-                 <div style={{ padding: "1rem" }}>
-                    <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem" }}>
-                        {ASSEMBLY_STEPS.map((item) => (
-                            <Button 
-                                key={item} 
-                                design={step === item ? "Emphasized" : "Transparent"} 
-                                onClick={() => setStep(item)}
-                                style={{ justifyContent: "flex-start" }}
-                            >
-                                {item}
-                            </Button>
-                        ))}
-                        <div style={{ marginTop: "1rem", fontSize: "0.875rem", color: "var(--sapContent_LabelColor)" }}>
-                            Selected step: {step}
-                        </div>
-                    </FlexBox>
-                 </div>
-             </Card>
+    <div className="flex h-screen flex-col bg-background">
+      {/* Title bar */}
+      <header className="flex items-center justify-between border-b px-4 py-3">
+        <h2 className="text-xl font-semibold">Assembly Station</h2>
+        <StatusBadge status={deviceStatus} />
+      </header>
 
-             {/* Main Scan Area */}
-             <div style={{ gridColumn: "span 8", display: "flex", flexDirection: "column", gap: "1rem" }}>
-                 
-                 <ScanComponent 
-                    label="ASSY Scan"
-                    placeholder="Scan ASSY ID"
-                    onScan={async (scannedValue) => {
-                        const code = scannedValue.trim();
-                        
-                        // Client-side validations
-                        if (history[0]?.assyId === code && history[0]?.step === step) {
-                            const reason = "Duplicate step scan detected.";
-                             const row: ScanRow = { assyId: code, step, at: formatTime(new Date()), result: "NG", reason: "Duplicate scan" };
-                            setHistory((prev) => [row, ...prev].slice(0, 5));
-                            setOverlay({ open: true, mode: "NG", title: "NG", description: "Duplicate scan" });
-                            beep("ng");
-                            return { success: false, message: reason };
-                        }
+      {/* Header area: Station, Process, Quantity */}
+      <div className="flex justify-between items-center border-b px-4 py-4">
+        <div className="flex items-center gap-8">
+          <div className="flex flex-col gap-0.5">
+            <Label className="text-muted-foreground">Station</Label>
+            <span className="font-bold text-lg">{stationName}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <Label className="text-muted-foreground">Process</Label>
+            <span className="font-bold text-lg">{processName}</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-0.5">
+          <Label className="text-muted-foreground">Current Quantity</Label>
+          <span className="text-4xl font-bold leading-none">{quantity}</span>
+        </div>
+      </div>
 
-                        if (!code.includes("-") && code.length < 16) {
-                             return { success: false, message: "ASSY ID format seems invalid." };
-                        }
+      {/* Main content */}
+      <div className={`flex-1 overflow-auto ${layouts.station}`}>
+        <div className="grid w-full max-w-[1200px] grid-cols-1 gap-4 lg:grid-cols-12">
+          {/* Step Control */}
+          <Card className="lg:col-span-4">
+            <CardHeader>
+              <CardTitle>Step Control</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {ASSEMBLY_STEPS.map((item) => (
+                <Button
+                  key={item}
+                  variant={step === item ? "default" : "ghost"}
+                  className="justify-start"
+                  onClick={() => setStep(item)}
+                >
+                  {item}
+                </Button>
+              ))}
+              <p className="mt-4 text-sm text-muted-foreground">Selected step: {step}</p>
+            </CardContent>
+          </Card>
 
-                        try {
-                            const result = await eventMutation.mutateAsync(code);
-                            return { success: true, message: result.queued ? "Queued for sync" : "Scan accepted" };
-                        } catch (err) {
-                            const reason = formatStationError(err, "Validation rejected");
-                            // Mutation onError handled history/beep, so just return false here for the component state
-                            return { success: false, message: reason };
-                        }
-                    }}
-                 />
+          {/* Main Scan Area + History + Batch Result */}
+          <div className="flex flex-col gap-4 lg:col-span-8">
+            <ScanComponent
+              label="ASSY Scan"
+              placeholder="Scan ASSY ID"
+              onScan={async (scannedValue) => {
+                const code = scannedValue.trim();
 
-                 {/* History Table */}
-                 <Card header={<CardHeader titleText="Last 5 Scans" />} style={{ width: "100%" }}>
-                     <Table
-                        headerRow={
-                            <TableHeaderRow>
-                                <TableHeaderCell><Label>Time</Label></TableHeaderCell>
-                                <TableHeaderCell><Label>ASSY ID</Label></TableHeaderCell>
-                                <TableHeaderCell><Label>Step</Label></TableHeaderCell>
-                                <TableHeaderCell><Label>Result</Label></TableHeaderCell>
-                                <TableHeaderCell><Label>Reason</Label></TableHeaderCell>
-                            </TableHeaderRow>
-                        }
-                     >
-                        {history.map((row) => (
-                            <TableRow key={`${row.assyId}-${row.step}-${row.at}`}>
-                                <TableCell><Label>{row.at}</Label></TableCell>
-                                <TableCell><Label style={{ fontFamily: "monospace" }}>{row.assyId}</Label></TableCell>
-                                <TableCell><Label>{row.step}</Label></TableCell>
-                                <TableCell><StatusBadge status={row.result} /></TableCell>
-                                <TableCell><Label>{row.reason || "-"}</Label></TableCell>
-                            </TableRow>
-                        ))}
-                     </Table>
-                 </Card>
+                if (history[0]?.assyId === code && history[0]?.step === step) {
+                  const row: ScanRow = {
+                    assyId: code,
+                    step,
+                    at: formatTime(new Date()),
+                    result: "NG",
+                    reason: "Duplicate scan",
+                  };
+                  setHistory((prev) => [row, ...prev].slice(0, 5));
+                  setOverlay({ open: true, mode: "NG", title: "NG", description: "Duplicate scan" });
+                  beep("ng");
+                  return { success: false, message: "Duplicate step scan detected." };
+                }
 
-                 {/* Batch Result */}
-                 <Card header={<CardHeader titleText="Batch Result" />}>
-                     <div style={{ padding: "1rem" }}>
-                        <FlexBox style={{ gap: "2rem" }}>
-                            <Text>PASS: <span style={{ fontWeight: "bold", color: "var(--sapPositiveColor)" }}>{statusSummary.pass}</span></Text>
-                            <Text>NG: <span style={{ fontWeight: "bold", color: "var(--sapNegativeColor)" }}>{statusSummary.ng}</span></Text>
-                        </FlexBox>
-                     </div>
-                 </Card>
-             </div>
-         </Grid>
+                if (!code.includes("-") && code.length < 16) {
+                  return { success: false, message: "ASSY ID format seems invalid." };
+                }
+
+                try {
+                  const result = await eventMutation.mutateAsync(code);
+                  return { success: true, message: result.queued ? "Queued for sync" : "Scan accepted" };
+                } catch (err) {
+                  const reason = formatStationError(err, "Validation rejected");
+                  return { success: false, message: reason };
+                }
+              }}
+            />
+
+            {/* History Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Last 5 Scans</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="px-4 py-2 text-left font-medium">
+                          <Label className="font-medium">Time</Label>
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium">
+                          <Label className="font-medium">ASSY ID</Label>
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium">
+                          <Label className="font-medium">Step</Label>
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium">
+                          <Label className="font-medium">Result</Label>
+                        </th>
+                        <th className="px-4 py-2 text-left font-medium">
+                          <Label className="font-medium">Reason</Label>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((row) => (
+                        <tr key={`${row.assyId}-${row.step}-${row.at}`} className="border-b last:border-b-0">
+                          <td className="px-4 py-2">{row.at}</td>
+                          <td className="px-4 py-2 font-mono">{row.assyId}</td>
+                          <td className="px-4 py-2">{row.step}</td>
+                          <td className="px-4 py-2">
+                            <StatusBadge status={row.result} />
+                          </td>
+                          <td className="px-4 py-2">{row.reason ?? "-"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Batch Result */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Batch Result</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-8">
+                  <span>
+                    PASS: <span className="font-bold text-green-600">{statusSummary.pass}</span>
+                  </span>
+                  <span>
+                    NG: <span className="font-bold text-destructive">{statusSummary.ng}</span>
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
 
       <FullscreenResultOverlay
@@ -281,6 +310,6 @@ export function ScanStationPage() {
         description={overlay.description}
         onClose={() => setOverlay((prev) => ({ ...prev, open: false }))}
       />
-    </DynamicPage>
+    </div>
   );
 }

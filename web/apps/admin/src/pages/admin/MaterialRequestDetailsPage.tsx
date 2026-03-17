@@ -7,17 +7,10 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  TextArea,
-  FlexBox,
-  FlexBoxAlignItems,
-  FlexBoxJustifyContent,
-  BusyIndicator,
-  FlexBoxDirection,
-  Text,
-  MessageStrip,
-} from "@ui5/webcomponents-react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
@@ -28,19 +21,14 @@ import {
   issueMaterialRequestWithAllocation,
   rejectMaterialRequest,
 } from "../../lib/material-api";
-
-import "@ui5/webcomponents-icons/dist/print.js";
-import "@ui5/webcomponents-icons/dist/nav-back.js";
-import "@ui5/webcomponents-icons/dist/accept.js";
-import "@ui5/webcomponents-icons/dist/decline.js";
-import "@ui5/webcomponents-icons/dist/request.js";
+import { Printer, Check, X } from "lucide-react";
 
 export function MaterialRequestDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const keys = createMaterialQueryKeys("admin");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const [confirmIssueOpen, setConfirmIssueOpen] = useState(false);
   const [confirmRejectOpen, setConfirmRejectOpen] = useState(false);
@@ -124,10 +112,10 @@ export function MaterialRequestDetailsPage() {
     <PageLayout
       title={detailsQuery.data?.request_no ?? "Loading..."}
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
-          <Text>Material Request Details and Approvals</Text>
-        </FlexBox>
+          <span>Material Request Details and Approvals</span>
+        </div>
       }
       icon="request"
       iconColor="blue"
@@ -135,30 +123,30 @@ export function MaterialRequestDetailsPage() {
       onBackClick={() => navigate("/admin/material-requests")}
       headerActions={
         detailsQuery.data ? (
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+          <div className="flex items-center gap-2">
             {detailsQuery.data.status === "ISSUED" && (
-              <Button icon="print" design="Emphasized" onClick={() => window.print()} tooltip="Print Voucher">
+              <Button variant="default" onClick={() => window.print()} title="Print Voucher">
+                <Printer className="h-4 w-4 mr-2" />
                 Print Voucher
               </Button>
             )}
             {showActionButtons && detailsQuery.data.status === "REQUESTED" && (
               <Button
-                icon="decline"
-                design="Negative"
+                variant="destructive"
                 onClick={() => {
                   setRejectReason("");
                   setConfirmRejectOpen(true);
                 }}
                 disabled={approveMutation.isPending || rejectMutation.isPending || issueMutation.isPending}
               >
+                <X className="h-4 w-4 mr-2" />
                 Reject
               </Button>
             )}
             {showActionButtons &&
               (detailsQuery.data.status === "REQUESTED" || detailsQuery.data.status === "APPROVED") && (
                 <Button
-                  icon="accept"
-                  design="Emphasized"
+                  variant="default"
                   onClick={() => {
                     if (!workbench.issueValidationError) setConfirmIssueOpen(true);
                   }}
@@ -170,20 +158,24 @@ export function MaterialRequestDetailsPage() {
                     issueMutation.isPending
                   )}
                 >
+                  <Check className="h-4 w-4 mr-2" />
                   {detailsQuery.data.status === "REQUESTED" ? "Approve & Issue" : "Issue"}
                 </Button>
               )}
-          </FlexBox>
+          </div>
         ) : undefined
       }
     >
-      <div className="page-container" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div className="page-container flex flex-col gap-4">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
         {detailsQuery.isLoading ? (
-          <BusyIndicator active text="Loading details..." style={{ marginTop: "1rem" }} />
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading details...</span>
+          </div>
         ) : detailsQuery.data ? (
-          <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1.25rem", paddingBottom: "1rem" }}>
+          <div className="flex flex-col gap-5 pb-4">
             <MaterialRequestVoucherView
               detail={detailsQuery.data}
               onBack={() => navigate("/admin/material-requests")}
@@ -192,10 +184,9 @@ export function MaterialRequestDetailsPage() {
               hideTopBarActions
             />
 
-            {/* Hint: when data is complete, scroll up to approve */}
             {showActionButtons && (
-              <MessageStrip design="Information" hideCloseButton style={{ width: "100%", boxSizing: "border-box" }}>
-                <Text style={{ fontSize: "0.8125rem", lineHeight: 1.5 }}>
+              <Alert className="w-full">
+                <AlertDescription className="text-sm leading-relaxed">
                   {detailsQuery.data.status === "REQUESTED" ? (
                     <>
                       Reject: use when the request is invalid (reason required). When you have added all DO lines and
@@ -208,26 +199,25 @@ export function MaterialRequestDetailsPage() {
                       <strong>Issue</strong> in the toolbar.
                     </>
                   )}
-                </Text>
-              </MessageStrip>
+                </AlertDescription>
+              </Alert>
             )}
             {detailsQuery.data.status === "ISSUED" && (
-              <MessageStrip design="Positive" hideCloseButton style={{ width: "100%", boxSizing: "border-box" }}>
-                <Text style={{ fontSize: "0.8125rem", lineHeight: 1.5 }}>
+              <Alert variant="default" className="border-green-500/50 bg-green-500/10">
+                <AlertDescription className="text-sm leading-relaxed">
                   Voucher ready. Use <strong>Print Voucher</strong> above. For receive / 2D scan: go to{" "}
                   <strong>Forklift Intake</strong> or <strong>Station → Store Approvals</strong>.
-                </Text>
-              </MessageStrip>
+                </AlertDescription>
+              </Alert>
             )}
-          </FlexBox>
+          </div>
         ) : (
-          <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ padding: "3rem" }}>
-            <Text style={{ color: "var(--sapContent_LabelColor)" }}>Request not found.</Text>
-          </FlexBox>
+          <div className="flex justify-center py-12">
+            <span className="text-muted-foreground">Request not found.</span>
+          </div>
         )}
       </div>
 
-      {/* Dialogs */}
       <ConfirmDialog
         open={confirmIssueOpen}
         title={detailsQuery.data?.status === "REQUESTED" ? "Confirm Approve & Issue" : "Confirm Issue Material"}
@@ -279,21 +269,17 @@ export function MaterialRequestDetailsPage() {
           );
         }}
       >
-        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "0.5rem", padding: "0.5rem 0" }}>
-          <Text style={{ fontSize: "0.8rem", fontWeight: "600", color: "var(--sapContent_LabelColor)" }}>
-            Reason for rejection
-          </Text>
-          <TextArea
+        <div className="flex flex-col gap-2 py-2">
+          <Label className="text-sm font-semibold text-muted-foreground">Reason for rejection</Label>
+          <Textarea
             value={rejectReason}
-            onInput={(e) => setRejectReason(e.target.value)}
+            onChange={(e) => setRejectReason(e.target.value)}
             rows={3}
             placeholder="Enter reason for rejection (optional but recommended)..."
-            style={{ width: "100%" }}
+            className="w-full"
           />
-        </FlexBox>
+        </div>
       </ConfirmDialog>
-
-      <ToastComponent />
     </PageLayout>
   );
 }

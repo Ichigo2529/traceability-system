@@ -2,25 +2,11 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { sdk } from "../context/AuthContext";
 import { PageLayout, Section, StatCard } from "@traceability/ui";
-import {
-    Grid,
-    Select,
-    Option,
-    Icon,
-    ObjectStatus,
-    FlexBox,
-    FlexBoxAlignItems,
-} from "@ui5/webcomponents-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "../components/shared/DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import type { DeviceInfo } from "@traceability/sdk";
-import "@ui5/webcomponents-icons/dist/search.js";
-import "@ui5/webcomponents-icons/dist/heart.js";
-import "@ui5/webcomponents-icons/dist/status-positive.js";
-import "@ui5/webcomponents-icons/dist/status-inactive.js";
-import "@ui5/webcomponents-icons/dist/connected.js";
-import "@ui5/webcomponents-icons/dist/disconnected.js";
-import "@ui5/webcomponents-icons/dist/iphone.js";
+import { Smartphone, Wifi, WifiOff } from "lucide-react";
 
 function isOnline(lastHeartbeat: string | null | undefined, onlineWindowMinutes: number) {
   if (!lastHeartbeat) return false;
@@ -39,11 +25,6 @@ function relativeTime(ts: string | null | undefined) {
   const day = Math.floor(hr / 24);
   return `${day}d ago`;
 }
-
-// Icon wrappers for StatCard
-const IconTotal = (props: any) => <Icon name="iphone" {...props} />;
-const IconOnline = (props: any) => <Icon name="connected" {...props} />;
-const IconOffline = (props: any) => <Icon name="disconnected" {...props} />;
 
 export default function HeartbeatMonitorPage() {
   const [statusFilter, setStatusFilter] = useState("all");
@@ -74,7 +55,6 @@ export default function HeartbeatMonitorPage() {
       const online = isOnline(d.last_heartbeat_at, onlineWindowMinutes);
       if (statusFilter === "online" && !online) return false;
       if (statusFilter === "offline" && online) return false;
-
       if (lineFilter !== "all") {
         if ((d.assigned_machine?.name ?? "") !== lineFilter) return false;
       }
@@ -94,54 +74,62 @@ export default function HeartbeatMonitorPage() {
   const columns = useMemo<ColumnDef<DeviceInfo>[]>(
     () => [
       {
+        id: "device",
         header: "Device",
         accessorFn: (row) => (row.device_code || "") + (row.name || ""),
         cell: ({ row }) => (
-            <FlexBox direction="Column">
-                <span style={{ fontWeight: "bold" }}>{row.original.device_code || "-"}</span>
-                <span style={{ fontSize: "0.75rem", color: "var(--sapContent_LabelColor)" }}>{row.original.name || "-"}</span>
-            </FlexBox>
+          <div className="flex flex-col">
+            <span className="font-semibold">{row.original.device_code || "-"}</span>
+            <span className="text-xs text-muted-foreground">{row.original.name || "-"}</span>
+          </div>
         ),
       },
       {
+        id: "machine",
         header: "Machine",
         accessorKey: "assigned_machine.name",
-        cell: ({ row }) => <span style={{ fontSize: "0.875rem" }}>{row.original.assigned_machine?.name || "-"}</span>,
+        cell: ({ row }) => <span className="text-sm">{row.original.assigned_machine?.name || "-"}</span>,
       },
       {
+        id: "station",
         header: "Station",
         accessorKey: "assigned_station.name",
-        cell: ({ row }) => <span style={{ fontSize: "0.875rem" }}>{row.original.assigned_station?.name || "-"}</span>,
+        cell: ({ row }) => <span className="text-sm">{row.original.assigned_station?.name || "-"}</span>,
       },
       {
+        id: "process",
         header: "Process",
         accessorKey: "assigned_process.name",
-        cell: ({ row }) => <span style={{ fontSize: "0.875rem" }}>{row.original.assigned_process?.name || "-"}</span>,
+        cell: ({ row }) => <span className="text-sm">{row.original.assigned_process?.name || "-"}</span>,
       },
       {
+        id: "ip_address",
         header: "IP Address",
         accessorKey: "ip_address",
-        cell: ({ row }) => <span style={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{row.original.ip_address || "-"}</span>,
+        cell: ({ row }) => <span className="font-mono text-xs">{row.original.ip_address || "-"}</span>,
       },
       {
+        id: "heartbeat",
         header: "Heartbeat",
         accessorFn: (row) => row.last_heartbeat_at,
-        cell: ({ row }) => <span style={{ fontSize: "0.875rem" }}>{relativeTime(row.original.last_heartbeat_at)}</span>,
+        cell: ({ row }) => <span className="text-sm">{relativeTime(row.original.last_heartbeat_at)}</span>,
       },
       {
-        header: "Status",
         id: "status",
+        header: "Status",
         cell: ({ row }) => {
-            const online = isOnline(row.original.last_heartbeat_at, onlineWindowMinutes);
-            return (
-                <ObjectStatus
-                    state={online ? "Positive" : "Critical"}
-                    icon={<Icon name={online ? "status-positive" : "status-inactive"} />}
-                    inverted
-                >
-                    {online ? "ONLINE" : "OFFLINE"}
-                </ObjectStatus>
-            );
+          const online = isOnline(row.original.last_heartbeat_at, onlineWindowMinutes);
+          return (
+            <span
+              className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                online
+                  ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                  : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+              }`}
+            >
+              {online ? "ONLINE" : "OFFLINE"}
+            </span>
+          );
         },
       },
     ],
@@ -152,61 +140,67 @@ export default function HeartbeatMonitorPage() {
     <PageLayout
       title="Heartbeat Monitor"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Live device status monitoring | Online window: {onlineWindowMinutes}m</span>
-        </FlexBox>
+        </div>
       }
       icon="heart"
       iconColor="var(--icon-purple)"
-     >
+    >
       <Section title="Overview" variant="card">
-         <Grid defaultSpan="XL4 L4 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ padding: "0" }}>
+        <div className="grid grid-cols-12 gap-4 p-0">
+          <div className="col-span-12 xl:col-span-4 lg:col-span-4 md:col-span-6">
+            <StatCard icon={Smartphone} label="Total Devices" value={summary.total.toString()} />
+          </div>
+          <div className="col-span-12 xl:col-span-4 lg:col-span-4 md:col-span-6">
+            <StatCard icon={Wifi} label="Online" value={summary.online.toString()} trend="up" trendValue="Active" />
+          </div>
+          <div className="col-span-12 xl:col-span-4 lg:col-span-4 md:col-span-6">
             <StatCard
-                icon={IconTotal}
-                label="Total Devices"
-                value={summary.total.toString()}
+              icon={WifiOff}
+              label="Offline"
+              value={summary.offline.toString()}
+              trend={summary.offline > 0 ? "down" : "neutral"}
+              trendValue={summary.offline > 0 ? "Alert" : "Stable"}
             />
-            <StatCard
-                icon={IconOnline}
-                label="Online"
-                value={summary.online.toString()}
-                trend="up"
-                trendValue="Active"
-            />
-            <StatCard
-                icon={IconOffline}
-                label="Offline"
-                value={summary.offline.toString()}
-                trend={summary.offline > 0 ? "down" : "neutral"}
-                trendValue={summary.offline > 0 ? "Alert" : "Stable"}
-            />
-        </Grid>
+          </div>
+        </div>
       </Section>
 
       <Section title="Device Status" variant="card">
         <DataTable
-            data={filteredData}
-            columns={columns}
-            loading={isLoading}
-            filterPlaceholder="Search devices by code, name, ip..."
-            actions={
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                    <Select onChange={(e) => setStatusFilter((e.target.selectedOption as any).dataset.value)}>
-                        <Option value="all" data-value="all" selected={statusFilter === "all"}>All Status</Option>
-                        <Option value="online" data-value="online" selected={statusFilter === "online"}>Online</Option>
-                        <Option value="offline" data-value="offline" selected={statusFilter === "offline"}>Offline</Option>
-                    </Select>
-                    <Select onChange={(e) => setLineFilter((e.target.selectedOption as any).dataset.value)}>
-                        <Option value="all" data-value="all" selected={lineFilter === "all"}>All Machines</Option>
-                        {lineOptions.map((line) => (
-                            <Option key={line} value={line} data-value={line} selected={lineFilter === line}>
-                                {line}
-                            </Option>
-                        ))}
-                    </Select>
-                </FlexBox>
-            }
+          data={filteredData}
+          columns={columns}
+          loading={isLoading}
+          filterPlaceholder="Search devices by code, name, ip..."
+          actions={
+            <div className="flex items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="online">Online</SelectItem>
+                  <SelectItem value="offline">Offline</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={lineFilter} onValueChange={setLineFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Machines" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Machines</SelectItem>
+                  {lineOptions.map((line) => (
+                    <SelectItem key={line} value={line}>
+                      {line}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          }
         />
       </Section>
     </PageLayout>

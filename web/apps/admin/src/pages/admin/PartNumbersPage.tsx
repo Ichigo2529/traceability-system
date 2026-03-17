@@ -14,23 +14,13 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Input,
-  TextArea,
-  Select,
-  Option,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  FlexBox,
-  FlexBoxAlignItems
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/number-sign.js";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const schema = z.object({
   part_number: z.string().min(1),
@@ -42,14 +32,14 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-import "@ui5/webcomponents-icons/dist/grid.js";
+const NONE = "__none__";
 
 export function PartNumbersPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PartNumberMaster | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PartNumberMaster | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: rows = [], isLoading: rowsLoading } = useQuery({
     queryKey: ["part-numbers"],
@@ -94,19 +84,25 @@ export function PartNumbersPage() {
 
   const columns = useMemo<ColumnDef<PartNumberMaster>[]>(
     () => [
-      { header: "Part Number", accessorKey: "part_number" },
-      { header: "Component Type", accessorKey: "component_type_code" },
-      { header: "Base UOM (Usage/VCM)", accessorKey: "default_pack_size" },
-      { header: "RM Location", accessorKey: "rm_location" },
-      { header: "Description", accessorKey: "description" },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
+      { id: "part_number", header: "Part Number", accessorKey: "part_number" },
+      { id: "component_type", header: "Component Type", accessorKey: "component_type_code" },
+      { id: "default_pack_size", header: "Base UOM (Usage/VCM)", accessorKey: "default_pack_size" },
+      { id: "rm_location", header: "RM Location", accessorKey: "rm_location" },
+      { id: "description", header: "Description", accessorKey: "description" },
       {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
+      },
+      {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -119,33 +115,36 @@ export function PartNumbersPage() {
                 });
                 setOpen(true);
               }}
-              tooltip="Edit Part Number"
+              title="Edit Part Number"
               aria-label="Edit Part Number"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
-              onClick={() => {
-                setDeleteTarget(row.original);
-              }}
-              tooltip="Delete Part Number"
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteTarget(row.original)}
+              title="Delete Part Number"
               aria-label="Delete Part Number"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
     ],
-    [deleteMutation, form]
+    [form]
   );
 
   return (
     <PageLayout
       title="Part Numbers"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Component master with base usage definitions</span>
-        </FlexBox>
+        </div>
       }
       icon="number-sign"
       iconColor="indigo"
@@ -162,25 +161,31 @@ export function PartNumbersPage() {
                   : undefined
           }
         />
-        <DataTable 
-            data={rows} 
-            columns={columns} 
-            loading={rowsLoading || typesLoading}
-            filterPlaceholder="Search part number..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  className="button-hover-scale"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ part_number: "", component_type_id: undefined, description: "", rm_location: "", default_pack_size: undefined, is_active: true });
-                    setOpen(true);
-                  }}
-                >
-                  Add Part Number
-                </Button>
-            }
+        <DataTable
+          data={rows}
+          columns={columns}
+          loading={rowsLoading || typesLoading}
+          filterPlaceholder="Search part number..."
+          actions={
+            <Button
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({
+                  part_number: "",
+                  component_type_id: undefined,
+                  description: "",
+                  rm_location: "",
+                  default_pack_size: undefined,
+                  is_active: true,
+                });
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Part Number
+            </Button>
+          }
         />
       </div>
 
@@ -191,60 +196,63 @@ export function PartNumbersPage() {
         onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>Part Number</Label>}>
-              <Input {...form.register("part_number")} />
-          </FormItem>
-          
-           <FormItem labelContent={<Label>Base UOM (Usage/VCM)</Label>}>
-              <Input type="Number" {...form.register("default_pack_size")} placeholder="e.g. 1" />
-          </FormItem>
-
-           <FormItem labelContent={<Label>Component Type</Label>}>
-               <Controller
-                  control={form.control}
-                  name="component_type_id"
-                  render={({ field }) => (
-                       <Select
-                          onChange={(e) => {
-                              const selected = e.detail.selectedOption as unknown as { value: string };
-                              field.onChange(selected.value === "NONE" ? "" : selected.value);
-                          }}
-                          value={field.value || "NONE"}
-                      >
-                           <Option value="NONE">Not assigned</Option>
-                           {componentTypes.map((ct: ComponentType) => (
-                              <Option key={ct.id} value={ct.id}>
-                                {ct.code} - {ct.name}
-                              </Option>
-                            ))}
-                      </Select>
-                  )}
-               />
-          </FormItem>
-          
-          <FormItem labelContent={<Label>Requirement RM (Location)</Label>} style={{ gridColumn: "span 2" }}>
-               <Input {...form.register("rm_location")} placeholder="e.g. WH-01" />
-          </FormItem>
-          
-          <FormItem labelContent={<Label>Description</Label>} style={{ gridColumn: "span 2" }}>
-               <TextArea {...form.register("description")} />
-          </FormItem>
-          
-          <FormItem labelContent={<Label>Status</Label>} style={{ gridColumn: "span 2" }}>
-              <Controller
-                  control={form.control}
-                  name="is_active"
-                  render={({ field }) => (
-                       <CheckBox
-                           checked={field.value}
-                           onChange={(e) => field.onChange(e.target.checked)}
-                           text="Active"
-                       />
-                  )}
-              />
-          </FormItem>
-        </Form>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="pn-part_number">Part Number</Label>
+            <Input id="pn-part_number" {...form.register("part_number")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="pn-default_pack_size">Base UOM (Usage/VCM)</Label>
+            <Input
+              id="pn-default_pack_size"
+              type="number"
+              {...form.register("default_pack_size")}
+              placeholder="e.g. 1"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>Component Type</Label>
+            <Controller
+              control={form.control}
+              name="component_type_id"
+              render={({ field }) => (
+                <Select value={field.value || NONE} onValueChange={(v) => field.onChange(v === NONE ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not assigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Not assigned</SelectItem>
+                    {(componentTypes as ComponentType[]).map((ct) => (
+                      <SelectItem key={ct.id} value={ct.id}>
+                        {ct.code} - {ct.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="pn-rm_location">Requirement RM (Location)</Label>
+            <Input id="pn-rm_location" {...form.register("rm_location")} placeholder="e.g. WH-01" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="pn-description">Description</Label>
+            <Textarea id="pn-description" {...form.register("description")} />
+          </div>
+          <div className="flex items-center gap-2">
+            <Controller
+              control={form.control}
+              name="is_active"
+              render={({ field }) => (
+                <Checkbox id="pn-active" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
+              )}
+            />
+            <Label htmlFor="pn-active" className="cursor-pointer">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -261,7 +269,6 @@ export function PartNumbersPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

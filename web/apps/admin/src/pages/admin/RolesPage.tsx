@@ -11,21 +11,12 @@ import { FormDialog } from "../../components/shared/FormDialog";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
-import {
-  Button,
-  Input,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  Title,
-  FlexBox,
-  FlexBoxAlignItems
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/role.js";
 import { useToast } from "../../hooks/useToast";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Pencil } from "lucide-react";
 
 const roleSchema = z.object({
   name: z.string().min(2),
@@ -34,13 +25,21 @@ const roleSchema = z.object({
 });
 type RoleForm = z.infer<typeof roleSchema>;
 
+type Permission = { id: string; code: string; name: string; module?: string };
+
 export function RolesPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Role | null>(null);
-  const { showToast, ToastComponent } = useToast();
-  const { data: roles = [], isLoading: rolesLoading } = useQuery({ queryKey: ["roles"], queryFn: () => sdk.admin.getRoles() });
-  const { data: permissions = [], isLoading: permissionsLoading } = useQuery({ queryKey: ["permissions"], queryFn: () => sdk.admin.getPermissions() });
+  const { showToast } = useToast();
+  const { data: roles = [], isLoading: rolesLoading } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => sdk.admin.getRoles(),
+  });
+  const { data: permissions = [], isLoading: permissionsLoading } = useQuery({
+    queryKey: ["permissions"],
+    queryFn: () => sdk.admin.getPermissions(),
+  });
 
   const form = useForm<RoleForm>({ resolver: zodResolver(roleSchema), defaultValues: { name: "", permissions: [] } });
 
@@ -66,15 +65,26 @@ export function RolesPage() {
 
   const columns = useMemo<ColumnDef<Role>[]>(
     () => [
-      { header: "Role", accessorKey: "name" },
-      { header: "Description", accessorKey: "description", cell: ({ row }) => row.original.description || "-" },
-      { header: "Permissions", cell: ({ row }) => <span style={{ fontWeight: "bold" }}>{(row.original.permissions || []).length}</span> },
+      { id: "name", header: "Role", accessorKey: "name" },
       {
+        id: "description",
+        header: "Description",
+        accessorKey: "description",
+        cell: ({ row }) => row.original.description || "-",
+      },
+      {
+        id: "permissions",
+        header: "Permissions",
+        cell: ({ row }) => <span className="font-bold">{(row.original.permissions || []).length}</span>,
+      },
+      {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
           <Button
-            icon="edit"
-            design="Transparent"
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={() => {
               setEditing(row.original);
               form.reset({
@@ -84,16 +94,18 @@ export function RolesPage() {
               });
               setOpen(true);
             }}
-            tooltip="Edit Role"
+            title="Edit Role"
             aria-label="Edit Role"
-          />
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
         ),
       },
     ],
     [form]
   );
 
-  const grouped = permissions.reduce<Record<string, typeof permissions>>((acc, permission) => {
+  const grouped = (permissions as Permission[]).reduce<Record<string, Permission[]>>((acc, permission) => {
     const key = permission.module || "general";
     acc[key] = [...(acc[key] || []), permission];
     return acc;
@@ -103,41 +115,42 @@ export function RolesPage() {
     <PageLayout
       title="Roles & Permissions"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Role CRUD and permission matrix</span>
-        </FlexBox>
+        </div>
       }
       icon="role"
       iconColor="indigo"
     >
       <div className="page-container">
-        <ApiErrorBanner 
+        <ApiErrorBanner
           message={
-            createMutation.error ? formatApiError(createMutation.error) :
-            updateMutation.error ? formatApiError(updateMutation.error) :
-            undefined
-          } 
+            createMutation.error
+              ? formatApiError(createMutation.error)
+              : updateMutation.error
+                ? formatApiError(updateMutation.error)
+                : undefined
+          }
         />
-        <DataTable 
-            data={roles} 
-            columns={columns} 
-            loading={rolesLoading || permissionsLoading}
-            filterPlaceholder="Search roles..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  className="button-hover-scale"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ name: "", permissions: [] });
-                    setOpen(true);
-                  }}
-                >
-                  Add Role
-                </Button>
-            }
+        <DataTable
+          data={roles}
+          columns={columns}
+          loading={rolesLoading || permissionsLoading}
+          filterPlaceholder="Search roles..."
+          actions={
+            <Button
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({ name: "", permissions: [] });
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Role
+            </Button>
+          }
         />
       </div>
 
@@ -148,52 +161,59 @@ export function RolesPage() {
         onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M1 L1 XL1">
-          <FormItem labelContent={<Label>Name</Label>}>
-            <Input {...form.register("name")} disabled={Boolean(editing?.name === "ADMIN")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Description</Label>}>
-            <Input {...form.register("description")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Permission Matrix</Label>}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%" }}>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="role-name">Name</Label>
+            <Input id="role-name" {...form.register("name")} disabled={editing?.name === "ADMIN"} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="role-desc">Description</Label>
+            <Input id="role-desc" {...form.register("description")} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Permission Matrix</Label>
+            <div className="flex flex-col gap-4 w-full">
               {Object.entries(grouped).map(([module, modulePermissions]) => (
-                <div key={module} style={{ border: "1px solid var(--sapList_BorderColor)", borderRadius: "var(--sapElement_BorderCornerRadius)", padding: "1rem" }}>
-                  <Title level="H5" style={{ marginBottom: "0.5rem", textTransform: "capitalize" }}>{module}</Title>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.5rem" }}>
+                <div key={module} className="rounded-lg border p-4">
+                  <h5 className="text-sm font-medium capitalize mb-2">{module}</h5>
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
                     {modulePermissions.map((permission) => (
-                        <Controller
-                          key={permission.id}
-                          control={form.control}
-                          name="permissions"
-                          render={({ field }) => {
-                              const checked = field.value.includes(permission.code);
-                              return (
-                                <CheckBox
-                                  text={permission.name}
-                                  checked={checked}
-                                  onChange={(e) => {
-                                      const isChecked = e.target.checked;
-                                      const current = field.value;
-                                      field.onChange(
-                                          isChecked
-                                          ? [...current, permission.code]
-                                          : current.filter((p) => p !== permission.code)
-                                      );
-                                  }}
-                                />
-                              );
-                          }}
-                        />
+                      <Controller
+                        key={permission.id}
+                        control={form.control}
+                        name="permissions"
+                        render={({ field }) => {
+                          const checked = field.value.includes(permission.code);
+                          return (
+                            <div key={permission.id} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`perm-${permission.id}`}
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  const isChecked = !!v;
+                                  const current = field.value;
+                                  field.onChange(
+                                    isChecked
+                                      ? [...current, permission.code]
+                                      : current.filter((p) => p !== permission.code)
+                                  );
+                                }}
+                              />
+                              <Label htmlFor={`perm-${permission.id}`} className="cursor-pointer font-normal text-sm">
+                                {permission.name}
+                              </Label>
+                            </div>
+                          );
+                        }}
+                      />
                     ))}
                   </div>
                 </div>
               ))}
             </div>
-          </FormItem>
-        </Form>
+          </div>
+        </div>
       </FormDialog>
-      <ToastComponent />
     </PageLayout>
   );
 }

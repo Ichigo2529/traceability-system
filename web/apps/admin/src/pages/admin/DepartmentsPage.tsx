@@ -15,22 +15,12 @@ import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { getSections } from "../../lib/section-api";
-import {
-  Button,
-  Input,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  Select,
-  Option,
-  FlexBox,
-  FlexBoxAlignItems,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/org-chart.js";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const schema = z.object({
   code: z.string().min(1),
@@ -41,12 +31,14 @@ const schema = z.object({
 });
 type DepartmentForm = z.infer<typeof schema>;
 
+type Section = { id: string; section_name: string };
+
 export function DepartmentsPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Department | null>(null);
   const [disableTarget, setDisableTarget] = useState<Department | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["departments"],
@@ -93,59 +85,72 @@ export function DepartmentsPage() {
 
   const columns = useMemo<ColumnDef<Department>[]>(
     () => [
-      { header: "Code", accessorKey: "code" },
-      { header: "Name", accessorKey: "name" },
-      { header: "Sort", accessorKey: "sort_order" },
+      { id: "code", header: "Code", accessorKey: "code" },
+      { id: "name", header: "Name", accessorKey: "name" },
+      { id: "sort", header: "Sort", accessorKey: "sort_order" },
       {
+        id: "section",
         header: "Section",
-        cell: ({ row }) => sections.find((s: any) => s.id === (row.original as any).section_id)?.section_name ?? "-",
+        cell: ({ row }) =>
+          (sections as Section[]).find(
+            (s) => s.id === (row.original as Department & { section_id?: string }).section_id
+          )?.section_name ?? "-",
       },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
       {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
+      },
+      {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
                   code: row.original.code,
                   name: row.original.name,
                   sort_order: row.original.sort_order,
-                  section_id: (row.original as any).section_id || undefined,
+                  section_id: (row.original as Department & { section_id?: string }).section_id || undefined,
                   is_active: row.original.is_active,
                 });
                 setOpen(true);
               }}
-              tooltip="Edit Department"
+              title="Edit Department"
               aria-label="Edit Department"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
-              onClick={() => {
-                setDisableTarget(row.original);
-              }}
-              tooltip="Disable Department"
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setDisableTarget(row.original)}
+              title="Disable Department"
               aria-label="Disable Department"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
     ],
-    [deleteMutation, form, sections]
+    [form, sections]
   );
 
   return (
     <PageLayout
       title="Departments"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Organizational units and cost centers</span>
-        </FlexBox>
+        </div>
       }
       icon="org-chart"
       iconColor="indigo"
@@ -169,8 +174,6 @@ export function DepartmentsPage() {
           filterPlaceholder="Search department..."
           actions={
             <Button
-              icon="add"
-              design="Emphasized"
               className="button-hover-scale"
               onClick={() => {
                 setEditing(null);
@@ -178,6 +181,7 @@ export function DepartmentsPage() {
                 setOpen(true);
               }}
             >
+              <Plus className="h-4 w-4 mr-2" />
               Add Department
             </Button>
           }
@@ -193,62 +197,73 @@ export function DepartmentsPage() {
         )}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label required>Code</Label>}>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="dept-code">Code *</Label>
             <Input
+              id="dept-code"
               {...form.register("code")}
-              valueState={form.formState.errors.code ? "Negative" : undefined}
-              valueStateMessage={
-                form.formState.errors.code ? <span>{form.formState.errors.code.message}</span> : undefined
-              }
+              className={form.formState.errors.code ? "border-destructive" : ""}
             />
-          </FormItem>
-          <FormItem labelContent={<Label required>Name</Label>}>
+            {form.formState.errors.code && (
+              <p className="text-sm text-destructive">{form.formState.errors.code.message}</p>
+            )}
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="dept-name">Name *</Label>
             <Input
+              id="dept-name"
               {...form.register("name")}
-              valueState={form.formState.errors.name ? "Negative" : undefined}
-              valueStateMessage={
-                form.formState.errors.name ? <span>{form.formState.errors.name.message}</span> : undefined
-              }
+              className={form.formState.errors.name ? "border-destructive" : ""}
             />
-          </FormItem>
-          <FormItem labelContent={<Label>Sort Order</Label>}>
+            {form.formState.errors.name && (
+              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+            )}
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="dept-sort">Sort Order</Label>
             <Input
-              type="Number"
-              value={form.watch("sort_order")?.toString()}
-              onInput={(event: any) => form.setValue("sort_order", Number(event.target.value || 100))}
+              id="dept-sort"
+              type="number"
+              value={form.watch("sort_order") ?? 100}
+              onChange={(e) => form.setValue("sort_order", Number(e.target.value) || 100)}
             />
-          </FormItem>
-          <FormItem labelContent={<Label>Section</Label>}>
+          </div>
+          <div className="grid gap-2">
+            <Label>Section</Label>
             <Controller
               name="section_id"
               control={form.control}
               render={({ field }) => (
-                <Select
-                  onChange={(e) => field.onChange(e.detail.selectedOption.getAttribute("data-value") || undefined)}
-                >
-                  <Option data-value="" selected={!field.value}>
-                    None
-                  </Option>
-                  {sections.map((s: any) => (
-                    <Option key={s.id} data-value={s.id} selected={field.value === s.id}>
-                      {s.section_name}
-                    </Option>
-                  ))}
+                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v || undefined)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="None" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {(sections as Section[]).map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.section_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               )}
             />
-          </FormItem>
-          <FormItem labelContent={<Label>Status</Label>}>
+          </div>
+          <div className="flex items-center gap-2">
             <Controller
               name="is_active"
               control={form.control}
               render={({ field }) => (
-                <CheckBox text="Active" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                <Checkbox id="dept-active" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
               )}
             />
-          </FormItem>
-        </Form>
+            <Label htmlFor="dept-active" className="cursor-pointer">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
       <ConfirmDialog
         open={Boolean(disableTarget)}
@@ -265,7 +280,6 @@ export function DepartmentsPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

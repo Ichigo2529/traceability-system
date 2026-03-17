@@ -10,14 +10,8 @@ import { formatDate } from "../../lib/datetime";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { useNavigate } from "react-router-dom";
-import {
-  FlexBox,
-  MessageStrip,
-  Text,
-  FlexBoxDirection,
-  FlexBoxAlignItems,
-  Button,
-} from "@ui5/webcomponents-react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
 import {
@@ -25,11 +19,6 @@ import {
   getMaterialRequestCatalog,
   getMaterialRequestNextNumbers,
 } from "../../lib/material-api";
-
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/nav-back.js";
-import "@ui5/webcomponents-icons/dist/create-form.js";
 
 function blankLine(itemNo: number): MaterialRequestLineForm {
   return {
@@ -48,8 +37,8 @@ export function MaterialRequestCreatePage() {
   const keys = createMaterialQueryKeys("admin");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const { showToast, ToastComponent } = useToast();
-  
+  const { showToast } = useToast();
+
   const [selectedCostCenterId, setSelectedCostCenterId] = useState("");
   const [headerRemarks] = useState("");
   const [lines, setLines] = useState<MaterialRequestLineForm[]>([blankLine(1)]);
@@ -79,12 +68,12 @@ export function MaterialRequestCreatePage() {
   const sectionDisplay = meta?.section
     ? `${meta.section.section_name} (${meta.section.section_code})`
     : `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`;
-    
+
   const hasInvalidRequestedQty = lines
     .filter((line) => line.part_number.trim().length > 0)
     .some((line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
 
-  const createMutation = useMutation<MaterialRequest, any>({
+  const createMutation = useMutation<MaterialRequest, Error>({
     mutationFn: () => {
       const requestedLines = lines.filter((line) => line.part_number.trim().length > 0);
       if (!requestedLines.length) {
@@ -107,15 +96,14 @@ export function MaterialRequestCreatePage() {
         model_id: modelIds[0],
         cost_center_id: selectedCostCenterId || undefined,
         remarks: headerRemarks || undefined,
-        items: requestedLines
-          .map((line, idx) => ({
-            item_no: idx + 1,
-            part_number: line.part_number.trim().toUpperCase(),
-            description: line.description || undefined,
-            requested_qty: line.requested_qty,
-            uom: line.uom || "PCS",
-            remarks: line.remarks || undefined,
-          })),
+        items: requestedLines.map((line, idx) => ({
+          item_no: idx + 1,
+          part_number: line.part_number.trim().toUpperCase(),
+          description: line.description || undefined,
+          requested_qty: line.requested_qty,
+          uom: line.uom || "PCS",
+          remarks: line.remarks || undefined,
+        })),
       });
     },
     onSuccess: async (created) => {
@@ -124,7 +112,7 @@ export function MaterialRequestCreatePage() {
       await queryClient.invalidateQueries({ queryKey: keys.nextNumbers() });
       navigate("/admin/material-requests");
     },
-    onError: (err: any) => {
+    onError: (err: Error & { error_code?: string }) => {
       const code = err?.error_code;
       if (code === "SECTION_NOT_SET") {
         showToast("Error: Your user has no section assigned. Contact an administrator.");
@@ -136,7 +124,7 @@ export function MaterialRequestCreatePage() {
       } else {
         showToast(err.message || "Failed to create request");
       }
-    }
+    },
   });
 
   const anyError = catalogQuery.error ?? nextNumbersQuery.error ?? createMutation.error;
@@ -145,38 +133,44 @@ export function MaterialRequestCreatePage() {
     <PageLayout
       title="New Material Request"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
-          <Text>Create a new material request</Text>
-        </FlexBox>
+          <span>Create a new material request</span>
+        </div>
       }
       icon="create-form"
       iconColor="blue"
       showBackButton
       onBackClick={() => navigate("/admin/material-requests")}
       headerActions={
-        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-          <Button design="Transparent" onClick={() => navigate("/admin/material-requests")}>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={() => navigate("/admin/material-requests")}>
             Cancel
           </Button>
           <Button
-            design="Emphasized"
             onClick={() => setConfirmSubmitOpen(true)}
-            disabled={createMutation.isPending || lines.every((line) => !line.part_number) || hasInvalidRequestedQty || sectionNotSet}
+            disabled={
+              createMutation.isPending ||
+              lines.every((line) => !line.part_number) ||
+              hasInvalidRequestedQty ||
+              sectionNotSet
+            }
           >
             {createMutation.isPending ? "Submitting..." : "Submit Request"}
           </Button>
-        </FlexBox>
+        </div>
       }
     >
-      <div className="page-container motion-safe:animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div className="page-container motion-safe:animate-fade-in flex flex-col gap-4">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
-        <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem", flex: 1 }}>
+        <div className="flex flex-col gap-4 flex-1">
           {sectionNotSet && (
-            <MessageStrip design="Critical" hideCloseButton style={{ marginBottom: "0.5rem" }}>
-              Your user account has no section assigned. You cannot create requests.
-            </MessageStrip>
+            <Alert variant="destructive" className="mb-2">
+              <AlertDescription>
+                Your user account has no section assigned. You cannot create requests.
+              </AlertDescription>
+            </Alert>
           )}
 
           <MaterialRequestForm
@@ -195,7 +189,7 @@ export function MaterialRequestCreatePage() {
             sectionDisplay={sectionDisplay}
             formatDate={formatDate}
           />
-        </FlexBox>
+        </div>
       </div>
 
       <ConfirmDialog
@@ -207,8 +201,6 @@ export function MaterialRequestCreatePage() {
         onCancel={() => setConfirmSubmitOpen(false)}
         onConfirm={() => createMutation.mutate()}
       />
-      
-      <ToastComponent />
     </PageLayout>
   );
 }

@@ -9,29 +9,12 @@ import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { formatDateTime } from "../lib/datetime";
 import { PageLayout } from "@traceability/ui";
-import {
-  Bar,
-  Button,
-  FlexibleColumnLayout,
-  Page,
-  Title,
-  Form,
-  FormItem,
-  MessageStrip,
-  ObjectStatus,
-  Icon,
-  FlexBox,
-  FlexBoxAlignItems,
-  Label,
-  Input,
-  Select,
-  Option,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/nav-back.js";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/chain-link.js";
-import "@ui5/webcomponents-icons/dist/activate.js";
-import "@ui5/webcomponents-icons/dist/information.js";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ArrowLeft, Plus, Link2, Play } from "lucide-react";
 
 export default function ModelDetailsPage() {
   const { id: modelId } = useParams<{ id: string }>();
@@ -73,65 +56,70 @@ export default function ModelDetailsPage() {
   const columns = [
     {
       header: "Revision",
-      accessorKey: "revision_code" as any,
+      accessorKey: "revision_code" as const,
       size: 160,
-      cell: ({ row }: { row: any }) => {
-        const rev = row.original as ModelRevision;
+      cell: ({ row }: { row: { original: ModelRevision } }) => {
+        const rev = row.original;
         const isActive = rev.status === RevisionStatus.ACTIVE;
         return (
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.625rem" }}>
-            <div style={{
-              width: "1.75rem", height: "1.75rem", borderRadius: "6px",
-              background: isActive
-                ? "linear-gradient(135deg,#2af598,#009efd)"
-                : "linear-gradient(135deg,#667eea,#764ba2)",
-              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            }}>
-              <Icon name="chain-link" style={{ color: "white", width: "0.875rem", height: "0.875rem" }} />
+          <div className="flex items-center gap-2">
+            <div
+              className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
+                isActive
+                  ? "bg-gradient-to-br from-green-400 to-blue-500"
+                  : "bg-gradient-to-br from-indigo-500 to-purple-600"
+              }`}
+            >
+              <Link2 className="h-3.5 w-3.5 text-white" />
             </div>
-            <span style={{ fontWeight: 700 }}>{rev.revision_code}</span>
-          </FlexBox>
+            <span className="font-bold">{rev.revision_code}</span>
+          </div>
         );
       },
     },
     {
       header: "Status",
-      accessorKey: "status" as any,
+      accessorKey: "status" as const,
       size: 140,
-      cell: ({ row }: { row: any }) => {
-        const rev = row.original as ModelRevision;
-        let state: any = "None";
-        if (rev.status === RevisionStatus.ACTIVE) state = "Positive";
-        else if (rev.status === RevisionStatus.DRAFT) state = "Critical";
-        return <ObjectStatus state={state}>{rev.status}</ObjectStatus>;
+      cell: ({ row }: { row: { original: ModelRevision } }) => {
+        const rev = row.original;
+        const cls =
+          rev.status === RevisionStatus.ACTIVE
+            ? "text-green-600"
+            : rev.status === RevisionStatus.DRAFT
+              ? "text-amber-600"
+              : "text-muted-foreground";
+        return <span className={cls}>{rev.status}</span>;
       },
     },
     {
       header: "Updated",
-      accessorKey: "updated_at" as any,
-      cell: ({ row }: { row: any }) => formatDateTime(row.original.updated_at),
+      accessorKey: "updated_at" as const,
+      cell: ({ row }: { row: { original: ModelRevision } }) => formatDateTime(row.original.updated_at),
     },
     {
       header: "Actions",
       size: 160,
-      cell: ({ row }: { row: any }) => {
-        const rev = row.original as ModelRevision;
+      cell: ({ row }: { row: { original: ModelRevision } }) => {
+        const rev = row.original;
         return (
-          <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+          <div className="flex items-center gap-2">
             {rev.status !== RevisionStatus.ACTIVE && (
               <Button
-                onClick={(e) => { e.stopPropagation(); setActivateTarget(rev); }}
+                variant="default"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActivateTarget(rev);
+                }}
                 disabled={activateRevision.isPending}
-                design="Positive"
-                icon="activate"
               >
+                <Play className="h-4 w-4 mr-1" />
                 Activate
               </Button>
             )}
-            {rev.status === RevisionStatus.ACTIVE && (
-              <ObjectStatus state="Positive">Live</ObjectStatus>
-            )}
-          </FlexBox>
+            {rev.status === RevisionStatus.ACTIVE && <span className="text-green-600 font-medium">Live</span>}
+          </div>
         );
       },
     },
@@ -140,9 +128,9 @@ export default function ModelDetailsPage() {
   if (!modelId) {
     return (
       <PageLayout title="Error" subtitle="Invalid URL" icon="warning" iconColor="red">
-        <MessageStrip design="Negative" hideCloseButton>
-          Invalid model ID in the URL. Please go back and select a model.
-        </MessageStrip>
+        <Alert variant="destructive">
+          <AlertDescription>Invalid model ID in the URL. Please go back and select a model.</AlertDescription>
+        </Alert>
       </PageLayout>
     );
   }
@@ -152,90 +140,92 @@ export default function ModelDetailsPage() {
       title="Model Revisions"
       fullHeight={true}
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Create drafts, configure BOM & routing, then activate when ready for production</span>
-        </FlexBox>
+        </div>
       }
       icon="chain-link"
       iconColor="blue"
     >
-      <FlexibleColumnLayout
-        style={{ height: "100%" }}
-        layout={layout}
-        startColumn={
-          <div className="page-container" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "0 2rem 1rem 0" }}>
-              <MessageStrip design="Information" hideCloseButton style={{ borderRadius: "8px" }}>
-                Only the <strong>ACTIVE</strong> revision is used in production. Active revisions are read-only — clone to a new draft to make changes.
-              </MessageStrip>
-            </div>
-
-            <ApiErrorBanner
-              message={activateRevision.isError ? formatApiError(activateRevision.error) : undefined}
-            />
-
-            <DataTable
-              data={revisions as any}
-              columns={columns}
-              loading={isLoading}
-              filterPlaceholder="Search revisions…"
-              hideEmptyState={layout !== "OneColumn"}
-              onRowClick={(rev: any) => navigate(`/admin/models/${modelId}/revisions/${rev.id}`)}
-              actions={
-                <>
-                  <Button icon="nav-back" design="Transparent" onClick={() => navigate("/admin/models")}>
-                    Back to Models
-                  </Button>
-                  <Button icon="add" design="Emphasized" onClick={() => setLayout("TwoColumnsStartExpanded")}>
-                    New Draft
-                  </Button>
-                </>
-              }
-            />
+      <div className={`flex h-full ${layout === "TwoColumnsStartExpanded" ? "gap-0" : ""}`}>
+        <div className="page-container flex flex-col h-full flex-1 min-w-0">
+          <div className="pr-8 pb-4">
+            <Alert className="rounded-lg">
+              <AlertDescription>
+                Only the <strong>ACTIVE</strong> revision is used in production. Active revisions are read-only — clone
+                to a new draft to make changes.
+              </AlertDescription>
+            </Alert>
           </div>
-        }
-        midColumn={
-          <Page
-            header={<Bar startContent={<Title>Create Revision Draft</Title>} />}
-            footer={
-              <Bar
-                design="Footer"
-                endContent={
-                  <FlexBox style={{ gap: "0.5rem" }}>
-                    <Button
-                      design="Emphasized"
-                      onClick={() => createRevision.mutate()}
-                      disabled={createRevision.isPending || !newRevisionCode}
-                    >
-                      {createRevision.isPending ? "Creating…" : "Create Draft"}
-                    </Button>
-                    <Button onClick={() => setLayout("OneColumn")} design="Transparent">Cancel</Button>
-                  </FlexBox>
-                }
-              />
+
+          <ApiErrorBanner message={activateRevision.isError ? formatApiError(activateRevision.error) : undefined} />
+
+          <DataTable
+            data={revisions as ModelRevision[]}
+            columns={columns}
+            loading={isLoading}
+            filterPlaceholder="Search revisions…"
+            hideEmptyState={layout !== "OneColumn"}
+            onRowClick={(rev: ModelRevision) => navigate(`/admin/models/${modelId}/revisions/${rev.id}`)}
+            actions={
+              <>
+                <Button variant="ghost" size="sm" onClick={() => navigate("/admin/models")}>
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  Back to Models
+                </Button>
+                <Button size="sm" onClick={() => setLayout("TwoColumnsStartExpanded")}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Draft
+                </Button>
+              </>
             }
-            style={{ height: "100%", borderRadius: "0 16px 16px 0", borderLeft: "1px solid var(--sapList_BorderColor)" }}
-          >
-            <div style={{ padding: "1.5rem", height: "100%", overflowY: "auto" }}>
-              <ApiErrorBanner message={createRevision.isError ? formatApiError(createRevision.error) : undefined} />
-              <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
-                <FormItem labelContent={<Label required style={{ fontWeight: 600 }}>Revision Code</Label>}>
-                  <Input value={newRevisionCode} onInput={(e) => setNewRevisionCode(e.target.value)} placeholder="e.g. R01" style={{ width: "100%" }} />
-                </FormItem>
-                <FormItem labelContent={<Label style={{ fontWeight: 600 }}>Clone From (Optional)</Label>}>
-                  <Select value={cloneFromRevisionId} onChange={(e) => setCloneFromRevisionId(e.target.value)} style={{ width: "100%" }}>
-                    <Option value="">-- Empty Draft --</Option>
-                    {(revisions as ModelRevision[]).map((r) => (
-                      <Option key={r.id} value={r.id}>{r.revision_code} ({r.status})</Option>
-                    ))}
-                  </Select>
-                </FormItem>
-              </Form>
+          />
+        </div>
+
+        {layout === "TwoColumnsStartExpanded" && (
+          <div className="w-full max-w-md border-l bg-card flex flex-col rounded-r-xl overflow-hidden shrink-0">
+            <div className="px-4 py-3 border-b">
+              <h2 className="font-semibold text-lg">Create Revision Draft</h2>
             </div>
-          </Page>
-        }
-      />
+            <div className="p-4 flex-1 overflow-y-auto flex flex-col gap-4">
+              <ApiErrorBanner message={createRevision.isError ? formatApiError(createRevision.error) : undefined} />
+              <div className="space-y-2">
+                <Label className="font-semibold">Revision Code *</Label>
+                <Input
+                  value={newRevisionCode}
+                  onChange={(e) => setNewRevisionCode(e.target.value)}
+                  placeholder="e.g. R01"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="font-semibold">Clone From (Optional)</Label>
+                <Select value={cloneFromRevisionId} onValueChange={setCloneFromRevisionId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="-- Empty Draft --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">-- Empty Draft --</SelectItem>
+                    {(revisions as ModelRevision[]).map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.revision_code} ({r.status})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="p-4 border-t flex gap-2 justify-end">
+              <Button onClick={() => createRevision.mutate()} disabled={createRevision.isPending || !newRevisionCode}>
+                {createRevision.isPending ? "Creating…" : "Create Draft"}
+              </Button>
+              <Button variant="outline" onClick={() => setLayout("OneColumn")}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Activate confirmation */}
       <ConfirmDialog

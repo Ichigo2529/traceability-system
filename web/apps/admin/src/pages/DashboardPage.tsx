@@ -1,28 +1,15 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import "@ui5/webcomponents-icons/dist/connected.js";
-import "@ui5/webcomponents-icons/dist/disconnected.js";
-import "@ui5/webcomponents-icons/dist/iphone.js";
-import { 
-  DynamicPage,
-  DynamicPageTitle,
-  Title, 
-  Grid,
-  Label,
-  FlexBox,
-  FlexBoxDirection,
-  FlexBoxAlignItems,
-  FlexBoxJustifyContent,
-  ObjectStatus,
-  Card,
-  CardHeader,
-  Icon
-} from "@ui5/webcomponents-react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Wifi, WifiOff, Smartphone } from "lucide-react";
 import { DataTable } from "../components/shared/DataTable";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { sdk } from "../context/AuthContext";
 import type { DeviceInfo } from "@traceability/sdk";
 import { formatDateTime } from "../lib/datetime";
+
+type DeviceRow = DeviceInfo & { isOnline?: boolean };
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -36,13 +23,11 @@ export default function DashboardPage() {
   const summary = useMemo(() => {
     const now = Date.now();
     let online = 0;
-
     for (const d of deviceRows) {
       const last = d.last_seen ? new Date(d.last_seen).getTime() : 0;
       const diffSec = last ? (now - last) / 1000 : Infinity;
       if (diffSec <= 60) online += 1;
     }
-
     return {
       online,
       offline: deviceRows.length - online,
@@ -50,100 +35,151 @@ export default function DashboardPage() {
     };
   }, [deviceRows]);
 
-  const tableData = useMemo(() => deviceRows.map(d => {
-      const last = d.last_seen ? new Date(d.last_seen).getTime() : 0;
-      const isOnline = last ? (Date.now() - last) / 1000 <= 60 : false;
-      return {
-          ...d,
-          isOnline
-      };
-  }), [deviceRows]);
+  const tableData = useMemo<DeviceRow[]>(
+    () =>
+      deviceRows.map((d) => {
+        const last = d.last_seen ? new Date(d.last_seen).getTime() : 0;
+        const isOnline = last ? (Date.now() - last) / 1000 <= 60 : false;
+        return { ...d, isOnline };
+      }),
+    [deviceRows]
+  );
+
+  const columns = useMemo<ColumnDef<DeviceRow>[]>(
+    () => [
+      {
+        id: "fingerprint",
+        header: "Fingerprint",
+        accessorKey: "id",
+        cell: ({ row }) => <span className="font-mono text-sm">{row.original.fingerprint ?? row.original.id}</span>,
+      },
+      {
+        id: "machine",
+        header: "Machine",
+        accessorKey: "assigned_machine",
+        cell: ({ row }) =>
+          row.original.assigned_machine?.name ?? <span className="italic text-muted-foreground">Unassigned</span>,
+      },
+      {
+        id: "last_seen",
+        header: "Last Seen",
+        accessorKey: "last_seen",
+        cell: ({ row }) => formatDateTime(row.original.last_seen),
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <span className={`text-sm font-medium ${row.original.isOnline ? "text-green-600" : "text-destructive"}`}>
+            {row.original.isOnline ? "ONLINE" : "OFFLINE"}
+          </span>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
-    <DynamicPage
-      titleArea={
-        <DynamicPageTitle
-          heading={<Title level="H3">Device Dashboard</Title>}
-          subheading={<Label>Real-time device status and quick actions</Label>}
-        />
-      }
-      showFooter={false}
-      style={{ height: "100%" }}
-    >
-      <div className="page-container" style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
-        <Grid defaultSpan="XL4 L4 M12 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%" }}>
-            {/* Stats Cards */}
-            <StatsCard 
-                icon="connected" 
-                label="Online Devices" 
-                value={isLoading ? "..." : String(summary.online)} 
-                color="var(--sapPositiveColor)"
-            />
-            <StatsCard 
-                icon="disconnected" 
-                label="Offline Devices" 
-                value={isLoading ? "..." : String(summary.offline)} 
-                color="var(--sapCriticalColor)"
-            />
-            <StatsCard 
-                icon="iphone"
-                label="Registered Devices" 
-                value={isLoading ? "..." : String(summary.total)} 
-                color="var(--sapContent_LabelColor)"
-            />
-        </Grid>
+    <div className="h-full flex flex-col">
+      <div className="px-4 py-3 border-b">
+        <h3 className="text-lg font-semibold m-0">Device Dashboard</h3>
+        <p className="text-sm text-muted-foreground m-0 mt-1">Real-time device status and quick actions</p>
+      </div>
 
-        <div style={{ marginTop: "1rem", marginBottom: "1rem", width: "100%" }}>
-            <Title level="H5" style={{ marginBottom: "0.5rem", marginLeft: 0 }}>Quick Actions</Title>
-            <Grid defaultSpan="XL3 L3 M6 S12" vSpacing="1rem" hSpacing="1rem" style={{ width: "100%" }}>
-                <ShortcutCard label="Users & Roles" description="Manage access and permissions" onClick={() => navigate("/admin/users")} />
-                <ShortcutCard label="Machines" description="Configure machines and stations" onClick={() => navigate("/admin/machines")} />
-                <ShortcutCard label="Models" description="Product models management" onClick={() => navigate("/admin/models")} />
-                <ShortcutCard label="Audit Logs" description="View system activity logs" onClick={() => navigate("/admin/audit-logs")} />
-            </Grid>
+      <div className="p-4 w-full box-border flex-1 overflow-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-4">
+          <StatsCard
+            icon={Wifi}
+            label="Online Devices"
+            value={isLoading ? "..." : String(summary.online)}
+            className="text-green-600"
+          />
+          <StatsCard
+            icon={WifiOff}
+            label="Offline Devices"
+            value={isLoading ? "..." : String(summary.offline)}
+            className="text-destructive"
+          />
+          <StatsCard
+            icon={Smartphone}
+            label="Registered Devices"
+            value={isLoading ? "..." : String(summary.total)}
+            className="text-muted-foreground"
+          />
         </div>
 
-        <Card header={<CardHeader titleText="Device Status Overview" />} style={{ width: "100%" }}>
-            <div style={{ padding: "1rem", width: "100%", boxSizing: "border-box" }}>
-                <DataTable
-                    data={tableData}
-                    columns={[
-                        { header: "Fingerprint", accessorKey: "id" as any, cell: (item: any) => <span style={{ fontFamily: "monospace", fontSize: "0.875rem" }}>{item.fingerprint ?? item.id}</span> },
-                        { header: "Machine", accessorKey: "assigned_machine" as any, cell: (item: any) => item.assigned_machine?.name ?? <span style={{ fontStyle: "italic", color: "var(--sapContent_LabelColor)" }}>Unassigned</span> },
-                        { header: "Last Seen", accessorKey: "last_seen" as any, cell: (item: any) => formatDateTime(item.last_seen) },
-                        { header: "Status", accessorKey: "id" as any, cell: (item: any) => ( 
-                            <ObjectStatus state={item.isOnline ? "Success" as any : "Error" as any}>
-                                {item.isOnline ? "ONLINE" : "OFFLINE"}
-                            </ObjectStatus>
-                        )}
-                    ]}
-                />
-            </div>
+        <div className="mb-4">
+          <h5 className="text-sm font-medium mb-2">Quick Actions</h5>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <ShortcutCard
+              label="Users & Roles"
+              description="Manage access and permissions"
+              onClick={() => navigate("/admin/users")}
+            />
+            <ShortcutCard
+              label="Machines"
+              description="Configure machines and stations"
+              onClick={() => navigate("/admin/machines")}
+            />
+            <ShortcutCard
+              label="Models"
+              description="Product models management"
+              onClick={() => navigate("/admin/models")}
+            />
+            <ShortcutCard
+              label="Audit Logs"
+              description="View system activity logs"
+              onClick={() => navigate("/admin/audit-logs")}
+            />
+          </div>
+        </div>
+
+        <Card className="w-full">
+          <CardHeader>
+            <h3 className="text-base font-semibold">Device Status Overview</h3>
+          </CardHeader>
+          <CardContent>
+            <DataTable data={tableData} columns={columns} />
+          </CardContent>
         </Card>
       </div>
-    </DynamicPage>
+    </div>
   );
 }
 
-function StatsCard({ icon, label, value, color }: any) {
+function StatsCard({
+  icon: Icon,
+  label,
+  value,
+  className,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
     <Card>
-        <div style={{ padding: "1rem" }}>
-            <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center}>
-                <FlexBox direction={FlexBoxDirection.Column}>
-                    <Label>{label}</Label>
-                    <Title level="H2" style={{ color: color, margin: 0 }}>{value}</Title>
-                </FlexBox>
-                <Icon name={icon} style={{ width: "2.5rem", height: "2.5rem", color: color, opacity: 0.8 }} />
-            </FlexBox>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className={`text-2xl font-bold ${className ?? ""}`}>{value}</span>
+          </div>
+          <Icon className={`w-10 h-10 opacity-80 ${className ?? ""}`} />
         </div>
+      </CardContent>
     </Card>
   );
 }
 
 function ShortcutCard({ label, description, onClick }: { label: string; description: string; onClick: () => void }) {
-    return (
-        <Card className="button-hover-scale" style={{ cursor: "pointer" }} header={<CardHeader titleText={label} subtitleText={description} interactive onClick={onClick} />}>
-        </Card>
-    )
+  return (
+    <Card className="cursor-pointer transition-transform hover:scale-[1.02] hover:shadow-md" onClick={onClick}>
+      <CardHeader>
+        <h4 className="text-sm font-semibold">{label}</h4>
+        <p className="text-sm text-muted-foreground m-0">{description}</p>
+      </CardHeader>
+    </Card>
+  );
 }

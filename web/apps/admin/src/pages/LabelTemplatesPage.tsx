@@ -8,23 +8,14 @@ import { formatApiError } from "../lib/errors";
 import { formatDateTime } from "../lib/datetime";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../hooks/useToast";
-import { 
-    Button,
-    Input, 
-    Label,
-    TextArea,
-    Form,
-    FormItem,
-    ObjectStatus,
-    FlexBox,
-    FlexBoxAlignItems
-} from "@ui5/webcomponents-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { ColumnDef } from "@tanstack/react-table";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/measure.js";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const EMPTY = { name: "", revision_id: "", template_body: "{}", description: "" };
 
@@ -35,7 +26,7 @@ export default function LabelTemplatesPage() {
   const [deleteTarget, setDeleteTarget] = useState<LabelTemplate | null>(null);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState<string | undefined>();
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: templates = [] } = useQuery({
     queryKey: ["templates"],
@@ -52,7 +43,7 @@ export default function LabelTemplatesPage() {
       setError(undefined);
       showToast("Template created successfully");
     },
-    onError: (err) => setError(formatApiError(err))
+    onError: (err) => setError(formatApiError(err)),
   });
 
   const updateTemplate = useMutation({
@@ -65,7 +56,7 @@ export default function LabelTemplatesPage() {
       setError(undefined);
       showToast("Template updated successfully");
     },
-    onError: (err) => setError(formatApiError(err))
+    onError: (err) => setError(formatApiError(err)),
   });
 
   const deleteTemplate = useMutation({
@@ -103,46 +94,61 @@ export default function LabelTemplatesPage() {
 
   const columns = useMemo<ColumnDef<LabelTemplate>[]>(
     () => [
-        { 
-            header: "Name", 
-            accessorKey: "name", 
-            cell: ({ row }) => <span style={{ fontWeight: "bold" }}>{row.original.name}</span> 
-        },
-        { 
-            header: "Revision", 
-            accessorKey: "revision_id", 
-            cell: ({ row }) => row.original.revision_id ? <span style={{ fontFamily: "monospace" }}>{row.original.revision_id}</span> : <span style={{ fontStyle: "italic", color: "gray" }}>GLOBAL</span> 
-        },
-        { 
-            header: "Updated", 
-            accessorKey: "updated_at", 
-            cell: ({ row }) => formatDateTime(row.original.updated_at) 
-        },
-        {
-          header: "Actions",
-          cell: ({ row }) => (
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <Button 
-                icon="edit" 
-                design="Transparent" 
-                className="button-hover-scale" 
-                onClick={() => openEdit(row.original)} 
-                tooltip="Edit Template" 
-                aria-label="Edit Template"
-              />
-              <Button 
-                icon="delete" 
-                design="Transparent" 
-                className="button-hover-scale"
-                onClick={() => setDeleteTarget(row.original)} 
-                tooltip="Delete Template"
-                aria-label="Delete Template"
-              />
-            </div>
+      {
+        id: "name",
+        header: "Name",
+        accessorKey: "name",
+        cell: ({ row }) => <span className="font-bold">{row.original.name}</span>,
+      },
+      {
+        id: "revision_id",
+        header: "Revision",
+        accessorKey: "revision_id",
+        cell: ({ row }) =>
+          row.original.revision_id ? (
+            <span className="font-mono">{row.original.revision_id}</span>
+          ) : (
+            <span className="italic text-muted-foreground">GLOBAL</span>
           ),
-        },
-      ],
-      [deleteTemplate]
+      },
+      {
+        id: "updated_at",
+        header: "Updated",
+        accessorKey: "updated_at",
+        cell: ({ row }) => formatDateTime(row.original.updated_at),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="button-hover-scale"
+              onClick={() => openEdit(row.original)}
+              title="Edit Template"
+              aria-label="Edit Template"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="button-hover-scale"
+              onClick={() => setDeleteTarget(row.original)}
+              title="Delete Template"
+              aria-label="Delete Template"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
   );
 
   const isSubmitting = createTemplate.isPending || updateTemplate.isPending;
@@ -151,86 +157,92 @@ export default function LabelTemplatesPage() {
     <PageLayout
       title="Label Templates"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Manage raw ZPL and JSON template bodies</span>
-        </FlexBox>
+        </div>
       }
       icon="measure"
       iconColor="indigo"
     >
       <div className="page-container">
-          <DataTable 
-              data={templates} 
-              columns={columns} 
-              filterPlaceholder="Search templates..."
-              actions={
-                  <Button icon="add" design="Emphasized" className="button-hover-scale" onClick={openCreate}>
-                      New Template
-                  </Button>
-              }
-          />
+        <DataTable
+          data={templates}
+          columns={columns}
+          filterPlaceholder="Search templates..."
+          actions={
+            <Button className="button-hover-scale" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Template
+            </Button>
+          }
+        />
       </div>
 
-      <FormDialog 
-          open={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          onSubmit={submit}
-          title={editing ? "Edit Template" : "New Label Template"}
-          submitText={isSubmitting ? "Saving..." : "Save"}
-          submitting={isSubmitting}
+      <FormDialog
+        open={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={submit}
+        title={editing ? "Edit Template" : "New Label Template"}
+        submitText={isSubmitting ? "Saving..." : "Save"}
+        submitting={isSubmitting}
       >
-           {error && (
-              <ObjectStatus state="Negative" inverted style={{ marginBottom: "1rem", display: "block" }}>
-                  {error}
-              </ObjectStatus>
+        <div className="grid gap-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
-          <Form layout="S1 M1 L1 XL1">
-              <FormItem labelContent={<Label required>Name</Label>}>
-                  <Input 
-                      value={form.name}
-                      onInput={(e) => setForm({...form, name: e.target.value})}
-                  />
-              </FormItem>
-              <FormItem labelContent={<Label>Revision ID (optional)</Label>}>
-                  <Input 
-                      value={form.revision_id}
-                      onInput={(e) => setForm({...form, revision_id: e.target.value})}
-                      placeholder="Leave empty for GLOBAL"
-                  />
-              </FormItem>
-              <FormItem labelContent={<Label>Description</Label>}>
-                   <Input 
-                      value={form.description}
-                      onInput={(e) => setForm({...form, description: e.target.value})}
-                  />
-              </FormItem>
-              <FormItem labelContent={<Label required>Template JSON</Label>}>
-                  <TextArea
-                      value={form.template_body}
-                      onInput={(e) => setForm({...form, template_body: e.target.value})}
-                      rows={10}
-                      style={{ fontFamily: "monospace", width: "100%" }}
-                  />
-              </FormItem>
-          </Form>
+          <div className="grid gap-2">
+            <Label htmlFor="lt-name">Name *</Label>
+            <Input id="lt-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="lt-revision">Revision ID (optional)</Label>
+            <Input
+              id="lt-revision"
+              value={form.revision_id}
+              onChange={(e) => setForm({ ...form, revision_id: e.target.value })}
+              placeholder="Leave empty for GLOBAL"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="lt-desc">Description</Label>
+            <Input
+              id="lt-desc"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="lt-body">Template JSON *</Label>
+            <Textarea
+              id="lt-body"
+              value={form.template_body}
+              onChange={(e) => setForm({ ...form, template_body: e.target.value })}
+              rows={10}
+              className="font-mono w-full"
+            />
+          </div>
+        </div>
       </FormDialog>
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete label template"
-        description={deleteTarget ? `Are you sure you want to delete template "${deleteTarget.name}"? This action cannot be undone.` : ""}
+        description={
+          deleteTarget
+            ? `Are you sure you want to delete template "${deleteTarget.name}"? This action cannot be undone.`
+            : ""
+        }
         confirmText="Delete"
         destructive
         submitting={deleteTemplate.isPending}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
-          if (deleteTarget) {
-            deleteTemplate.mutate(deleteTarget.id);
-          }
+          if (deleteTarget) deleteTemplate.mutate(deleteTarget.id);
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

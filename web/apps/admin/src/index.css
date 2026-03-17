@@ -3,10 +3,11 @@
 @import "@fontsource/inter/600.css";
 @import "@fontsource/inter/700.css";
 
-/* 
-  UI5 Web Components requires full height for html/body/root
-  to support layout components like Page, DynamicPage and ShellBar.
-*/
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* App shell: full height for layout */
 html,
 body,
 #root {
@@ -16,7 +17,7 @@ body,
 }
 
 body {
-  font-family: var(--sapFontFamily);
+  font-family: "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -25,6 +26,50 @@ body {
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* shadcn/ui theme variables */
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
 }
 
 /* Design Tokens for consistent spacing */
@@ -46,7 +91,7 @@ body {
   --glass-blur: blur(24px);
   --glass-shadow: 0 15px 45px rgba(0, 0, 0, 0.12);
 
-  /* Page gradient surface (was missing, caused body background warning) */
+  /* Page gradient surface */
   --grad-surface: linear-gradient(160deg, #f5f8ff 0%, #eef3fc 50%, #f7f9ff 100%);
 
   /* Premium Mesh Gradient Background */
@@ -70,7 +115,7 @@ body {
 }
 
 /* Dark Mode overrides for glassmorphism */
-[data-sap-theme*="dark"] {
+.dark {
   --glass-bg: rgba(30, 35, 48, 0.7);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-shadow: 0 15px 45px rgba(0, 0, 0, 0.45);
@@ -137,54 +182,9 @@ body {
   animation: mesh-pulse 20s ease-in-out infinite alternate-reverse;
 }
 
-/* 
-  UI5 DynamicPage Absolute Alignment Overrides
-  We force all internal layout padding to 0 to ensure absolute control via PageLayout.tsx
-*/
-ui5-dynamic-page,
-ui5-dynamic-page-title,
-ui5-dynamic-page-header,
-.ui5-dynamic-page-title-root,
-.ui5-dynamic-page-header-root {
-  --_ui5_dynamic_page_title_padding: 0 !important;
-  --_ui5_dynamic_page_header_padding: 0 !important;
-  --_ui5_dynamic_page_content_padding: 0 !important;
-  --_ui5_dynamic_page_title_padding_XL: 0 !important;
-  --_ui5_dynamic_page_title_padding_L: 0 !important;
-  --_ui5_dynamic_page_title_padding_M: 0 !important;
-  --_ui5_dynamic_page_title_padding_S: 0 !important;
-  --_ui5_dynamic_page_header_padding_XL: 0 !important;
-  --_ui5_dynamic_page_content_padding_XL: 0 !important;
-  --_ui5_dynamic_page_header_padding_L: 0 !important;
-  --_ui5_dynamic_page_content_padding_L: 0 !important;
-  padding: 0 !important;
-}
-
-ui5-dynamic-page-title::part(root) {
-  padding: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-  width: 100% !important;
-  flex-wrap: nowrap !important;
-}
-
-/* Heading takes space so actionsBar stays on the right; title visible when collapsed */
-ui5-dynamic-page-title::part(root) > *:first-child {
-  flex: 1 1 auto !important;
-  min-width: 0 !important;
-}
-
-/* Request Items panel: white content background (override UI5 Table list grey) */
-.request-items-panel,
-.request-items-panel ui5-table,
-.request-items-panel ui5-table::part(table) {
-  background: var(--sapBaseColor) !important;
-}
-
 body {
   background: var(--grad-surface);
   background-attachment: fixed;
-  font-family: var(--sapFontFamily);
 }
 
 /* Animations */
@@ -265,9 +265,13 @@ body {
 }
 
 .table-row-hover:hover {
-  background-color: rgba(var(--sapUiContentIconColor), 0.04) !important;
+  background-color: rgba(0, 0, 0, 0.04);
   transform: scale(1.002);
   z-index: 1;
+}
+
+.dark .table-row-hover:hover {
+  background-color: rgba(255, 255, 255, 0.06);
 }
 
 /* Animations & Effects */
@@ -290,7 +294,7 @@ body {
   animation: shimmer 1.2s linear infinite forwards;
 }
 
-[data-sap-theme*="dark"] .ui-skeleton {
+.dark .ui-skeleton {
   background: #2d2d2d;
   background-image: linear-gradient(to right, #2d2d2d 0%, #3d3d3d 20%, #2d2d2d 40%, #2d2d2d 100%);
 }
@@ -357,11 +361,11 @@ body {
 }
 
 /* Theme-aware scrollbar for dark mode */
-[data-sap-theme*="dark"] ::-webkit-scrollbar-thumb {
+.dark ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
 }
 
-[data-sap-theme*="dark"] ::-webkit-scrollbar-thumb:hover {
+.dark ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -372,22 +376,22 @@ body {
 }
 
 /* Dark mode — page gradient surface */
-[data-sap-theme*="dark"] body {
+.dark body {
   background: var(--grad-surface);
 }
 
-/* Dark mode — shimmer skeleton */
-[data-sap-theme*="dark"] .premium-mesh-bg {
+/* Dark mode — mesh bg */
+.dark .premium-mesh-bg {
   background: var(--mesh-bg);
 }
 
-[data-sap-theme*="dark"] .premium-mesh-bg::before {
+.dark .premium-mesh-bg::before {
   background:
     radial-gradient(circle at 20% 30%, var(--mesh-g1) 0%, transparent 50%),
     radial-gradient(circle at 80% 70%, var(--mesh-g2) 0%, transparent 50%);
 }
 
-[data-sap-theme*="dark"] .premium-mesh-bg::after {
+.dark .premium-mesh-bg::after {
   background:
     radial-gradient(circle at 70% 20%, var(--mesh-g3) 0%, transparent 40%),
     radial-gradient(circle at 30% 80%, var(--mesh-accent) 0%, transparent 30%);
@@ -399,94 +403,8 @@ body {
   border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-/* Ensure group headers never show a blue vertical bar, even if temporarily focused/selected */
-ui5-side-navigation-item.nav-group-header::part(native-element) {
-  border-left: none !important;
-  background-image: none !important;
-}
-
-/* Sub-items (SideNavigationSubItem) will naturally keep their blue bar 
-   because they are NOT .nav-group-header and we removed the cascading variables. */
-
-.nav-group-header::part(title) {
-  font-weight: 800 !important;
-  font-size: 0.75rem !important;
-  color: var(--sapContent_IconColor) !important; /* Use the defined section color */
-  text-transform: uppercase !important;
-  letter-spacing: 0.08rem !important;
-  opacity: 0.9;
-}
-
-.nav-group-header::part(icon) {
-  font-size: 1.1rem !important;
-}
-
-[data-sap-theme*="dark"] .nav-group-header {
+.dark .nav-group-header {
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-/* Dialog Premium Aesthetics */
-@keyframes dialogEntrance {
-  0% {
-    opacity: 0;
-    transform: scale(0.95);
-    filter: blur(4px);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-    filter: blur(0);
-  }
-}
-
-ui5-dialog {
-  --_ui5_dialog_content_padding: 0; /* Reset for custom control */
-  border-radius: 12px !important;
-  overflow: hidden;
-  box-shadow: var(--glass-shadow) !important;
-  border: 1px solid var(--glass-border) !important;
-}
-
-/* 
-   Targeting the internal backdrop of UI5 Dialog.
-   Note: Some versions of UI5 Web Components allow styling the backdrop 
-   via global CSS targeting the tag directly or via parts.
-*/
-ui5-dialog::part(content) {
-  animation: dialogEntrance 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-  border-radius: 12px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-}
-
-/* Global Backdrop Blur logic - applies when any dialog is open */
-ui5-dialog[open]::after {
-  content: "";
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(4px);
-  z-index: -1;
-  pointer-events: none;
-}
-
-/* Form Item Polish */
-ui5-form-item {
-  transition: transform 0.2s ease;
-}
-
-ui5-form-item:focus-within {
-  transform: translateX(4px);
-}
-
-ui5-input:focus,
-ui5-select:focus,
-ui5-textarea:focus {
-  --_ui5_input_focus_outline_color: var(--mesh-accent);
-  transition: all 0.2s ease;
 }
 
 .dialog-form-container {
@@ -496,64 +414,9 @@ ui5-textarea:focus {
   gap: 1.25rem;
 }
 
-/* Side Navigation indented sub-items */
-ui5-side-navigation-sub-item {
-  padding-left: 0.5rem !important;
-}
-
-ui5-side-navigation-sub-item::part(title) {
-  font-weight: 500 !important;
-  font-size: 0.875rem !important;
-}
-
-/* TabContainer Layout Refinement */
-ui5-tabcontainer::part(content) {
-  padding: 0 !important;
-  border-bottom: none !important;
-}
-
-ui5-tabcontainer::part(root) {
-  border-bottom: none !important;
-}
-
 .tab-content-container {
   padding: 1rem 0;
   width: 100%;
-}
-
-/* Right-aligned status in Tab Bar */
-.tab-header-status {
-  position: absolute;
-  right: 2rem;
-  top: 1.125rem;
-  z-index: 2;
-}
-
-/* Process Steps refinement */
-.process-tabs ui5-tab:not(:last-child)::after {
-  content: ""; /* slim-arrow-right from UI5 icons font if available, or just a chevron */
-  font-family: "SAP-icons";
-  position: absolute;
-  right: -1.25rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--sapContent_SeparatorColor);
-  font-size: 0.75rem;
-  pointer-events: none;
-}
-
-ui5-tabcontainer.process-tabs::part(header) {
-  padding-right: 12rem !important;
-  background: white !important;
-  border-bottom: 1px solid var(--sapGroup_TitleBorderColor) !important;
-}
-
-ui5-tabcontainer.process-tabs::part(content) {
-  border-top: none !important;
-  overflow: clip !important; /* Strictly lock overflow to prevent temporary scrollbars */
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100% !important;
 }
 
 /* Print Styles */
@@ -588,7 +451,7 @@ ui5-tabcontainer.process-tabs::part(content) {
     page-break-inside: avoid !important;
   }
 
-  .material-voucher ui5-table-header-row {
+  .material-voucher thead {
     display: table-header-group !important;
   }
 }

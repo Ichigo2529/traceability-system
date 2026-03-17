@@ -1,164 +1,98 @@
 import * as React from "react";
-import { Option as Ui5Option, Select as Ui5Select } from "@ui5/webcomponents-react";
-import { cn } from "../../lib/utils";
+import * as SelectPrimitive from "@radix-ui/react-select";
+import { ChevronDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type SelectChangeHandler = (value: string) => void;
+const Select = SelectPrimitive.Root;
+const SelectGroup = SelectPrimitive.Group;
+const SelectValue = SelectPrimitive.Value;
 
-type SelectItemDescriptor = {
-  key: string;
-  value: string;
-  className?: string;
-  children?: React.ReactNode;
-};
+const SelectTrigger = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Trigger
+    ref={ref}
+    className={cn(
+      "flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      className
+    )}
+    {...props}
+  >
+    {children}
+    <SelectPrimitive.Icon asChild>
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </SelectPrimitive.Icon>
+  </SelectPrimitive.Trigger>
+));
+SelectTrigger.displayName = SelectPrimitive.Trigger.displayName;
 
-type SelectComposition = {
-  triggerClassName?: string;
-  placeholder?: string;
-  options: SelectItemDescriptor[];
-};
-
-const toArray = (children: React.ReactNode): React.ReactNode[] => React.Children.toArray(children);
-
-type OptionElementProps = { value?: string; className?: string; children?: React.ReactNode };
-
-const pushOptionFromNode = (node: React.ReactNode, options: SelectItemDescriptor[]) => {
-  if (!React.isValidElement(node)) return;
-  const el = node as React.ReactElement<OptionElementProps>;
-  const props = el.props;
-
-  if (el.type === SelectItem) {
-    const value = String(props.value ?? "");
-    options.push({
-      key: el.key?.toString() ?? value,
-      value,
-      className: props.className,
-      children: props.children,
-    });
-    return;
-  }
-
-  if (el.type === React.Fragment) {
-    toArray(props.children).forEach((child) => pushOptionFromNode(child, options));
-    return;
-  }
-
-  toArray(props.children).forEach((child) => pushOptionFromNode(child, options));
-};
-
-type TriggerValueProps = { placeholder?: string; className?: string; children?: React.ReactNode };
-
-const extractSelectComposition = (children: React.ReactNode): SelectComposition => {
-  let triggerClassName: string | undefined;
-  let placeholder: string | undefined;
-  const options: SelectItemDescriptor[] = [];
-
-  toArray(children).forEach((node) => {
-    if (!React.isValidElement(node)) return;
-    const el = node as React.ReactElement<TriggerValueProps>;
-    const props = el.props;
-
-    if (el.type === SelectTrigger) {
-      triggerClassName = props.className;
-      toArray(props.children).forEach((triggerChild) => {
-        if (!React.isValidElement(triggerChild)) return;
-        const tc = triggerChild as React.ReactElement<TriggerValueProps>;
-        if (tc.type === SelectValue) {
-          placeholder = tc.props.placeholder;
-        }
-      });
-      return;
-    }
-
-    if (el.type === SelectContent) {
-      toArray(props.children).forEach((contentChild) => pushOptionFromNode(contentChild, options));
-      return;
-    }
-  });
-
-  return { triggerClassName, placeholder, options };
-};
-
-export interface SelectProps extends Omit<React.HTMLAttributes<HTMLElement>, "children" | "defaultValue" | "onChange"> {
-  value?: string;
-  defaultValue?: string;
-  onValueChange?: SelectChangeHandler;
-  children?: React.ReactNode;
-  disabled?: boolean;
-  required?: boolean;
-  name?: string;
-}
-
-const Select = React.forwardRef<HTMLElement, SelectProps>(
-  ({ value, defaultValue, onValueChange, children, className, disabled, required, name, ...props }, ref) => {
-    const isControlled = value !== undefined;
-    const [internalValue, setInternalValue] = React.useState(defaultValue ?? "");
-    const selectedValue = isControlled ? (value ?? "") : internalValue;
-    const { triggerClassName, placeholder, options } = extractSelectComposition(children);
-
-    return (
-      <Ui5Select
-        ref={ref as React.Ref<any>}
-        className={cn("admin-ui5-select", triggerClassName, className)}
-        value={selectedValue}
-        disabled={disabled}
-        required={required}
-        name={name}
-        onChange={(event) => {
-          const nextValue = String(event.target.value ?? "");
-          if (!isControlled) setInternalValue(nextValue);
-          onValueChange?.(nextValue);
-        }}
-        {...(props as any)}
+const SelectContent = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
+>(({ className, children, position = "popper", ...props }, ref) => (
+  <SelectPrimitive.Portal>
+    <SelectPrimitive.Content
+      ref={ref}
+      className={cn(
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        position === "popper" &&
+          "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
+        className
+      )}
+      position={position}
+      {...props}
+    >
+      <SelectPrimitive.Viewport
+        className={cn(
+          "p-1",
+          position === "popper" &&
+            "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
+        )}
       >
-        {placeholder ? <Ui5Option value="">{placeholder}</Ui5Option> : null}
-        {options.map((option) => (
-          <Ui5Option key={option.key} value={option.value} className={cn("admin-ui5-select-option", option.className)}>
-            {option.children}
-          </Ui5Option>
-        ))}
-      </Ui5Select>
-    );
-  }
-);
-Select.displayName = "Select";
+        {children}
+      </SelectPrimitive.Viewport>
+    </SelectPrimitive.Content>
+  </SelectPrimitive.Portal>
+));
+SelectContent.displayName = SelectPrimitive.Content.displayName;
 
-const SelectTrigger = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>((props, _ref) => {
-  return <>{props.children}</>;
-});
-SelectTrigger.displayName = "SelectTrigger";
+const SelectLabel = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Label>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Label ref={ref} className={cn("px-2 py-1.5 text-sm font-semibold", className)} {...props} />
+));
+SelectLabel.displayName = SelectPrimitive.Label.displayName;
 
-const SelectContent = React.forwardRef<HTMLElement, React.HTMLAttributes<HTMLElement>>((props, _ref) => {
-  return <>{props.children}</>;
-});
-SelectContent.displayName = "SelectContent";
+const SelectItem = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Item
+    ref={ref}
+    className={cn(
+      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      className
+    )}
+    {...props}
+  >
+    <span className="absolute right-2 flex h-3.5 w-3.5 items-center justify-center">
+      <SelectPrimitive.ItemIndicator>
+        <Check className="h-4 w-4" />
+      </SelectPrimitive.ItemIndicator>
+    </span>
+    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+  </SelectPrimitive.Item>
+));
+SelectItem.displayName = SelectPrimitive.Item.displayName;
 
-export interface SelectValueProps {
-  placeholder?: string;
-  children?: React.ReactNode;
-}
-
-const SelectValue = ({ children }: SelectValueProps) => {
-  return <>{children}</>;
-};
-SelectValue.displayName = "SelectValue";
-
-export interface SelectItemProps extends React.HTMLAttributes<HTMLElement> {
-  value: string;
-  children?: React.ReactNode;
-}
-
-const SelectItem = React.forwardRef<HTMLElement, SelectItemProps>((props, _ref) => {
-  return <>{props.children}</>;
-});
-SelectItem.displayName = "SelectItem";
-
-const SelectGroup = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
-SelectGroup.displayName = "SelectGroup";
-
-const SelectLabel = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
-SelectLabel.displayName = "SelectLabel";
-
-const SelectSeparator = () => null;
-SelectSeparator.displayName = "SelectSeparator";
+const SelectSeparator = React.forwardRef<
+  React.ComponentRef<typeof SelectPrimitive.Separator>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Separator ref={ref} className={cn("-mx-1 my-1 h-px bg-muted", className)} {...props} />
+));
+SelectSeparator.displayName = SelectPrimitive.Separator.displayName;
 
 export { Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectLabel, SelectItem, SelectSeparator };

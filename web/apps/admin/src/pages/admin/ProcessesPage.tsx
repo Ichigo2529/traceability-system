@@ -14,20 +14,11 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Input,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  FlexBox,
-  FlexBoxAlignItems
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/process.js";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const schema = z.object({
   process_code: z.string().min(1),
@@ -42,9 +33,12 @@ export function ProcessesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Process | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Process | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
   const { data: rows = [], isLoading } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
-  const form = useForm<ProcessForm>({ resolver: zodResolver(schema), defaultValues: { active: true, sequence_order: 1 } });
+  const form = useForm<ProcessForm>({
+    resolver: zodResolver(schema),
+    defaultValues: { active: true, sequence_order: 1 },
+  });
 
   const createMutation = useMutation({
     mutationFn: (v: ProcessForm) => sdk.admin.createProcess(v),
@@ -74,49 +68,58 @@ export function ProcessesPage() {
 
   const columns = useMemo<ColumnDef<Process>[]>(
     () => [
-      { header: "Code", accessorKey: "process_code" },
-      { header: "Name", accessorKey: "name" },
-      { header: "Sequence", accessorKey: "sequence_order" },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} /> },
+      { id: "code", header: "Code", accessorKey: "process_code" },
+      { id: "name", header: "Name", accessorKey: "name" },
+      { id: "sequence", header: "Sequence", accessorKey: "sequence_order" },
       {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} />,
+      },
+      {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset(row.original);
                 setOpen(true);
               }}
-              tooltip="Edit Process"
+              title="Edit Process"
               aria-label="Edit Process"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
-              onClick={() => {
-                setDeleteTarget(row.original);
-              }}
-              tooltip="Delete Process"
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteTarget(row.original)}
+              title="Delete Process"
               aria-label="Delete Process"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
     ],
-    [deleteMutation, form]
+    [form]
   );
 
   return (
     <PageLayout
       title="Processes"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Manufacturing process master with sequence ordering</span>
-        </FlexBox>
+        </div>
       }
       icon="process"
       iconColor="orange"
@@ -133,25 +136,24 @@ export function ProcessesPage() {
                   : undefined
           }
         />
-        <DataTable 
-            data={rows} 
-            columns={columns} 
-            loading={isLoading}
-            filterPlaceholder="Search process..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  className="button-hover-scale"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ process_code: "", name: "", sequence_order: 1, active: true });
-                    setOpen(true);
-                  }}
-                >
-                  Add Process
-                </Button>
-            }
+        <DataTable
+          data={rows}
+          columns={columns}
+          loading={isLoading}
+          filterPlaceholder="Search process..."
+          actions={
+            <Button
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({ process_code: "", name: "", sequence_order: 1, active: true });
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Process
+            </Button>
+          }
         />
       </div>
 
@@ -162,30 +164,37 @@ export function ProcessesPage() {
         onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>Process Code</Label>}>
-            <Input {...form.register("process_code")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Name</Label>}>
-            <Input {...form.register("name")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Sequence Order</Label>}>
-            <Input type="Number" value={form.watch("sequence_order")?.toString()} onInput={(e: any) => form.setValue("sequence_order", Number(e.target.value))} />
-          </FormItem>
-          <FormItem labelContent={<Label>Status</Label>}>
-              <Controller
-                  name="active"
-                  control={form.control}
-                  render={({ field }) => (
-                      <CheckBox
-                          text="Active"
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                      />
-                  )}
-              />
-          </FormItem>
-        </Form>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="process_code">Process Code</Label>
+            <Input id="process_code" {...form.register("process_code")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" {...form.register("name")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sequence_order">Sequence Order</Label>
+            <Input
+              id="sequence_order"
+              type="number"
+              value={form.watch("sequence_order") ?? 1}
+              onChange={(e) => form.setValue("sequence_order", Number(e.target.value))}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Controller
+              name="active"
+              control={form.control}
+              render={({ field }) => (
+                <Checkbox id="active" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
+              )}
+            />
+            <Label htmlFor="active" className="cursor-pointer">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -202,8 +211,6 @@ export function ProcessesPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }
-

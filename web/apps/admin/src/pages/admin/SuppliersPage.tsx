@@ -15,21 +15,11 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Input,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  FlexBox,
-  FlexBoxAlignItems
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/supplier.js";
-import "@ui5/webcomponents-icons/dist/marketing-campaign.js";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Pencil, Trash2, LayoutGrid } from "lucide-react";
 
 const schema = z.object({
   code: z.string().min(1),
@@ -45,7 +35,7 @@ export function SuppliersPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Vendor | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Vendor | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: suppliers = [], isLoading: suppliersLoading } = useQuery({
     queryKey: ["vendors"],
@@ -100,24 +90,30 @@ export function SuppliersPage() {
 
   const columns = useMemo<ColumnDef<Vendor>[]>(
     () => [
-      { header: "Code", accessorKey: "code" },
-      { header: "Vendor ID", accessorKey: "vendor_id" },
-      { header: "Name", accessorKey: "name" },
+      { id: "code", header: "Code", accessorKey: "code" },
+      { id: "vendor_id", header: "Vendor ID", accessorKey: "vendor_id" },
+      { id: "name", header: "Name", accessorKey: "name" },
       {
+        id: "profiles",
         header: "Part Profiles",
-        cell: ({ row }) => {
-          const count = profileCountByVendor.get(row.original.id) ?? 0;
-          return <span className="admin-supplier-profile-count">{count}</span>;
-        },
+        cell: ({ row }) => (
+          <span className="admin-supplier-profile-count">{profileCountByVendor.get(row.original.id) ?? 0}</span>
+        ),
       },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
       {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
+      },
+      {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -128,42 +124,46 @@ export function SuppliersPage() {
                 });
                 setOpen(true);
               }}
-              tooltip="Edit Vendor"
+              title="Edit Vendor"
               aria-label="Edit Vendor"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="marketing-campaign"
-              design="Transparent"
-              onClick={() => {
-                navigate(`/admin/supplier-part-profiles?vendorId=${encodeURIComponent(row.original.id)}`);
-              }}
-              tooltip="View Profiles"
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(`/admin/supplier-part-profiles?vendorId=${encodeURIComponent(row.original.id)}`)}
+              title="View Profiles"
               aria-label="View Profiles"
-            />
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
-              onClick={() => {
-                setDeleteTarget(row.original);
-              }}
-              tooltip="Delete Vendor"
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteTarget(row.original)}
+              title="Delete Vendor"
               aria-label="Delete Vendor"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
     ],
-    [deleteMutation, form, navigate, profileCountByVendor]
+    [form, navigate, profileCountByVendor]
   );
 
   return (
     <PageLayout
       title="Vendors"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Vendor and external supplier master</span>
-        </FlexBox>
+        </div>
       }
       icon="supplier"
       iconColor="indigo"
@@ -187,15 +187,14 @@ export function SuppliersPage() {
           filterPlaceholder="Search suppliers..."
           actions={
             <Button
-              icon="add"
-              design="Emphasized"
               className="button-hover-scale"
               onClick={() => {
                 setEditing(null);
-                form.reset({ name: "", code: "", vendor_id: "", is_active: true }); // Adjusted to match schema
+                form.reset({ name: "", code: "", vendor_id: "", is_active: true });
                 setOpen(true);
               }}
             >
+              <Plus className="h-4 w-4 mr-2" />
               Add Supplier
             </Button>
           }
@@ -209,30 +208,32 @@ export function SuppliersPage() {
         onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>Vendor Code</Label>}>
-            <Input {...form.register("code")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Vendor ID</Label>}>
-            <Input {...form.register("vendor_id")} placeholder="P / F / I / C / R" />
-          </FormItem>
-          <FormItem labelContent={<Label>Name</Label>}>
-            <Input {...form.register("name")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Status</Label>}>
-              <Controller
-                  name="is_active"
-                  control={form.control}
-                  render={({ field }) => (
-                      <CheckBox
-                          text="Active"
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                      />
-                  )}
-              />
-          </FormItem>
-        </Form>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="vendor-code">Vendor Code</Label>
+            <Input id="vendor-code" {...form.register("code")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="vendor-id">Vendor ID</Label>
+            <Input id="vendor-id" {...form.register("vendor_id")} placeholder="P / F / I / C / R" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="vendor-name">Name</Label>
+            <Input id="vendor-name" {...form.register("name")} />
+          </div>
+          <div className="flex items-center gap-2">
+            <Controller
+              name="is_active"
+              control={form.control}
+              render={({ field }) => (
+                <Checkbox id="vendor-active" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
+              )}
+            />
+            <Label htmlFor="vendor-active" className="cursor-pointer">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -249,7 +250,6 @@ export function SuppliersPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

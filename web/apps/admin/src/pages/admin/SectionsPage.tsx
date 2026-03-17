@@ -12,34 +12,22 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Button,
-  Input,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  Select,
-  Option,
-  FlexBox,
-  FlexBoxAlignItems,
-  Text,
   Dialog,
-  Bar,
-  Table,
-  TableRow,
-  TableCell,
-  TableHeaderRow,
-  TableHeaderCell,
-  MessageStrip,
-} from "@ui5/webcomponents-react";
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "../../components/ui/badge";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/org-chart.js";
-import "@ui5/webcomponents-icons/dist/favorite.js";
-import "@ui5/webcomponents-icons/dist/unfavorite.js";
+import { Plus, Pencil, Trash2, Banknote, Star } from "lucide-react";
 import {
   AdminSection,
   SectionCostCenterMapping,
@@ -68,7 +56,7 @@ export function SectionsPage() {
   const [mappingTarget, setMappingTarget] = useState<AdminSection | null>(null);
   const [addCCId, setAddCCId] = useState("");
   const [addCCDefault, setAddCCDefault] = useState(false);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["admin-sections"],
@@ -142,54 +130,59 @@ export function SectionsPage() {
     },
   });
 
-  // Refresh mappingTarget data when sections reload
   const liveMappingTarget = mappingTarget ? (rows.find((r) => r.id === mappingTarget.id) ?? mappingTarget) : null;
-
   const mappedCCIds = new Set(liveMappingTarget?.cost_centers?.map((m) => m.cost_center_id) ?? []);
   const availableCCs = allCostCenters.filter((cc) => cc.is_active && !mappedCCIds.has(cc.id));
 
   const columns = useMemo<ColumnDef<AdminSection>[]>(
     () => [
-      { header: "Code", accessorKey: "section_code", size: 120 },
-      { header: "Name", accessorKey: "section_name" },
+      { id: "section_code", header: "Code", accessorKey: "section_code", size: 120 },
+      { id: "section_name", header: "Name", accessorKey: "section_name" },
       {
+        id: "cost_centers",
         header: "Cost Centers",
         size: 140,
         cell: ({ row }) => {
           const count = row.original.cost_centers?.length ?? 0;
           const def = row.original.cost_centers?.find((m) => m.is_default);
           return (
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
+            <div className="flex items-center gap-2">
               <Badge variant="secondary">{count}</Badge>
-              {def ? <Text style={{ fontSize: "0.75rem", opacity: 0.7 }}>default: {def.cost_code}</Text> : null}
-            </FlexBox>
+              {def ? <span className="text-xs opacity-70">default: {def.cost_code}</span> : null}
+            </div>
           );
         },
       },
       {
+        id: "status",
         header: "Status",
         size: 100,
         cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
       },
       {
+        id: "actions",
         header: "Actions",
         size: 160,
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="money-bills"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setMappingTarget(row.original);
                 setAddCCId("");
                 setAddCCDefault(false);
               }}
-              tooltip="Manage cost centers"
+              title="Manage cost centers"
               aria-label="Manage cost centers"
-            />
+            >
+              <Banknote className="h-4 w-4" />
+            </Button>
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -199,16 +192,21 @@ export function SectionsPage() {
                 });
                 setOpen(true);
               }}
-              tooltip="Edit"
+              title="Edit"
               aria-label="Edit section"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setDisableTarget(row.original)}
-              tooltip="Disable"
+              title="Disable"
               aria-label="Disable section"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
@@ -220,10 +218,10 @@ export function SectionsPage() {
     <PageLayout
       title="Sections"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Organizational sections and cost center mappings</span>
-        </FlexBox>
+        </div>
       }
       icon="org-chart"
       iconColor="indigo"
@@ -247,8 +245,6 @@ export function SectionsPage() {
           filterPlaceholder="Search sections..."
           actions={
             <Button
-              icon="add"
-              design="Emphasized"
               className="button-hover-scale"
               onClick={() => {
                 setEditing(null);
@@ -256,13 +252,13 @@ export function SectionsPage() {
                 setOpen(true);
               }}
             >
+              <Plus className="h-4 w-4 mr-2" />
               Add Section
             </Button>
           }
         />
       </div>
 
-      {/* Create/Edit Section Dialog */}
       <FormDialog
         open={open}
         onClose={() => {
@@ -275,183 +271,172 @@ export function SectionsPage() {
         submitting={createMut.isPending || updateMut.isPending}
       >
         {(createMut.isError || updateMut.isError) && (
-          <MessageStrip design="Negative" hideCloseButton style={{ margin: "0 1rem" }}>
-            {formatApiError(createMut.error ?? updateMut.error)}
-          </MessageStrip>
+          <Alert variant="destructive" className="mx-4 mb-4">
+            <AlertDescription>{formatApiError(createMut.error ?? updateMut.error)}</AlertDescription>
+          </Alert>
         )}
-        <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label required>Section Code</Label>}>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label>Section Code *</Label>
             <Input
               value={form.watch("section_code")}
-              onInput={(e: any) => form.setValue("section_code", e.target.value)}
-              valueState={form.formState.errors.section_code ? "Negative" : undefined}
-              valueStateMessage={
-                form.formState.errors.section_code ? (
-                  <span>{form.formState.errors.section_code.message}</span>
-                ) : undefined
-              }
+              onChange={(e) => form.setValue("section_code", e.target.value)}
+              className={form.formState.errors.section_code ? "border-destructive" : ""}
             />
-          </FormItem>
-          <FormItem labelContent={<Label required>Section Name</Label>}>
+            {form.formState.errors.section_code && (
+              <p className="text-sm text-destructive">{form.formState.errors.section_code.message}</p>
+            )}
+          </div>
+          <div className="grid gap-2">
+            <Label>Section Name *</Label>
             <Input
               value={form.watch("section_name")}
-              onInput={(e: any) => form.setValue("section_name", e.target.value)}
-              valueState={form.formState.errors.section_name ? "Negative" : undefined}
-              valueStateMessage={
-                form.formState.errors.section_name ? (
-                  <span>{form.formState.errors.section_name.message}</span>
-                ) : undefined
-              }
+              onChange={(e) => form.setValue("section_name", e.target.value)}
+              className={form.formState.errors.section_name ? "border-destructive" : ""}
             />
-          </FormItem>
-          <FormItem labelContent={<Label>Status</Label>}>
+            {form.formState.errors.section_name && (
+              <p className="text-sm text-destructive">{form.formState.errors.section_name.message}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             <Controller
               name="is_active"
               control={form.control}
               render={({ field }) => (
-                <CheckBox text="Active" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                <Checkbox id="section-active" checked={field.value} onCheckedChange={field.onChange} />
               )}
             />
-          </FormItem>
-        </Form>
+            <Label htmlFor="section-active" className="cursor-pointer font-normal">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
 
-      {/* Cost Center Mapping Dialog */}
-      <Dialog
-        open={Boolean(liveMappingTarget)}
-        onClose={() => setMappingTarget(null)}
-        headerText={`Cost Centers — ${liveMappingTarget?.section_name ?? ""}`}
-        footer={
-          <Bar
-            endContent={
-              <Button design="Transparent" onClick={() => setMappingTarget(null)}>
-                Close
-              </Button>
-            }
-          />
-        }
-        style={{ width: "min(640px, 90vw)" }}
-      >
-        <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-          {addMappingMut.error ? (
-            <MessageStrip design="Negative" hideCloseButton>
-              {formatApiError(addMappingMut.error)}
-            </MessageStrip>
-          ) : null}
-          {removeMappingMut.error ? (
-            <MessageStrip design="Negative" hideCloseButton>
-              {formatApiError(removeMappingMut.error)}
-            </MessageStrip>
-          ) : null}
+      <Dialog open={Boolean(liveMappingTarget)} onOpenChange={(v) => !v && setMappingTarget(null)}>
+        <DialogContent className="sm:max-w-[640px] max-w-[90vw]">
+          <DialogHeader>
+            <DialogTitle>Cost Centers — {liveMappingTarget?.section_name ?? ""}</DialogTitle>
+            <DialogDescription>Manage cost center mappings for this section.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            {addMappingMut.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{formatApiError(addMappingMut.error)}</AlertDescription>
+              </Alert>
+            )}
+            {removeMappingMut.error && (
+              <Alert variant="destructive">
+                <AlertDescription>{formatApiError(removeMappingMut.error)}</AlertDescription>
+              </Alert>
+            )}
 
-          {/* Add mapping row */}
-          <FlexBox alignItems={FlexBoxAlignItems.End} style={{ gap: "0.75rem" }} wrap="Wrap">
-            <div style={{ flex: 1, minWidth: "200px" }}>
-              <Label>Add Cost Center</Label>
-              <Select
-                onChange={(e) => setAddCCId(e.detail.selectedOption.getAttribute("data-value") ?? "")}
-                style={{ width: "100%" }}
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex-1 min-w-[200px] grid gap-2">
+                <Label>Add Cost Center</Label>
+                <Select value={addCCId || "__none__"} onValueChange={(v) => setAddCCId(v === "__none__" ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="-- Select --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">-- Select --</SelectItem>
+                    {availableCCs.map((cc) => (
+                      <SelectItem key={cc.id} value={cc.id}>
+                        {cc.group_code} | {cc.cost_code} - {cc.short_text}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox id="add-cc-default" checked={addCCDefault} onCheckedChange={(v) => setAddCCDefault(!!v)} />
+                <Label htmlFor="add-cc-default" className="cursor-pointer font-normal">
+                  Set as default
+                </Label>
+              </div>
+              <Button
+                disabled={!addCCId || addMappingMut.isPending}
+                onClick={() => {
+                  if (!liveMappingTarget || !addCCId) return;
+                  addMappingMut.mutate({ sectionId: liveMappingTarget.id, ccId: addCCId, isDefault: addCCDefault });
+                }}
               >
-                <Option data-value="">-- Select --</Option>
-                {availableCCs.map((cc) => (
-                  <Option key={cc.id} data-value={cc.id} selected={addCCId === cc.id}>
-                    {cc.group_code} | {cc.cost_code} - {cc.short_text}
-                  </Option>
-                ))}
-              </Select>
+                <Plus className="h-4 w-4 mr-2" />
+                Add
+              </Button>
             </div>
-            <CheckBox
-              text="Set as default"
-              checked={addCCDefault}
-              onChange={(e) => setAddCCDefault(e.target.checked)}
-            />
-            <Button
-              design="Emphasized"
-              icon="add"
-              disabled={!addCCId || addMappingMut.isPending}
-              onClick={() => {
-                if (!liveMappingTarget || !addCCId) return;
-                addMappingMut.mutate({ sectionId: liveMappingTarget.id, ccId: addCCId, isDefault: addCCDefault });
-              }}
-            >
-              Add
-            </Button>
-          </FlexBox>
 
-          {/* Mapped cost centers table */}
-          {(liveMappingTarget?.cost_centers?.length ?? 0) === 0 ? (
-            <Text style={{ opacity: 0.6, fontStyle: "italic" }}>No cost centers mapped yet.</Text>
-          ) : (
-            <Table
-              headerRow={
-                <TableHeaderRow>
-                  <TableHeaderCell width="80px">
-                    <Label style={{ fontWeight: "bold" }}>Group</Label>
-                  </TableHeaderCell>
-                  <TableHeaderCell width="130px">
-                    <Label style={{ fontWeight: "bold" }}>Code</Label>
-                  </TableHeaderCell>
-                  <TableHeaderCell>
-                    <Label style={{ fontWeight: "bold" }}>Short Text</Label>
-                  </TableHeaderCell>
-                  <TableHeaderCell width="90px">
-                    <Label style={{ fontWeight: "bold" }}>Default</Label>
-                  </TableHeaderCell>
-                  <TableHeaderCell width="100px">
-                    <Label style={{ fontWeight: "bold" }}>Actions</Label>
-                  </TableHeaderCell>
-                </TableHeaderRow>
-              }
-            >
-              {(liveMappingTarget?.cost_centers ?? []).map((m: SectionCostCenterMapping) => (
-                <TableRow key={m.cost_center_id}>
-                  <TableCell>
-                    <Text>{m.group_code}</Text>
-                  </TableCell>
-                  <TableCell>
-                    <Text>{m.cost_code}</Text>
-                  </TableCell>
-                  <TableCell>
-                    <Text>{m.short_text}</Text>
-                  </TableCell>
-                  <TableCell>
-                    {m.is_default ? (
-                      <Badge variant="success">Default</Badge>
-                    ) : (
-                      <Button
-                        icon="favorite"
-                        design="Transparent"
-                        tooltip="Set as default"
-                        aria-label="Set as default cost center"
-                        disabled={setDefaultMut.isPending}
-                        onClick={() => {
-                          if (!liveMappingTarget) return;
-                          setDefaultMut.mutate({ sectionId: liveMappingTarget.id, ccId: m.cost_center_id });
-                        }}
-                      />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      icon="delete"
-                      design="Transparent"
-                      tooltip="Remove mapping"
-                      aria-label="Remove cost center mapping"
-                      disabled={removeMappingMut.isPending}
-                      onClick={() => {
-                        if (!liveMappingTarget) return;
-                        removeMappingMut.mutate({ sectionId: liveMappingTarget.id, ccId: m.cost_center_id });
-                      }}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-            </Table>
-          )}
-        </div>
+            {(liveMappingTarget?.cost_centers?.length ?? 0) === 0 ? (
+              <p className="text-muted-foreground italic">No cost centers mapped yet.</p>
+            ) : (
+              <div className="border rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left font-semibold p-2 w-20">Group</th>
+                      <th className="text-left font-semibold p-2 w-32">Code</th>
+                      <th className="text-left font-semibold p-2">Short Text</th>
+                      <th className="text-left font-semibold p-2 w-24">Default</th>
+                      <th className="text-left font-semibold p-2 w-24">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(liveMappingTarget?.cost_centers ?? []).map((m: SectionCostCenterMapping) => (
+                      <tr key={m.cost_center_id} className="border-b last:border-0">
+                        <td className="p-2">{m.group_code}</td>
+                        <td className="p-2">{m.cost_code}</td>
+                        <td className="p-2">{m.short_text}</td>
+                        <td className="p-2">
+                          {m.is_default ? (
+                            <Badge variant="success">Default</Badge>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              title="Set as default"
+                              aria-label="Set as default cost center"
+                              disabled={setDefaultMut.isPending}
+                              onClick={() => {
+                                if (!liveMappingTarget) return;
+                                setDefaultMut.mutate({ sectionId: liveMappingTarget.id, ccId: m.cost_center_id });
+                              }}
+                            >
+                              <Star className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </td>
+                        <td className="p-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Remove mapping"
+                            aria-label="Remove cost center mapping"
+                            disabled={removeMappingMut.isPending}
+                            onClick={() => {
+                              if (!liveMappingTarget) return;
+                              removeMappingMut.mutate({ sectionId: liveMappingTarget.id, ccId: m.cost_center_id });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMappingTarget(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
-      {/* Disable Confirm */}
       <ConfirmDialog
         open={Boolean(disableTarget)}
         title="Disable section"
@@ -467,7 +452,6 @@ export function SectionsPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

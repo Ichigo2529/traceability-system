@@ -1,5 +1,13 @@
 import { ReactNode } from "react";
-import { Dialog, Button, Bar } from "@ui5/webcomponents-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export function FormDialog({
   open,
@@ -29,55 +37,30 @@ export function FormDialog({
   children: ReactNode;
 }) {
   return (
-    <Dialog
-      open={open}
-      headerText={title}
-      resizable
-      draggable
-      onClose={onClose}
-      className={contentClassName}
-      style={{ width: width || "800px", ...{ "--_ui5_dialog_content_height": "auto" } as any }}
-      state={description ? "Information" : "None"}
-      footer={
-        <div slot="footer">
-          <Bar
-            design="Footer"
-            endContent={
-              (footer ? (
-                footer
-              ) : (
-                <>
-                  <Button design="Transparent" onClick={onClose}>
-                    Cancel
-                  </Button>
-                  <Button design="Emphasized" onClick={onSubmit} disabled={submitting}>
-                    {submitting ? "Saving..." : submitText}
-                  </Button>
-                </>
-              )) as any
-            }
-          />
-        </div>
-      }
-    >
-      {open && (
-        <div 
-          style={{ 
-            display: "flex", 
-            flexDirection: "column", 
-            gap: "1rem",
-            transition: "transform 0.3s ease-out"
-          }} 
-          className={bodyClassName}
-        >
-          {description && (
-              <div style={{ color: "var(--sapContent_LabelColor)", fontSize: "0.875rem", marginBottom: "0.5rem", padding: "0 1rem" }}>
-                  {description}
-              </div>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className={contentClassName} style={width ? { maxWidth: width, width: "90vw" } : undefined}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        {open && (
+          <div className={bodyClassName} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            {children}
+          </div>
+        )}
+        <DialogFooter className="pt-4">
+          {footer ?? (
+            <>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={onSubmit} disabled={submitting}>
+                {submitting ? "Saving..." : submitText}
+              </Button>
+            </>
           )}
-          {children}
-        </div>
-      )}
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }

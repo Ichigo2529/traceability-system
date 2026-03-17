@@ -14,22 +14,12 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Input,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  Select,
-  Option,
-  FlexBox,
-  FlexBoxAlignItems
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/factory.js";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const NONE = "__none__";
 
@@ -59,9 +49,15 @@ export function StationsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Station | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Station | null>(null);
-  const { showToast, ToastComponent } = useToast();
-  const { data: stations = [], isLoading: stationsLoading } = useQuery({ queryKey: ["stations"], queryFn: () => sdk.admin.getStations() });
-  const { data: processes = [], isLoading: processesLoading } = useQuery({ queryKey: ["processes"], queryFn: () => sdk.admin.getProcesses() });
+  const { showToast } = useToast();
+  const { data: stations = [], isLoading: stationsLoading } = useQuery({
+    queryKey: ["stations"],
+    queryFn: () => sdk.admin.getStations(),
+  });
+  const { data: processes = [], isLoading: processesLoading } = useQuery({
+    queryKey: ["processes"],
+    queryFn: () => sdk.admin.getProcesses(),
+  });
   const form = useForm<StationForm>({ resolver: zodResolver(schema), defaultValues: { active: true } });
 
   const createMutation = useMutation({
@@ -92,19 +88,30 @@ export function StationsPage() {
 
   const columns = useMemo<ColumnDef<Station>[]>(
     () => [
-      { header: "Code", accessorKey: "station_code" },
-      { header: "Name", accessorKey: "name" },
-      { header: "Line", accessorKey: "line", cell: ({ row }) => row.original.line || "-" },
-      { header: "Area", accessorKey: "area", cell: ({ row }) => row.original.area || "-" },
-      { header: "Process", accessorKey: "process_name", cell: ({ row }) => row.original.process_name || "-" },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} /> },
+      { id: "code", header: "Code", accessorKey: "station_code" },
+      { id: "name", header: "Name", accessorKey: "name" },
+      { id: "line", header: "Line", accessorKey: "line", cell: ({ row }) => row.original.line || "-" },
+      { id: "area", header: "Area", accessorKey: "area", cell: ({ row }) => row.original.area || "-" },
       {
+        id: "process",
+        header: "Process",
+        accessorKey: "process_name",
+        cell: ({ row }) => row.original.process_name || "-",
+      },
+      {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} />,
+      },
+      {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -117,33 +124,36 @@ export function StationsPage() {
                 });
                 setOpen(true);
               }}
-              tooltip="Edit Station"
+              title="Edit Station"
               aria-label="Edit Station"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
-              onClick={() => {
-                setDeleteTarget(row.original);
-              }}
-              tooltip="Delete Station"
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteTarget(row.original)}
+              title="Delete Station"
               aria-label="Delete Station"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
     ],
-    [deleteMutation, form]
+    [form]
   );
 
   return (
     <PageLayout
       title="Stations"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
-            <span className="indicator-live" />
-            <span>Factory stations bound to process and area</span>
-        </FlexBox>
+        <div className="flex items-center gap-2">
+          <span className="indicator-live" />
+          <span>Factory stations bound to process and area</span>
+        </div>
       }
       icon="factory"
       iconColor="orange"
@@ -160,25 +170,24 @@ export function StationsPage() {
                   : undefined
           }
         />
-        <DataTable 
-            data={stations} 
-            columns={columns} 
-            loading={stationsLoading || processesLoading}
-            filterPlaceholder="Search station..." 
-            actions={
-                <Button
-                  icon="add"
-                  design="Emphasized"
-                  className="button-hover-scale"
-                  onClick={() => {
-                    setEditing(null);
-                    form.reset({ station_code: "", name: "", active: true });
-                    setOpen(true);
-                  }}
-                >
-                  Add Station
-                </Button>
-            }
+        <DataTable
+          data={stations}
+          columns={columns}
+          loading={stationsLoading || processesLoading}
+          filterPlaceholder="Search station..."
+          actions={
+            <Button
+              className="button-hover-scale"
+              onClick={() => {
+                setEditing(null);
+                form.reset({ station_code: "", name: "", active: true });
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Station
+            </Button>
+          }
         />
       </div>
 
@@ -189,55 +198,58 @@ export function StationsPage() {
         onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>Station Code</Label>}>
-            <Input {...form.register("station_code")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Name</Label>}>
-            <Input {...form.register("name")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Line</Label>}>
-            <Input {...form.register("line")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Area</Label>}>
-            <Input {...form.register("area")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Process</Label>}>
-               <Controller
-                  control={form.control}
-                  name="process_id"
-                  render={({ field }) => (
-                       <Select
-                          onChange={(e) => {
-                              const selected = e.detail.selectedOption as unknown as { value: string };
-                              field.onChange(selected.value === NONE ? "" : selected.value);
-                          }}
-                          value={field.value || NONE}
-                      >
-                          <Option value={NONE}>Unassigned</Option>
-                           {processes.map((p) => (
-                              <Option key={p.id} value={p.id}>
-                                {p.process_code} - {p.name}
-                              </Option>
-                            ))}
-                      </Select>
-                  )}
-               />
-          </FormItem>
-          <FormItem labelContent={<Label>Status</Label>}>
-              <Controller
-                  name="active"
-                  control={form.control}
-                  render={({ field }) => (
-                      <CheckBox
-                          text="Active"
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                      />
-                  )}
-              />
-          </FormItem>
-        </Form>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="station_code">Station Code</Label>
+            <Input id="station_code" {...form.register("station_code")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" {...form.register("name")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="line">Line</Label>
+            <Input id="line" {...form.register("line")} />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="area">Area</Label>
+            <Input id="area" {...form.register("area")} />
+          </div>
+          <div className="grid gap-2">
+            <Label>Process</Label>
+            <Controller
+              control={form.control}
+              name="process_id"
+              render={({ field }) => (
+                <Select value={field.value || NONE} onValueChange={(v) => field.onChange(v === NONE ? "" : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NONE}>Unassigned</SelectItem>
+                    {processes.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.process_code} - {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Controller
+              name="active"
+              control={form.control}
+              render={({ field }) => (
+                <Checkbox id="active" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
+              )}
+            />
+            <Label htmlFor="active" className="cursor-pointer">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -254,8 +266,6 @@ export function StationsPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }
-

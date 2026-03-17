@@ -2,23 +2,10 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useOfflineQueue } from "@traceability/offline-queue";
 import { sdk } from "../../context/AuthContext";
-import { 
-    Card, 
-    CardHeader, 
-    FlexBox, 
-    FlexBoxAlignItems, 
-    FlexBoxJustifyContent, 
-    Icon, 
-    Label, 
-    Text 
-} from "@ui5/webcomponents-react";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { StatusBadge } from "./StatusBadge";
 import { formatTime } from "../../lib/datetime";
-import "@ui5/webcomponents-icons/dist/sys-enter-2.js";
-import "@ui5/webcomponents-icons/dist/sys-cancel-2.js";
-import "@ui5/webcomponents-icons/dist/factory.js";
-import "@ui5/webcomponents-icons/dist/employee.js";
-import "@ui5/webcomponents-icons/dist/calendar.js";
+import { CheckCircle2, XCircle, Factory, User, Calendar } from "lucide-react";
 
 export function StationHeader({
   stationName,
@@ -55,47 +42,48 @@ export function StationHeader({
   const serverTime = formatTime(heartbeatQuery.data?.server_time);
 
   return (
-    <Card header={<CardHeader titleText="Station Connectivity & Info" />} style={{ width: "100%", boxSizing: "border-box" }}>
-      <div style={{ padding: "0.75rem 1rem" }}>
-        <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem" }}>
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "1.5rem" }}>
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                    <Icon name={isOnline ? "sys-enter-2" : "sys-cancel-2"} design={isOnline ? "Positive" : "Negative"} />
-                    <Label style={{ fontWeight: "bold" }}>{isOnline ? "ONLINE" : "OFFLINE"}</Label>
-                </FlexBox>
-
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                    <Icon name="factory" />
-                    <Text style={{ fontWeight: "bold" }}>{effectiveStation}</Text>
-                </FlexBox>
-
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                    <Label>Process:</Label>
-                    <Text style={{ fontWeight: "bold" }}>{effectiveProcess}</Text>
-                </FlexBox>
-
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                    <Icon name="employee" />
-                    <Text style={{ fontWeight: "bold" }}>{operatorQuery.data?.display_name || "No operator"}</Text>
-                </FlexBox>
-            </FlexBox>
-
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.75rem" }}>
-                <Icon name="calendar" />
-                <Label>Shift Day: {shiftDay}</Label>
-                <div style={{ padding: "0.25rem 0.5rem", borderRadius: "1rem", background: "var(--sapGroup_TitleBackground)", fontSize: "0.75rem" }}>
-                    Line {lineCode}
-                </div>
-                <div style={{ padding: "0.25rem 0.5rem", borderRadius: "1rem", background: "var(--sapGroup_TitleBackground)", fontSize: "0.75rem" }}>
-                    Srv {serverTime}
-                </div>
-                <div style={{ padding: "0.25rem 0.5rem", borderRadius: "1rem", background: pendingCount > 0 ? "var(--sapErrorBackground)" : "var(--sapSuccessBackground)", color: pendingCount > 0 ? "var(--sapNegativeElementColor)" : "var(--sapPositiveElementColor)", fontWeight: "bold", fontSize: "0.75rem" }}>
-                    Queue {pendingCount}
-                </div>
-                {deviceStatus ? <StatusBadge status={deviceStatus} /> : null}
-            </FlexBox>
-        </FlexBox>
-      </div>
+    <Card className="w-full box-border">
+      <CardHeader>
+        <h3 className="text-base font-semibold">Station Connectivity & Info</h3>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <div className="flex flex-wrap items-center gap-6">
+            <div className="flex items-center gap-2">
+              {isOnline ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              ) : (
+                <XCircle className="h-5 w-5 text-destructive" />
+              )}
+              <span className="font-bold">{isOnline ? "ONLINE" : "OFFLINE"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Factory className="h-5 w-5" />
+              <span className="font-bold">{effectiveStation}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Process:</span>
+              <span className="font-bold">{effectiveProcess}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              <span className="font-bold">{operatorQuery.data?.display_name || "No operator"}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Calendar className="h-5 w-5" />
+            <span className="text-sm">Shift Day: {shiftDay}</span>
+            <span className="rounded-full bg-muted px-2 py-1 text-xs">Line {lineCode}</span>
+            <span className="rounded-full bg-muted px-2 py-1 text-xs">Srv {serverTime}</span>
+            <span
+              className={`rounded-full px-2 py-1 text-xs font-bold ${pendingCount > 0 ? "bg-destructive/20 text-destructive" : "bg-green-500/20 text-green-700 dark:text-green-400"}`}
+            >
+              Queue {pendingCount}
+            </span>
+            {deviceStatus ? <StatusBadge status={deviceStatus} /> : null}
+          </div>
+        </div>
+      </CardContent>
     </Card>
   );
 }

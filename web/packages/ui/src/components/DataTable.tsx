@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
   ColumnDef,
   flexRender,
@@ -9,74 +8,12 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Button,
-  Icon,
-  Input,
-  Label,
-  Table,
-  TableCell,
-  TableHeaderCell,
-  TableHeaderRow,
-  TableRow,
-} from "@ui5/webcomponents-react";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 import { Skeleton } from "./Skeleton";
+import { cn } from "../lib/utils";
 
-import "@ui5/webcomponents-icons/dist/navigation-left-arrow.js";
-import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
-import "@ui5/webcomponents-icons/dist/search.js";
-
-const injectedStyles = `
-  ui5-table-row.hoverable-row::part(root):hover,
-  ui5-table-row.hoverable-row:hover {
-    background-color: var(--sapList_Hover_Background, rgba(0,0,0,0.04)) !important;
-  }
-  ui5-table.fixed-table::part(table) {
-    table-layout: fixed;
-    width: 100%;
-    border-collapse: collapse;
-  }
-  ui5-table.fixed-table ui5-table-header-cell::part(content) {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  ui5-table.fixed-table ui5-table-cell::part(content) {
-    white-space: nowrap;
-    overflow: visible;
-  }
-  ui5-table.fixed-table::part(root) {
-    border: 1px solid var(--sapList_BorderColor);
-  }
-  ui5-table.fixed-table ui5-table-row::part(root) {
-    border-bottom: 1px solid var(--sapList_BorderColor);
-  }
-  ui5-table.fixed-table ui5-table-header-cell::part(root),
-  ui5-table.fixed-table ui5-table-cell::part(root) {
-    border-right: 1px solid var(--sapList_BorderColor);
-  }
-  ui5-table.fixed-table ui5-table-header-cell:last-child::part(root),
-  ui5-table.fixed-table ui5-table-row > ui5-table-cell:last-child::part(root) {
-    border-right: none;
-  }
-`;
-
-const headerLabelStyle: React.CSSProperties = {
-  fontWeight: 600,
-  fontSize: "0.75rem",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
-  color: "var(--sapContent_LabelColor)",
-  opacity: 0.8,
-};
-
-const cellContentWrapStyle: React.CSSProperties = {
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-  minWidth: 0,
-};
+const cellContentWrapStyle = "overflow-hidden text-ellipsis whitespace-nowrap min-w-0";
 
 const SCROLLBAR_PADDING = 16;
 const FIXED_COLUMN_IDS = new Set(["item_count", "items", "status", "actions"]);
@@ -158,7 +95,8 @@ export function DataTable<TData>({
 
     const fixedWidth = fixedCols.reduce((sum, col) => {
       const def = col.columnDef;
-      const w = typeof def.size === "number" ? def.size : typeof def.minSize === "number" ? def.minSize : DEFAULT_FIXED_WIDTH;
+      const w =
+        typeof def.size === "number" ? def.size : typeof def.minSize === "number" ? def.minSize : DEFAULT_FIXED_WIDTH;
       map[col.id] = { width: w, minWidth: w, maxWidth: w };
       return sum + w;
     }, 0);
@@ -170,20 +108,28 @@ export function DataTable<TData>({
       flexCols.forEach((col) => {
         const def = col.columnDef;
         const minW = typeof def.minSize === "number" ? def.minSize : DEFAULT_FLEX_WEIGHT;
-        map[col.id] = { width: minW, minWidth: minW, maxWidth: def.maxSize && def.maxSize !== Number.MAX_SAFE_INTEGER ? def.maxSize : minW };
+        map[col.id] = {
+          width: minW,
+          minWidth: minW,
+          maxWidth: def.maxSize && def.maxSize !== Number.MAX_SAFE_INTEGER ? def.maxSize : minW,
+        };
       });
       return map;
     }
 
     const weights: number[] = flexCols.map((col) => {
       const def = col.columnDef;
-      return (def.meta as { flex?: number } | undefined)?.flex ?? (typeof def.minSize === "number" ? def.minSize : DEFAULT_FLEX_WEIGHT);
+      return (
+        (def.meta as { flex?: number } | undefined)?.flex ??
+        (typeof def.minSize === "number" ? def.minSize : DEFAULT_FLEX_WEIGHT)
+      );
     });
     const sumWeights = weights.reduce((sum, w) => sum + w, 0);
 
     flexCols.forEach((col, i) => {
       const def = col.columnDef;
-      const maxW = def.maxSize !== undefined && def.maxSize !== Number.MAX_SAFE_INTEGER ? def.maxSize : Number.MAX_SAFE_INTEGER;
+      const maxW =
+        def.maxSize !== undefined && def.maxSize !== Number.MAX_SAFE_INTEGER ? def.maxSize : Number.MAX_SAFE_INTEGER;
       const weight: number = weights[i] ?? DEFAULT_FLEX_WEIGHT;
       const rawW = sumWeights > 0 ? remainingWidth * (weight / sumWeights) : DEFAULT_FLEX_WEIGHT;
       const width = Math.min(maxW, Math.max(MIN_FLEX_FLOOR, Math.round(rawW)));
@@ -212,179 +158,156 @@ export function DataTable<TData>({
   }, [totalFiltered, visibleRows]);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        boxSizing: "border-box",
-        background: "var(--sapBaseColor)",
-        border: "1px solid var(--sapGroup_ContentBorderColor)",
-        borderRadius: "var(--sapElement_BorderCornerRadius, 0.5rem)",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-        overflow: "hidden",
-      }}
-    >
-      <style>{injectedStyles}</style>
+    <div className="flex flex-col w-full bg-card border border-border rounded-lg overflow-hidden shadow-sm">
       {!hideToolbar && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "0.875rem 1.25rem",
-            borderBottom: "1px solid var(--sapGroup_ContentBorderColor)",
-            background: "var(--sapGroup_TitleBackground)",
-            gap: "0.75rem",
-          }}
-        >
-          <div style={{ flex: "0 0 260px" }}>
-            <Input
-              icon={<Icon name="search" />}
-              placeholder={filterPlaceholder}
-              value={activeGlobalFilter ?? ""}
-              onInput={(e) => activeSetGlobalFilter(e.target.value)}
-              style={{ width: "100%" }}
-            />
+        <div className="flex justify-between items-center py-3.5 px-5 border-b border-border bg-muted/30 gap-3">
+          <div className="w-[260px] shrink-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={filterPlaceholder}
+                value={activeGlobalFilter ?? ""}
+                onChange={(e) => activeSetGlobalFilter(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background pl-9 pr-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
           </div>
-          {actions && <div style={{ display: "flex", gap: "0.5rem" }}>{actions}</div>}
+          {actions && <div className="flex gap-2">{actions}</div>}
         </div>
       )}
 
-      <div ref={tableWrapperRef} style={{ overflowX: "auto", overflowY: "visible", width: "100%" }}>
-        <Table
-          className="fixed-table"
-          headerRow={
-            <TableHeaderRow>
-              {table.getHeaderGroups().map((headerGroup) =>
-                headerGroup.headers.map((header) => {
+      <div ref={tableWrapperRef} className="overflow-x-auto overflow-y-visible w-full">
+        <table className="w-full border-collapse table-fixed" style={{ minWidth: "100%" }}>
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id} className="border-b border-border">
+                {headerGroup.headers.map((header) => {
                   const computed = columnWidthsMap[header.id];
                   const colWidth = computed
                     ? `${computed.width}px`
                     : header.column.columnDef.size
-                    ? `${header.column.columnDef.size}px`
-                    : "80px";
-
+                      ? `${header.column.columnDef.size}px`
+                      : "80px";
                   return (
-                    <TableHeaderCell key={header.id} width={colWidth} style={{ position: "relative", padding: "0.75rem 0.5rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", minWidth: 0 }}>
-                        <div style={cellContentWrapStyle}>
-                          <Label style={headerLabelStyle}>
-                            {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                          </Label>
+                    <th
+                      key={header.id}
+                      style={{
+                        width: colWidth,
+                        minWidth: colWidth,
+                        maxWidth:
+                          computed?.maxWidth !== Number.MAX_SAFE_INTEGER ? `${computed?.maxWidth}px` : undefined,
+                        position: "relative",
+                        padding: "0.75rem 0.5rem",
+                        textAlign: "left",
+                      }}
+                      className="bg-muted/50"
+                    >
+                      <div className="flex items-center justify-between w-full min-w-0">
+                        <div
+                          className={cn(
+                            "font-semibold text-xs uppercase tracking-wider text-muted-foreground",
+                            cellContentWrapStyle
+                          )}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
                         </div>
                         <div
                           onMouseDown={header.getResizeHandler()}
                           onTouchStart={header.getResizeHandler()}
-                          style={{
-                            cursor: "col-resize",
-                            userSelect: "none",
-                            touchAction: "none",
-                            height: "60%",
-                            width: "2px",
-                            backgroundColor: header.column.getIsResizing() ? "var(--sapBrandColor)" : "rgba(0,0,0,0.05)",
-                            position: "absolute",
-                            right: "4px",
-                            top: "20%",
-                            zIndex: 1,
-                            borderRadius: "4px",
-                          }}
+                          className="cursor-col-resize select-none touch-none w-0.5 h-3/5 absolute right-1 top-1/5 rounded bg-border hover:bg-primary"
+                          style={{ backgroundColor: header.column.getIsResizing() ? "var(--primary)" : undefined }}
                         />
                       </div>
-                    </TableHeaderCell>
-                  );
-                })
-              )}
-            </TableHeaderRow>
-          }
-          style={{ width: "100%" }}
-        >
-          {loading ? (
-            Array.from({ length: 5 }).map((_, i) => (
-              <TableRow key={`skeleton-${i}`}>
-                {table.getVisibleFlatColumns().map((column) => (
-                  <TableCell key={`skeleton-cell-${i}-${column.id}`}>
-                    <Skeleton height="18px" width="75%" />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : table.getRowModel().rows.length > 0 ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                onClick={() => onRowClick?.(row.original)}
-                className={onRowClick ? "hoverable-row" : ""}
-                style={{ cursor: onRowClick ? "pointer" : "default" }}
-              >
-                {row.getVisibleCells().map((cell) => {
-                  const computed = columnWidthsMap[cell.column.id];
-                  const cellStyle: React.CSSProperties = computed
-                    ? {
-                        width: `${computed.width}px`,
-                        minWidth: `${computed.minWidth}px`,
-                        maxWidth: computed.maxWidth === Number.MAX_SAFE_INTEGER ? "none" : `${computed.maxWidth}px`,
-                      }
-                    : {
-                        width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : "auto",
-                        minWidth: cell.column.columnDef.minSize ? `${cell.column.columnDef.minSize}px` : "auto",
-                        maxWidth:
-                          cell.column.columnDef.maxSize && cell.column.columnDef.maxSize !== Number.MAX_SAFE_INTEGER
-                            ? `${cell.column.columnDef.maxSize}px`
-                            : "none",
-                      };
-                  return (
-                    <TableCell key={cell.id} style={cellStyle}>
-                      <div style={cellContentWrapStyle}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</div>
-                    </TableCell>
+                    </th>
                   );
                 })}
-              </TableRow>
-            ))
-          ) : null}
-        </Table>
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {loading
+              ? Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={`skeleton-${i}`} className="border-b border-border">
+                    {table.getVisibleFlatColumns().map((column) => (
+                      <td key={`skeleton-cell-${i}-${column.id}`} className="p-2">
+                        <Skeleton height="18px" width="75%" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              : table.getRowModel().rows.map((row) => (
+                  <tr
+                    key={row.id}
+                    onClick={() => onRowClick?.(row.original)}
+                    className={cn("border-b border-border", onRowClick && "cursor-pointer hover:bg-muted/50")}
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const computed = columnWidthsMap[cell.column.id];
+                      const cellStyle: React.CSSProperties = computed
+                        ? {
+                            width: `${computed.width}px`,
+                            minWidth: `${computed.minWidth}px`,
+                            maxWidth: computed.maxWidth === Number.MAX_SAFE_INTEGER ? "none" : `${computed.maxWidth}px`,
+                          }
+                        : {
+                            width: cell.column.columnDef.size ? `${cell.column.columnDef.size}px` : "auto",
+                            minWidth: cell.column.columnDef.minSize ? `${cell.column.columnDef.minSize}px` : "auto",
+                            maxWidth:
+                              cell.column.columnDef.maxSize && cell.column.columnDef.maxSize !== Number.MAX_SAFE_INTEGER
+                                ? `${cell.column.columnDef.maxSize}px`
+                                : "none",
+                          };
+                      return (
+                        <td key={cell.id} className="p-2 align-middle" style={cellStyle}>
+                          <div className={cellContentWrapStyle}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+          </tbody>
+        </table>
         {!loading && !hideEmptyState && table.getRowModel().rows.length === 0 && (
-          <div style={{ padding: "4rem 1rem", display: "flex", justifyContent: "center" }}>
+          <div className="py-16 flex justify-center">
             <EmptyState
               title="No records found"
               description="Try adjusting your search or filters to find what you're looking for."
-              icon="search"
             />
           </div>
         )}
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "0.625rem 1.25rem",
-          borderTop: "1px solid var(--sapGroup_ContentBorderColor)",
-          background: "var(--sapGroup_TitleBackground)",
-        }}
-      >
-        <Label style={{ fontSize: "0.8rem", opacity: 0.6, fontWeight: 500 }}>
+      <div className="flex justify-between items-center py-2.5 px-5 border-t border-border bg-muted/30 text-sm text-muted-foreground">
+        <span>
           {start}-{end} of {totalFiltered}
-        </Label>
-        <div style={{ display: "flex", gap: "0.25rem", alignItems: "center" }}>
-          <Button
-            design="Transparent"
-            icon="navigation-left-arrow"
+        </span>
+        <div className="flex gap-1 items-center">
+          <button
+            type="button"
             disabled={!table.getCanPreviousPage()}
             onClick={() => table.previousPage()}
-            tooltip="Previous Page"
-          />
-          <Label style={{ fontSize: "0.8rem", opacity: 0.6, fontWeight: 500, padding: "0 0.25rem" }}>
+            title="Previous Page"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-transparent hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="px-1">
             Page {pageIndex + 1} of {table.getPageCount() || 1}
-          </Label>
-          <Button
-            design="Transparent"
-            icon="navigation-right-arrow"
+          </span>
+          <button
+            type="button"
             disabled={!table.getCanNextPage()}
             onClick={() => table.nextPage()}
-            tooltip="Next Page"
-          />
+            title="Next Page"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-input bg-transparent hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
       </div>
     </div>

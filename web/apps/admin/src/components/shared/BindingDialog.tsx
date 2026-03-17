@@ -4,7 +4,9 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LabelBinding, LabelTemplate } from "@traceability/sdk";
 import { FormDialog } from "./FormDialog";
-import { Form, FormItem, Input, Label, Select, Option } from "@ui5/webcomponents-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const bindingSchema = z.object({
   unit_type: z.string().min(1, "Unit type is required"),
@@ -54,54 +56,58 @@ export function BindingDialog({
     <FormDialog
       open={open}
       title={binding ? "Edit Label Binding" : "Add Label Binding"}
-      description={modelCode ? `Maintain label binding for model ${modelCode}` : "Maintain unit type, process point and template."}
+      description={
+        modelCode ? `Maintain label binding for model ${modelCode}` : "Maintain unit type, process point and template."
+      }
       onClose={onClose}
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={submitting}
       width="540px"
     >
-      <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-        <FormItem labelContent={<Label required>Unit Type</Label>}>
+      <div className="grid gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="binding-unit_type">Unit Type *</Label>
           <Input
+            id="binding-unit_type"
             {...form.register("unit_type")}
             placeholder="FOF_TRAY_20"
-            valueState={err.unit_type ? "Negative" : "None"}
-            valueStateMessage={err.unit_type ? <div>{err.unit_type.message}</div> : undefined}
+            className={err.unit_type ? "border-destructive" : ""}
           />
-        </FormItem>
-
-        <FormItem labelContent={<Label required>Process Point</Label>}>
+          {err.unit_type && <p className="text-sm text-destructive">{err.unit_type.message}</p>}
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="binding-process_point">Process Point *</Label>
           <Input
+            id="binding-process_point"
             {...form.register("process_point")}
             placeholder="POST_FVMI"
-            valueState={err.process_point ? "Negative" : "None"}
-            valueStateMessage={err.process_point ? <div>{err.process_point.message}</div> : undefined}
+            className={err.process_point ? "border-destructive" : ""}
           />
-        </FormItem>
-
-        <FormItem labelContent={<Label required>Label Template</Label>}>
+          {err.process_point && <p className="text-sm text-destructive">{err.process_point.message}</p>}
+        </div>
+        <div className="grid gap-2">
+          <Label>Label Template *</Label>
           <Controller
             name="label_template_id"
             control={form.control}
             render={({ field }) => (
-              <Select
-                onChange={(e) => {
-                  const selected = (e.detail.selectedOption as unknown as { value: string }).value;
-                  field.onChange(selected);
-                }}
-                value={field.value}
-                style={{ width: "100%" }}
-              >
-                {templates.map((t) => (
-                  <Option key={t.id} value={t.id}>
-                    {t.name}
-                  </Option>
-                ))}
+              <Select value={field.value} onValueChange={field.onChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             )}
           />
-        </FormItem>
-      </Form>
+          {err.label_template_id && <p className="text-sm text-destructive">{err.label_template_id.message}</p>}
+        </div>
+      </div>
     </FormDialog>
   );
 }

@@ -14,27 +14,14 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Input,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  TextArea,
-  Card,
-  CardHeader,
-  MessageStrip,
-  FlexBox,
-  FlexBoxDirection,
-  FlexBoxAlignItems,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/bar-code.js";
-import "@ui5/webcomponents-icons/dist/simulate.js";
-import "@ui5/webcomponents-icons/dist/copy.js";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, Pencil, Trash2, Copy, Play } from "lucide-react";
 
 const schema = z.object({
   key: z.string().min(1),
@@ -79,7 +66,7 @@ export function BarcodeTemplatesPage() {
   const [editing, setEditing] = useState<BarcodeTemplate | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BarcodeTemplate | null>(null);
   const [parseResult, setParseResult] = useState<Record<string, unknown> | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: ["barcode-templates"],
@@ -217,31 +204,37 @@ export function BarcodeTemplatesPage() {
 
   const columns = useMemo<ColumnDef<BarcodeTemplate>[]>(
     () => [
-      { header: "Key", accessorKey: "key" },
-      { header: "Name", accessorKey: "name" },
-      { header: "Identifiers", cell: ({ row }) => row.original.identifiers.join(", ") },
-      { header: "Version", accessorKey: "version" },
+      { id: "key", header: "Key", accessorKey: "key" },
+      { id: "name", header: "Name", accessorKey: "name" },
+      { id: "identifiers", header: "Identifiers", cell: ({ row }) => row.original.identifiers.join(", ") },
+      { id: "version", header: "Version", accessorKey: "version" },
       {
+        id: "status",
         header: "Status",
         cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
       },
       {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             {row.original.is_system || row.original.source === "SYSTEM" ? (
               <Button
-                icon="copy"
-                design="Transparent"
+                type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => openCloneDialog(row.original)}
-                tooltip="Clone as Custom Template"
+                title="Clone as Custom Template"
                 aria-label="Clone as Custom Template"
-              />
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
             ) : (
               <>
                 <Button
-                  icon="edit"
-                  design="Transparent"
+                  type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => {
                     const item = row.original;
                     setEditing(item);
@@ -259,16 +252,21 @@ export function BarcodeTemplatesPage() {
                     });
                     setOpen(true);
                   }}
-                  tooltip="Edit Template"
+                  title="Edit Template"
                   aria-label="Edit Template"
-                />
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
                 <Button
-                  icon="delete"
-                  design="Transparent"
+                  type="button"
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setDeleteTarget(row.original)}
-                  tooltip="Delete Template"
+                  title="Delete Template"
                   aria-label="Delete Template"
-                />
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </>
             )}
           </div>
@@ -282,10 +280,10 @@ export function BarcodeTemplatesPage() {
     <PageLayout
       title="Barcode Templates"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>GS1-128 and 2D barcode parsing rules</span>
-        </FlexBox>
+        </div>
       }
       icon="bar-code"
       iconColor="indigo"
@@ -293,9 +291,11 @@ export function BarcodeTemplatesPage() {
       <div className="page-container">
         <ApiErrorBanner message={errorMessage} />
         {rows.length === 0 && !isLoading && (
-          <MessageStrip design="Information" hideCloseButton style={{ marginBottom: "0.75rem" }}>
-            No custom barcode templates yet. You can add one, or use built-in parser keys in the Parse Tester.
-          </MessageStrip>
+          <Alert className="mb-3">
+            <AlertDescription>
+              No custom barcode templates yet. You can add one, or use built-in parser keys in the Parse Tester.
+            </AlertDescription>
+          </Alert>
         )}
 
         <DataTable
@@ -305,8 +305,6 @@ export function BarcodeTemplatesPage() {
           filterPlaceholder="Search template..."
           actions={
             <Button
-              icon="add"
-              design="Emphasized"
               className="button-hover-scale"
               onClick={() => {
                 setEditing(null);
@@ -325,67 +323,67 @@ export function BarcodeTemplatesPage() {
                 setOpen(true);
               }}
             >
+              <Plus className="h-4 w-4 mr-2" />
               Add Template
             </Button>
           }
         />
 
-        <Card
-          style={{ marginTop: "2rem" }}
-          header={<CardHeader titleText="Parse Tester" subtitleText="Test your barcode templates in real-time" />}
-        >
-          <div style={{ padding: "1rem" }}>
-            <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: "1rem", alignItems: "end" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <Label required>Parser Key</Label>
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Parse Tester</CardTitle>
+            <CardDescription>Test your barcode templates in real-time</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div className="md:col-span-3 grid gap-2">
+                  <Label>Parser Key *</Label>
                   <Input
                     placeholder="MARLIN_PLATE_V1"
                     {...parserForm.register("parser_key")}
-                    valueState={parserForm.formState.errors.parser_key ? "Negative" : undefined}
-                    valueStateMessage={
-                      parserForm.formState.errors.parser_key ? (
-                        <span>{parserForm.formState.errors.parser_key.message}</span>
-                      ) : undefined
-                    }
+                    className={parserForm.formState.errors.parser_key ? "border-destructive" : ""}
                   />
+                  {parserForm.formState.errors.parser_key && (
+                    <p className="text-sm text-destructive">{parserForm.formState.errors.parser_key.message}</p>
+                  )}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <Label required>Raw Barcode</Label>
+                <div className="md:col-span-6 grid gap-2">
+                  <Label>Raw Barcode *</Label>
                   <Input
                     placeholder="Raw 2D barcode text"
                     {...parserForm.register("pack_barcode_raw")}
-                    valueState={parserForm.formState.errors.pack_barcode_raw ? "Negative" : undefined}
-                    valueStateMessage={
-                      parserForm.formState.errors.pack_barcode_raw ? (
-                        <span>{parserForm.formState.errors.pack_barcode_raw.message}</span>
-                      ) : undefined
-                    }
+                    className={parserForm.formState.errors.pack_barcode_raw ? "border-destructive" : ""}
                   />
+                  {parserForm.formState.errors.pack_barcode_raw && (
+                    <p className="text-sm text-destructive">{parserForm.formState.errors.pack_barcode_raw.message}</p>
+                  )}
                 </div>
-                <Button
-                  icon="simulate"
-                  className="button-hover-scale"
-                  onClick={(e) => parserForm.handleSubmit((values) => testParseMutation.mutate(values))(e as any)}
-                  disabled={testParseMutation.isPending}
-                >
-                  Test Parse
-                </Button>
+                <div className="md:col-span-3">
+                  <Button
+                    className="button-hover-scale w-full md:w-auto"
+                    onClick={(e) => parserForm.handleSubmit((values) => testParseMutation.mutate(values))(e as any)}
+                    disabled={testParseMutation.isPending}
+                  >
+                    <Play className="h-4 w-4 mr-2" />
+                    Test Parse
+                  </Button>
+                </div>
               </div>
 
               {parseResult && (
-                <div style={{ marginTop: "1rem" }}>
-                  <Label style={{ marginBottom: "0.5rem", display: "block" }}>Result</Label>
-                  <TextArea
+                <div className="mt-4 grid gap-2">
+                  <Label className="block">Result</Label>
+                  <Textarea
                     rows={10}
-                    readonly
+                    readOnly
                     value={JSON.stringify(parseResult, null, 2)}
-                    style={{ width: "100%", fontFamily: "monospace" }}
+                    className="w-full font-mono text-sm"
                   />
                 </div>
               )}
-            </FlexBox>
-          </div>
+            </div>
+          </CardContent>
         </Card>
       </div>
 
@@ -398,44 +396,56 @@ export function BarcodeTemplatesPage() {
         )}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>Template Key</Label>}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label>Template Key</Label>
             <Input {...form.register("key")} placeholder="MARLIN_MAGNET_V2" />
-          </FormItem>
-          <FormItem labelContent={<Label>Template Name</Label>}>
+          </div>
+          <div className="grid gap-2">
+            <Label>Template Name</Label>
             <Input {...form.register("name")} placeholder="Marlin Magnet v2" />
-          </FormItem>
-          <FormItem labelContent={<Label>Identifiers</Label>}>
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label>Identifiers</Label>
             <Input {...form.register("identifiers")} placeholder="K,3S,P,E,Q,V,PD,PL,D,PT,R" />
-          </FormItem>
-          <FormItem labelContent={<Label>Lot Identifiers</Label>}>
+          </div>
+          <div className="grid gap-2">
+            <Label>Lot Identifiers</Label>
             <Input {...form.register("lot_identifiers")} placeholder="PT,PL,LOT" />
-          </FormItem>
-          <FormItem labelContent={<Label>Quantity Identifiers</Label>}>
+          </div>
+          <div className="grid gap-2">
+            <Label>Quantity Identifiers</Label>
             <Input {...form.register("quantity_identifiers")} placeholder="Q" />
-          </FormItem>
-          <FormItem labelContent={<Label>Part Identifiers</Label>}>
+          </div>
+          <div className="grid gap-2">
+            <Label>Part Identifiers</Label>
             <Input {...form.register("part_identifiers")} placeholder="P" />
-          </FormItem>
-          <FormItem labelContent={<Label>Vendor Identifiers</Label>}>
+          </div>
+          <div className="grid gap-2">
+            <Label>Vendor Identifiers</Label>
             <Input {...form.register("vendor_identifiers")} placeholder="V" />
-          </FormItem>
-          <FormItem labelContent={<Label>Production Date Identifiers</Label>}>
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label>Production Date Identifiers</Label>
             <Input {...form.register("production_date_identifiers")} placeholder="PD,D,TD,MD" />
-          </FormItem>
-          <FormItem labelContent={<Label>Notes</Label>} style={{ gridColumn: "span 2" }}>
-            <TextArea rows={3} {...form.register("notes")} />
-          </FormItem>
-          <FormItem labelContent={<Label>Status</Label>}>
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label>Notes</Label>
+            <Textarea rows={3} {...form.register("notes")} className="resize-none" />
+          </div>
+          <div className="flex items-center gap-2 sm:col-span-2">
             <Controller
               name="is_active"
               control={form.control}
               render={({ field }) => (
-                <CheckBox text="Active" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                <Checkbox id="barcode-active" checked={field.value} onCheckedChange={field.onChange} />
               )}
             />
-          </FormItem>
-        </Form>
+            <Label htmlFor="barcode-active" className="cursor-pointer font-normal">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
 
       <ConfirmDialog
@@ -453,7 +463,6 @@ export function BarcodeTemplatesPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

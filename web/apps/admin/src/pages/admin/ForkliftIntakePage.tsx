@@ -1,40 +1,22 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Page,
-  Bar,
-  Title,
-  Button,
-  Table,
-  TableRow,
-  TableCell,
-  TableHeaderRow,
-  TableHeaderCell,
-  FlexBox,
-  FlexBoxDirection,
-  FlexBoxAlignItems,
-  FlexBoxJustifyContent,
-  Text,
-  BusyIndicator,
-  TabContainer,
-  Tab,
-  ObjectStatus,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/shipping-status.js";
-import "@ui5/webcomponents-icons/dist/accept.js";
-import "@ui5/webcomponents-icons/dist/decline.js";
-import "@ui5/webcomponents-icons/dist/navigation-right-arrow.js";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import {
-  getHandoverBatches,
-  pickupBatch,
-  startScanSession,
-  type HandoverBatch,
-} from "../../lib/handover-api";
+import { PageLayout } from "@traceability/ui";
+import { Button } from "@/components/ui/button";
+import { Package, ArrowRightCircle } from "lucide-react";
+import { getHandoverBatches, pickupBatch, startScanSession } from "../../lib/handover-api";
 import { useHandoverRealtime } from "../../hooks/useHandoverRealtime";
 
 type TabKey = "PENDING" | "ACTIVE" | "COMPLETED";
+
+const statusVariant: Record<string, string> = {
+  PENDING: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  IN_TRANSIT: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  RECEIVED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  RECEIVED_PARTIAL: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  CANCELLED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
 
 export function ForkliftIntakePage() {
   const navigate = useNavigate();
@@ -47,7 +29,6 @@ export function ForkliftIntakePage() {
     COMPLETED: "RECEIVED",
   };
 
-  // SSE real-time updates — invalidates query cache when backend pushes events
   useHandoverRealtime({
     enabled: true,
     queryKeys: [["handover-batches"]],
@@ -56,7 +37,6 @@ export function ForkliftIntakePage() {
   const { data: batches = [], isLoading } = useQuery({
     queryKey: ["handover-batches", selectedTab],
     queryFn: () => getHandoverBatches({ status: statusFilterMap[selectedTab] }),
-    // With SSE we don't need aggressive polling; keep a fallback at 30s
     refetchInterval: 30_000,
   });
 
@@ -78,112 +58,119 @@ export function ForkliftIntakePage() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  const statusColor = (s: HandoverBatch["status"]) => {
-    switch (s) {
-      case "PENDING":   return "Warning";
-      case "IN_TRANSIT": return "Information";
-      case "RECEIVED":  return "Positive";
-      case "RECEIVED_PARTIAL": return "Critical";
-      case "CANCELLED": return "Negative";
-      default:          return "None";
-    }
-  };
-
   return (
-    <Page
-      header={<Bar startContent={<Title>Forklift Intake</Title>} />}
-      style={{ height: "100%" }}
+    <PageLayout
+      title="Forklift Intake"
+      subtitle="Awaiting pickup, active hauls, and completed batches"
+      icon="shipping-status"
+      iconColor="blue"
     >
-      <TabContainer
-        onTabSelect={(e: any) => {
-          const key = e.detail?.tab?.dataset?.tab as TabKey | undefined;
-          if (key) setSelectedTab(key);
-        }}
-      >
-        <Tab text="Awaiting Pickup" data-tab="PENDING" selected={selectedTab === "PENDING"} />
-        <Tab text="My Active Hauls" data-tab="ACTIVE" selected={selectedTab === "ACTIVE"} />
-        <Tab text="Completed" data-tab="COMPLETED" selected={selectedTab === "COMPLETED"} />
-      </TabContainer>
+      <div className="flex gap-1 border-b mb-4">
+        <button
+          type="button"
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            selectedTab === "PENDING"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setSelectedTab("PENDING")}
+        >
+          Awaiting Pickup
+        </button>
+        <button
+          type="button"
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            selectedTab === "ACTIVE"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setSelectedTab("ACTIVE")}
+        >
+          My Active Hauls
+        </button>
+        <button
+          type="button"
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            selectedTab === "COMPLETED"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+          onClick={() => setSelectedTab("COMPLETED")}
+        >
+          Completed
+        </button>
+      </div>
 
-      <div style={{ padding: "1rem" }}>
+      <div className="p-4">
         {isLoading ? (
-          <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ padding: "2rem" }}>
-            <BusyIndicator active />
-          </FlexBox>
+          <div className="flex justify-center py-8">
+            <div
+              className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
+              aria-hidden
+            />
+          </div>
         ) : batches.length === 0 ? (
-          <FlexBox
-            direction={FlexBoxDirection.Column}
-            alignItems={FlexBoxAlignItems.Center}
-            style={{ padding: "3rem", opacity: 0.6 }}
-          >
-            <Text style={{ fontSize: "1.2rem", marginBottom: "1rem" }}>
-              No batches found in this status.
-            </Text>
-          </FlexBox>
+          <div className="flex flex-col items-center py-12 text-muted-foreground opacity-80">
+            <p className="text-lg mb-4">No batches found in this status.</p>
+          </div>
         ) : (
-          <Table
-            headerRow={
-              <TableHeaderRow>
-                <TableHeaderCell>Batch No</TableHeaderCell>
-                <TableHeaderCell>MR ID</TableHeaderCell>
-                <TableHeaderCell>Created</TableHeaderCell>
-                <TableHeaderCell>Progress</TableHeaderCell>
-                <TableHeaderCell>Status</TableHeaderCell>
-                <TableHeaderCell>Actions</TableHeaderCell>
-              </TableHeaderRow>
-            }
-          >
-            {batches.map((batch) => (
-              <TableRow key={batch.id}>
-                <TableCell>
-                  <Text style={{ fontWeight: "bold" }}>{batch.batchNo}</Text>
-                </TableCell>
-                <TableCell>
-                  <Text>{batch.materialRequestId.slice(0, 8)}…</Text>
-                </TableCell>
-                <TableCell>
-                  <Text>{new Date(batch.createdAt).toLocaleString()}</Text>
-                </TableCell>
-                <TableCell>
-                  <Text>
-                    {batch.scannedItemCount} / {batch.expectedItemCount}
-                  </Text>
-                </TableCell>
-                <TableCell>
-                  <ObjectStatus state={statusColor(batch.status) as any}>
-                    {batch.status.replace(/_/g, " ")}
-                  </ObjectStatus>
-                </TableCell>
-                <TableCell>
-                  {selectedTab === "PENDING" && (
-                    <Button
-                      icon="shipping-status"
-                      design="Emphasized"
-                      onClick={() => pickupMutation.mutate(batch.id)}
-                      disabled={pickupMutation.isPending}
-                    >
-                      Acknowledge &amp; Pickup
-                    </Button>
-                  )}
-                  {selectedTab === "ACTIVE" && (
-                    <Button
-                      icon="navigation-right-arrow"
-                      design="Positive"
-                      onClick={() => startSessionMutation.mutate(batch.id)}
-                      disabled={startSessionMutation.isPending}
-                    >
-                      Start Scanning
-                    </Button>
-                  )}
-                  {selectedTab === "COMPLETED" && (
-                    <Button design="Transparent">View Details</Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </Table>
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="text-left font-semibold p-3">Batch No</th>
+                  <th className="text-left font-semibold p-3">MR ID</th>
+                  <th className="text-left font-semibold p-3">Created</th>
+                  <th className="text-left font-semibold p-3">Progress</th>
+                  <th className="text-left font-semibold p-3">Status</th>
+                  <th className="text-left font-semibold p-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batches.map((batch) => (
+                  <tr key={batch.id} className="border-b last:border-0">
+                    <td className="p-3 font-semibold">{batch.batchNo}</td>
+                    <td className="p-3">{batch.materialRequestId.slice(0, 8)}…</td>
+                    <td className="p-3">{new Date(batch.createdAt).toLocaleString()}</td>
+                    <td className="p-3">
+                      {batch.scannedItemCount} / {batch.expectedItemCount}
+                    </td>
+                    <td className="p-3">
+                      <span
+                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                          statusVariant[batch.status] ?? "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {batch.status.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      {selectedTab === "PENDING" && (
+                        <Button onClick={() => pickupMutation.mutate(batch.id)} disabled={pickupMutation.isPending}>
+                          <Package className="h-4 w-4 mr-2" />
+                          Acknowledge &amp; Pickup
+                        </Button>
+                      )}
+                      {selectedTab === "ACTIVE" && (
+                        <Button
+                          variant="default"
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={() => startSessionMutation.mutate(batch.id)}
+                          disabled={startSessionMutation.isPending}
+                        >
+                          <ArrowRightCircle className="h-4 w-4 mr-2" />
+                          Start Scanning
+                        </Button>
+                      )}
+                      {selectedTab === "COMPLETED" && <Button variant="ghost">View Details</Button>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
-    </Page>
+    </PageLayout>
   );
 }

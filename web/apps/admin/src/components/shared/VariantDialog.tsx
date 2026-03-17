@@ -4,7 +4,9 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Variant } from "@traceability/sdk";
 import { FormDialog } from "./FormDialog";
-import { CheckBox, Form, FormItem, Input, Label, FlexBox, FlexBoxAlignItems } from "@ui5/webcomponents-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const variantSchema = z.object({
   code: z.string().min(1, "Variant code is required"),
@@ -52,45 +54,46 @@ export function VariantDialog({
     <FormDialog
       open={open}
       title={variant ? "Edit Variant" : "Add Variant"}
-      description={modelCode ? `Maintain variant for model ${modelCode}` : "Maintain variant code, description and defaults."}
+      description={
+        modelCode ? `Maintain variant for model ${modelCode}` : "Maintain variant code, description and defaults."
+      }
       onClose={onClose}
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={submitting}
       width="480px"
     >
-      <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
-        <FormItem labelContent={<Label required>Variant Code</Label>}>
+      <div className="grid gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="variant-code">Variant Code *</Label>
           <Input
+            id="variant-code"
             {...form.register("code")}
             placeholder="WITH_SHROUD"
-            valueState={err.code ? "Negative" : "None"}
-            valueStateMessage={err.code ? <div>{err.code.message}</div> : undefined}
+            className={err.code ? "border-destructive" : ""}
           />
-        </FormItem>
-
-        <FormItem labelContent={<Label>Description</Label>}>
-          <Input
-            {...form.register("description")}
-            placeholder="Enter description..."
-          />
-        </FormItem>
-
-        <FormItem>
+          {err.code && <p className="text-sm text-destructive">{err.code.message}</p>}
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="variant-description">Description</Label>
+          <Input id="variant-description" {...form.register("description")} placeholder="Enter description..." />
+        </div>
+        <div className="flex items-center gap-2">
           <Controller
             name="is_default"
             control={form.control}
             render={({ field }) => (
-              <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                <CheckBox
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                />
-                <Label onClick={() => field.onChange(!field.value)}>Set as default variant</Label>
-              </FlexBox>
+              <Checkbox id="variant-is_default" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
             )}
           />
-        </FormItem>
-      </Form>
+          <Label
+            htmlFor="variant-is_default"
+            className="cursor-pointer"
+            onClick={() => form.setValue("is_default", !form.watch("is_default"))}
+          >
+            Set as default variant
+          </Label>
+        </div>
+      </div>
     </FormDialog>
   );
 }

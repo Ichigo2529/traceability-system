@@ -1,38 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-
-import {
-  Page,
-  Bar,
-  Title,
-  Button,
-  Table,
-  TableRow,
-  TableCell,
-  TableHeaderRow,
-  TableHeaderCell,
-  FlexBox,
-  FlexBoxDirection,
-  FlexBoxAlignItems,
-  FlexBoxJustifyContent,
-  Text,
-  BusyIndicator,
-  ObjectStatus,
-  ProgressIndicator,
-  MessageStrip,
-  Dialog,
-  TextArea,
-  Input,
-  Card,
-  CardHeader,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/bar-code.js";
-import "@ui5/webcomponents-icons/dist/accept.js";
-import "@ui5/webcomponents-icons/dist/decline.js";
-import "@ui5/webcomponents-icons/dist/navigation-left-arrow.js";
-import "@ui5/webcomponents-icons/dist/stop.js";
 import { toast } from "sonner";
+import { PageLayout } from "@traceability/ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Barcode, Square } from "lucide-react";
 import {
   getScanSession,
   getSessionScans,
@@ -42,6 +26,15 @@ import {
   type ScanEvent,
   type HandoverBatchItem,
 } from "../../lib/handover-api";
+
+const resultVariant: Record<string, string> = {
+  MATCHED: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  DUPLICATE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  NOT_FOUND: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  EXPIRED: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  PARSE_ERROR: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  MISMATCH: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
 
 export function ScanSessionPage() {
   const { id: sessionId } = useParams<{ id: string }>();
@@ -54,7 +47,6 @@ export function ScanSessionPage() {
   const [finalizeRemarks, setFinalizeRemarks] = useState("");
   const [lastResult, setLastResult] = useState<ScanEvent | null>(null);
 
-  // ── Queries ──────────────────────────────────────────────
   const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ["scan-session", sessionId],
     queryFn: () => getScanSession(sessionId!),
@@ -75,7 +67,6 @@ export function ScanSessionPage() {
     enabled: !!session?.handoverBatchId,
   });
 
-  // ── Mutations ────────────────────────────────────────────
   const scanMutation = useMutation({
     mutationFn: (barcodeRaw: string) =>
       submitScan(sessionId!, {
@@ -89,7 +80,6 @@ export function ScanSessionPage() {
       queryClient.invalidateQueries({ queryKey: ["scan-session-scans", sessionId] });
       queryClient.invalidateQueries({ queryKey: ["scan-session", sessionId] });
       queryClient.invalidateQueries({ queryKey: ["batch-items", session?.handoverBatchId] });
-
       if (result.result === "MATCHED") {
         toast.success(`✓ Matched: ${result.parsedPartNumber ?? "OK"}`);
       } else if (result.result === "DUPLICATE") {
@@ -115,17 +105,13 @@ export function ScanSessionPage() {
     onError: (err: any) => toast.error(err.message),
   });
 
-  // ── Auto-focus on scan input ─────────────────────────────
   useEffect(() => {
     const timer = setTimeout(() => scanInputRef.current?.focus(), 300);
     return () => clearTimeout(timer);
   }, []);
 
-  // Re-focus after each scan
   useEffect(() => {
-    if (!scanMutation.isPending) {
-      scanInputRef.current?.focus();
-    }
+    if (!scanMutation.isPending) scanInputRef.current?.focus();
   }, [scanMutation.isPending]);
 
   const handleScanSubmit = useCallback(() => {
@@ -134,289 +120,278 @@ export function ScanSessionPage() {
     scanMutation.mutate(raw);
   }, [barcodeValue, scanMutation]);
 
-  // ── Derived values ───────────────────────────────────────
   const totalExpected = batchItems.reduce((sum: number, i: HandoverBatchItem) => sum + i.expectedPacks, 0);
   const totalScanned = batchItems.reduce((sum: number, i: HandoverBatchItem) => sum + i.scannedPacks, 0);
   const progressPct = totalExpected > 0 ? Math.round((totalScanned / totalExpected) * 100) : 0;
   const isCompleted = session?.status === "COMPLETED";
 
-  const resultColor = (r: ScanEvent["result"]): string => {
-    switch (r) {
-      case "MATCHED":    return "Positive";
-      case "DUPLICATE":  return "Critical";
-      case "NOT_FOUND":  return "Negative";
-      case "EXPIRED":    return "Negative";
-      case "PARSE_ERROR": return "Negative";
-      case "MISMATCH":   return "Negative";
-      default:           return "None";
-    }
-  };
-
-  // ── Loading / Error ──────────────────────────────────────
   if (sessionLoading) {
     return (
-      <Page header={<Bar startContent={<Title>Scan Session</Title>} />}>
-        <FlexBox justifyContent={FlexBoxJustifyContent.Center} style={{ padding: "3rem" }}>
-          <BusyIndicator active />
-        </FlexBox>
-      </Page>
+      <PageLayout title="Scan Session" subtitle="Loading...">
+        <div className="flex justify-center py-12">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden />
+        </div>
+      </PageLayout>
     );
   }
 
   if (!session) {
     return (
-      <Page header={<Bar startContent={<Title>Scan Session</Title>} />}>
-        <MessageStrip design={"Negative" as any} style={{ margin: "1rem" }}>
-          Session not found. It may have been finalized or cancelled.
-        </MessageStrip>
-        <Button onClick={() => navigate("/admin/forklift-intake")} style={{ margin: "1rem" }}>
-          Back to Intake
-        </Button>
-      </Page>
+      <PageLayout title="Scan Session" subtitle="Session not found">
+        <div className="p-4 flex flex-col gap-4">
+          <Alert variant="destructive">
+            <AlertDescription>Session not found. It may have been finalized or cancelled.</AlertDescription>
+          </Alert>
+          <Button onClick={() => navigate("/admin/forklift-intake")}>Back to Intake</Button>
+        </div>
+      </PageLayout>
     );
   }
 
   return (
-    <Page
-      header={
-        <Bar
-          startContent={
-            <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-              <Button
-                icon="navigation-left-arrow"
-                design="Transparent"
-                onClick={() => navigate("/admin/forklift-intake")}
-              />
-              <Title>Scan Session</Title>
-            </FlexBox>
-          }
-          endContent={
-            !isCompleted ? (
-              <Button
-                icon="stop"
-                design="Attention"
-                onClick={() => setFinalizeOpen(true)}
-              >
-                Finalize Session
-              </Button>
-            ) : undefined
-          }
-        />
+    <PageLayout
+      title="Scan Session"
+      subtitle={`Batch scan — ${totalScanned}/${totalExpected} packs`}
+      showBackButton
+      onBackClick={() => navigate("/admin/forklift-intake")}
+      headerActions={
+        !isCompleted ? (
+          <Button variant="destructive" onClick={() => setFinalizeOpen(true)}>
+            <Square className="h-4 w-4 mr-2" />
+            Finalize Session
+          </Button>
+        ) : undefined
       }
-      style={{ height: "100%" }}
     >
-      <div style={{ padding: "1rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
-
-        {/* ── Status Banner ─────────────────────────────── */}
+      <div className="flex flex-col gap-4 p-4">
         {isCompleted && (
-          <MessageStrip design={"Positive" as any}>
-            This session has been finalized.
-          </MessageStrip>
+          <Alert className="border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30">
+            <AlertDescription>This session has been finalized.</AlertDescription>
+          </Alert>
         )}
 
-        {/* ── Scan Input ────────────────────────────────── */}
         {!isCompleted && (
-          <Card
-            header={<CardHeader titleText="Scan Barcode" subtitleText="Scan or paste a 2D barcode below" />}
-          >
-            <div style={{ padding: "1rem" }}>
-              <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.75rem" }}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Barcode className="h-5 w-5" />
+                Scan Barcode
+              </CardTitle>
+              <CardDescription>Scan or paste a 2D barcode below</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3">
                 <Input
-                  ref={scanInputRef as any}
+                  ref={scanInputRef}
                   placeholder="Scan barcode here…"
                   value={barcodeValue}
-                  onInput={(e: any) => setBarcodeValue(e.target.value)}
-                  onKeyDown={(e: any) => {
-                    if (e.key === "Enter") handleScanSubmit();
-                  }}
-                  style={{ flex: 1, fontSize: "1.1rem" }}
-                  icon={<span slot="icon" className="ui5-icon" data-name="bar-code" />}
+                  onChange={(e) => setBarcodeValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleScanSubmit()}
+                  className="flex-1 text-lg"
                 />
-                <Button
-                  design="Emphasized"
-                  onClick={handleScanSubmit}
-                  disabled={scanMutation.isPending || !barcodeValue.trim()}
-                >
+                <Button onClick={handleScanSubmit} disabled={scanMutation.isPending || !barcodeValue.trim()}>
                   {scanMutation.isPending ? "Scanning…" : "Submit"}
                 </Button>
-              </FlexBox>
-
-              {/* Last scan result feedback */}
+              </div>
               {lastResult && (
-                <div style={{ marginTop: "0.75rem" }}>
-                  <ObjectStatus state={resultColor(lastResult.result) as any} showDefaultIcon>
+                <div className="mt-3">
+                  <span
+                    className={`inline-flex items-center rounded-md px-2 py-1 text-sm font-medium ${
+                      resultVariant[lastResult.result] ?? "bg-muted text-muted-foreground"
+                    }`}
+                  >
                     {lastResult.result}
                     {lastResult.parsedPartNumber ? ` — ${lastResult.parsedPartNumber}` : ""}
                     {lastResult.resultDetail ? ` (${lastResult.resultDetail})` : ""}
-                  </ObjectStatus>
+                  </span>
                 </div>
               )}
-            </div>
+            </CardContent>
           </Card>
         )}
 
-        {/* ── Progress Summary ──────────────────────────── */}
-        <Card header={<CardHeader titleText="Progress" subtitleText={`${totalScanned} / ${totalExpected} packs scanned`} />}>
-          <div style={{ padding: "1rem" }}>
-            <ProgressIndicator
-              value={progressPct}
-              displayValue={`${progressPct}%`}
-              style={{ width: "100%" }}
-            />
-
-            {/* Stats row */}
-            <FlexBox style={{ marginTop: "1rem", gap: "2rem" }}>
-              <FlexBox direction={FlexBoxDirection.Column} alignItems={FlexBoxAlignItems.Center}>
-                <Text style={{ fontSize: "1.5rem", fontWeight: "bold" }}>{session.totalScans}</Text>
-                <Text style={{ opacity: 0.6, fontSize: "0.8rem" }}>Total Scans</Text>
-              </FlexBox>
-              <FlexBox direction={FlexBoxDirection.Column} alignItems={FlexBoxAlignItems.Center}>
-                <Text style={{ fontSize: "1.5rem", fontWeight: "bold", color: "var(--sapPositiveColor)" }}>{session.matchedScans}</Text>
-                <Text style={{ opacity: 0.6, fontSize: "0.8rem" }}>Matched</Text>
-              </FlexBox>
-              <FlexBox direction={FlexBoxDirection.Column} alignItems={FlexBoxAlignItems.Center}>
-                <Text style={{ fontSize: "1.5rem", fontWeight: "bold", color: "var(--sapNegativeColor)" }}>{session.errorScans}</Text>
-                <Text style={{ opacity: 0.6, fontSize: "0.8rem" }}>Errors</Text>
-              </FlexBox>
-            </FlexBox>
-          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Progress</CardTitle>
+            <CardDescription>
+              {totalScanned} / {totalExpected} packs scanned
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="w-full h-4 bg-muted rounded-full overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${progressPct}%` }} />
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">{progressPct}%</p>
+            <div className="flex gap-8 mt-4">
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold">{session.totalScans}</span>
+                <span className="text-xs text-muted-foreground">Total Scans</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold text-green-600 dark:text-green-400">{session.matchedScans}</span>
+                <span className="text-xs text-muted-foreground">Matched</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-bold text-destructive">{session.errorScans}</span>
+                <span className="text-xs text-muted-foreground">Errors</span>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
-        {/* ── Expected Items ────────────────────────────── */}
         {batchItems.length > 0 && (
-          <Card header={<CardHeader titleText="Expected Items" subtitleText={`${batchItems.length} line items`} />}>
-            <Table
-              headerRow={
-                <TableHeaderRow>
-                  <TableHeaderCell>Part Number</TableHeaderCell>
-                  <TableHeaderCell>DO Number</TableHeaderCell>
-                  <TableHeaderCell>Expected</TableHeaderCell>
-                  <TableHeaderCell>Scanned</TableHeaderCell>
-                  <TableHeaderCell>Status</TableHeaderCell>
-                </TableHeaderRow>
-              }
-            >
-              {batchItems.map((item: HandoverBatchItem) => (
-                <TableRow key={item.id}>
-                  <TableCell><Text style={{ fontWeight: "bold" }}>{item.partNumber}</Text></TableCell>
-                  <TableCell><Text>{item.doNumber}</Text></TableCell>
-                  <TableCell><Text>{item.expectedPacks} packs / {item.expectedQty} qty</Text></TableCell>
-                  <TableCell><Text>{item.scannedPacks} packs / {item.scannedQty} qty</Text></TableCell>
-                  <TableCell>
-                    <ObjectStatus
-                      state={(
-                        item.scannedPacks >= item.expectedPacks ? "Positive" :
-                        item.scannedPacks > 0 ? "Critical" : "None"
-                      ) as any}
-                    >
-                      {item.scannedPacks >= item.expectedPacks ? "Complete" :
-                       item.scannedPacks > 0 ? "Partial" : "Pending"}
-                    </ObjectStatus>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </Table>
+          <Card>
+            <CardHeader>
+              <CardTitle>Expected Items</CardTitle>
+              <CardDescription>{batchItems.length} line items</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left font-semibold p-3">Part Number</th>
+                      <th className="text-left font-semibold p-3">DO Number</th>
+                      <th className="text-left font-semibold p-3">Expected</th>
+                      <th className="text-left font-semibold p-3">Scanned</th>
+                      <th className="text-left font-semibold p-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchItems.map((item: HandoverBatchItem) => (
+                      <tr key={item.id} className="border-b last:border-0">
+                        <td className="p-3 font-semibold">{item.partNumber}</td>
+                        <td className="p-3">{item.doNumber}</td>
+                        <td className="p-3">
+                          {item.expectedPacks} packs / {item.expectedQty} qty
+                        </td>
+                        <td className="p-3">
+                          {item.scannedPacks} packs / {item.scannedQty} qty
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
+                              item.scannedPacks >= item.expectedPacks
+                                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                                : item.scannedPacks > 0
+                                  ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+                                  : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {item.scannedPacks >= item.expectedPacks
+                              ? "Complete"
+                              : item.scannedPacks > 0
+                                ? "Partial"
+                                : "Pending"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
           </Card>
         )}
 
-        {/* ── Scan History ──────────────────────────────── */}
-        <Card header={<CardHeader titleText="Scan History" subtitleText={`${scans.length} scans recorded`} />}>
-          {scans.length === 0 ? (
-            <FlexBox alignItems={FlexBoxAlignItems.Center} justifyContent={FlexBoxJustifyContent.Center} style={{ padding: "2rem", opacity: 0.5 }}>
-              <Text>No scans yet. Start scanning barcodes above.</Text>
-            </FlexBox>
-          ) : (
-            <Table
-              headerRow={
-                <TableHeaderRow>
-                  <TableHeaderCell>Time</TableHeaderCell>
-                  <TableHeaderCell>Barcode</TableHeaderCell>
-                  <TableHeaderCell>Part Number</TableHeaderCell>
-                  <TableHeaderCell>Qty</TableHeaderCell>
-                  <TableHeaderCell>Result</TableHeaderCell>
-                </TableHeaderRow>
-              }
-            >
-              {[...scans].reverse().map((scan: ScanEvent) => (
-                <TableRow key={scan.id}>
-                  <TableCell><Text>{new Date(scan.createdAt).toLocaleTimeString()}</Text></TableCell>
-                  <TableCell>
-                    <Text style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>
-                      {scan.barcodeRaw}
-                    </Text>
-                  </TableCell>
-                  <TableCell><Text>{scan.parsedPartNumber ?? "—"}</Text></TableCell>
-                  <TableCell><Text>{scan.parsedQty ?? "—"}</Text></TableCell>
-                  <TableCell>
-                    <ObjectStatus state={resultColor(scan.result) as any} showDefaultIcon>
-                      {scan.result}
-                    </ObjectStatus>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </Table>
-          )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Scan History</CardTitle>
+            <CardDescription>{scans.length} scans recorded</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {scans.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">No scans yet. Start scanning barcodes above.</p>
+            ) : (
+              <div className="border rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="text-left font-semibold p-3">Time</th>
+                      <th className="text-left font-semibold p-3">Barcode</th>
+                      <th className="text-left font-semibold p-3">Part Number</th>
+                      <th className="text-left font-semibold p-3">Qty</th>
+                      <th className="text-left font-semibold p-3">Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...scans].reverse().map((scan: ScanEvent) => (
+                      <tr key={scan.id} className="border-b last:border-0">
+                        <td className="p-3">{new Date(scan.createdAt).toLocaleTimeString()}</td>
+                        <td className="p-3 max-w-[200px] truncate" title={scan.barcodeRaw}>
+                          {scan.barcodeRaw}
+                        </td>
+                        <td className="p-3">{scan.parsedPartNumber ?? "—"}</td>
+                        <td className="p-3">{scan.parsedQty ?? "—"}</td>
+                        <td className="p-3">
+                          <span
+                            className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
+                              resultVariant[scan.result] ?? "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {scan.result}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      {/* ── Finalize Dialog ─────────────────────────────── */}
-      <Dialog
-        open={finalizeOpen}
-        headerText="Finalize Scan Session"
-        onClose={() => setFinalizeOpen(false)}
-        footer={
-          <Bar
-            endContent={
-              <FlexBox style={{ gap: "0.5rem" }}>
-                <Button design="Transparent" onClick={() => setFinalizeOpen(false)}>Cancel</Button>
-                <Button
-                  design="Emphasized"
-                  onClick={() => finalizeMutation.mutate()}
-                  disabled={finalizeMutation.isPending}
-                >
-                  {finalizeMutation.isPending ? "Finalizing…" : "Confirm Finalize"}
-                </Button>
-              </FlexBox>
-            }
-          />
-        }
-      >
-        <div style={{ padding: "1rem", minWidth: "400px" }}>
-          <Text style={{ marginBottom: "1rem", display: "block" }}>
-            You are about to finalize this scan session. This will lock the session and
-            update the handover batch status. This action cannot be undone.
-          </Text>
-
-          <FlexBox style={{ marginBottom: "1rem", gap: "1.5rem" }}>
-            <FlexBox direction={FlexBoxDirection.Column}>
-              <Text style={{ fontWeight: "bold", fontSize: "1.2rem" }}>{session?.matchedScans ?? 0}</Text>
-              <Text style={{ opacity: 0.6, fontSize: "0.8rem" }}>Matched</Text>
-            </FlexBox>
-            <FlexBox direction={FlexBoxDirection.Column}>
-              <Text style={{ fontWeight: "bold", fontSize: "1.2rem", color: "var(--sapNegativeColor)" }}>{session?.errorScans ?? 0}</Text>
-              <Text style={{ opacity: 0.6, fontSize: "0.8rem" }}>Errors</Text>
-            </FlexBox>
-            <FlexBox direction={FlexBoxDirection.Column}>
-              <Text style={{ fontWeight: "bold", fontSize: "1.2rem" }}>{progressPct}%</Text>
-              <Text style={{ opacity: 0.6, fontSize: "0.8rem" }}>Complete</Text>
-            </FlexBox>
-          </FlexBox>
-
+      <Dialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Finalize Scan Session</DialogTitle>
+            <DialogDescription>
+              You are about to finalize this scan session. This will lock the session and update the handover batch
+              status. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-6 py-4">
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-bold">{session?.matchedScans ?? 0}</span>
+              <span className="text-xs text-muted-foreground">Matched</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-bold text-destructive">{session?.errorScans ?? 0}</span>
+              <span className="text-xs text-muted-foreground">Errors</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-bold">{progressPct}%</span>
+              <span className="text-xs text-muted-foreground">Complete</span>
+            </div>
+          </div>
           {progressPct < 100 && (
-            <MessageStrip design={"Warning" as any} style={{ marginBottom: "1rem" }}>
-              Not all expected items have been scanned ({totalScanned}/{totalExpected}).
-            </MessageStrip>
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>
+                Not all expected items have been scanned ({totalScanned}/{totalExpected}).
+              </AlertDescription>
+            </Alert>
           )}
-
-          <TextArea
-            placeholder="Optional remarks…"
-            value={finalizeRemarks}
-            onInput={(e: any) => setFinalizeRemarks(e.target.value)}
-            rows={3}
-            style={{ width: "100%" }}
-          />
-        </div>
+          <div className="grid gap-2">
+            <label className="text-sm font-medium">Optional remarks</label>
+            <Textarea
+              placeholder="Optional remarks…"
+              value={finalizeRemarks}
+              onChange={(e) => setFinalizeRemarks(e.target.value)}
+              rows={3}
+              className="resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFinalizeOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => finalizeMutation.mutate()} disabled={finalizeMutation.isPending}>
+              {finalizeMutation.isPending ? "Finalizing…" : "Confirm Finalize"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
-    </Page>
+    </PageLayout>
   );
 }

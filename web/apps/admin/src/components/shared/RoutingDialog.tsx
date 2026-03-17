@@ -4,7 +4,10 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MasterRoutingStep, RoutingStep } from "@traceability/sdk";
 import { FormDialog } from "./FormDialog";
-import { CheckBox, Form, FormItem, Input, Label, FlexBox, FlexBoxAlignItems, Select, Option } from "@ui5/webcomponents-react";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const routingSchema = z.object({
   step_code: z.string().min(1, "Step code is required"),
@@ -60,81 +63,81 @@ export function RoutingDialog({
     <FormDialog
       open={open}
       title={step ? "Edit Routing Step" : "Add Routing Step"}
-      description={modelCode ? `Maintain routing for model ${modelCode}` : "Maintain step code, sequence and requirements."}
+      description={
+        modelCode ? `Maintain routing for model ${modelCode}` : "Maintain step code, sequence and requirements."
+      }
       onClose={onClose}
       onSubmit={form.handleSubmit(onSubmit)}
       submitting={submitting}
       width="540px"
     >
-      <Form layout="S1 M2 L2 XL2" labelSpan="S12 M12 L12 XL12">
-        <FormItem labelContent={<Label required>Step Code</Label>}>
+      <div className="grid gap-4">
+        <div className="grid gap-2">
+          <Label>Step Code *</Label>
           <Controller
             control={form.control}
             name="step_code"
             render={({ field }) => (
               <Select
-                onChange={(e) => {
-                  const selected = e.detail.selectedOption as unknown as { value: string };
-                  field.onChange(selected.value);
-                  const step = masterSteps?.find((s: MasterRoutingStep) => s.step_code === selected.value);
-                  if (step && step.description && !form.getValues("description")) {
-                    form.setValue("description", step.description, { shouldValidate: true });
+                value={field.value || ""}
+                onValueChange={(val) => {
+                  field.onChange(val);
+                  const masterStep = masterSteps?.find((s) => s.step_code === val);
+                  if (masterStep?.description && !form.getValues("description")) {
+                    form.setValue("description", masterStep.description, { shouldValidate: true });
                   }
                 }}
-                value={field.value}
-                valueState={err.step_code ? "Negative" : "None"}
               >
-                {!field.value && <Option value="">Select a step...</Option>}
-                {(masterSteps || []).map((ms: MasterRoutingStep) => (
-                  <Option key={ms.id} value={ms.step_code} selected={field.value === ms.step_code}>
-                    {ms.step_code}
-                  </Option>
-                ))}
+                <SelectTrigger className={err.step_code ? "border-destructive" : ""}>
+                  <SelectValue placeholder="Select a step..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {(masterSteps || []).map((ms) => (
+                    <SelectItem key={ms.id} value={ms.step_code}>
+                      {ms.step_code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             )}
           />
-          {err.step_code && <div style={{ color: "var(--sapNegativeColor)", fontSize: "0.75rem", marginTop: "0.25rem" }}>{err.step_code.message}</div>}
-        </FormItem>
+          {err.step_code && <p className="text-sm text-destructive">{err.step_code.message}</p>}
+        </div>
 
-        <FormItem labelContent={<Label required>Sequence</Label>}>
+        <div className="grid gap-2">
+          <Label htmlFor="routing-sequence">Sequence *</Label>
           <Input
-            type="Number"
+            id="routing-sequence"
+            type="number"
             {...form.register("sequence")}
-            valueState={err.sequence ? "Negative" : "None"}
-            valueStateMessage={err.sequence ? <div>{err.sequence.message}</div> : undefined}
+            className={err.sequence ? "border-destructive" : ""}
           />
-        </FormItem>
+          {err.sequence && <p className="text-sm text-destructive">{err.sequence.message}</p>}
+        </div>
 
-        <FormItem labelContent={<Label>Component Type</Label>}>
-          <Input
-            {...form.register("component_type")}
-            placeholder="PIN430_JIG"
-          />
-        </FormItem>
+        <div className="grid gap-2">
+          <Label htmlFor="routing-component_type">Component Type</Label>
+          <Input id="routing-component_type" {...form.register("component_type")} placeholder="PIN430_JIG" />
+        </div>
 
-        <FormItem labelContent={<Label>Description</Label>}>
-          <Input
-            {...form.register("description")}
-            placeholder="Optional description..."
-          />
-        </FormItem>
+        <div className="grid gap-2">
+          <Label htmlFor="routing-description">Description</Label>
+          <Input id="routing-description" {...form.register("description")} placeholder="Optional description..." />
+        </div>
 
-        <FormItem>
+        <div className="flex items-center gap-2">
           <Controller
             name="mandatory"
             control={form.control}
             render={({ field }) => (
-              <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                <CheckBox
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
-                />
-                <Label onClick={() => field.onChange(!field.value)}>Mandatory step</Label>
-              </FlexBox>
+              <Checkbox id="routing-mandatory" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
             )}
           />
-        </FormItem>
-      </Form>
+          <Label htmlFor="routing-mandatory" className="cursor-pointer">
+            Mandatory step
+          </Label>
+        </div>
+      </div>
     </FormDialog>
   );
 }

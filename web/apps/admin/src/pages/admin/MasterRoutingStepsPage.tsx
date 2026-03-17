@@ -14,22 +14,12 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
-import {
-  Button,
-  Input,
-  TextArea,
-  CheckBox,
-  Label,
-  Form,
-  FormItem,
-  FlexBox,
-  FlexBoxAlignItems,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/bullet-text.js";
-import "@ui5/webcomponents-icons/dist/grid.js";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const schema = z.object({
   step_code: z.string().min(1, "Step code is required"),
@@ -43,7 +33,7 @@ export function MasterRoutingStepsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<MasterRoutingStep | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MasterRoutingStep | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: rows = [], isLoading: rowsLoading } = useQuery({
     queryKey: ["master-routing-steps"],
@@ -84,16 +74,22 @@ export function MasterRoutingStepsPage() {
 
   const columns = useMemo<ColumnDef<MasterRoutingStep>[]>(
     () => [
-      { header: "Step Code", accessorKey: "step_code" },
-      { header: "Description", accessorKey: "description" },
-      { header: "Status", cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} /> },
+      { id: "step_code", header: "Step Code", accessorKey: "step_code" },
+      { id: "description", header: "Description", accessorKey: "description" },
       {
+        id: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
+      },
+      {
+        id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <div style={{ display: "flex", gap: "0.5rem" }}>
+          <div className="flex gap-2">
             <Button
-              icon="edit"
-              design="Transparent"
+              type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => {
                 setEditing(row.original);
                 form.reset({
@@ -103,33 +99,36 @@ export function MasterRoutingStepsPage() {
                 });
                 setOpen(true);
               }}
-              tooltip="Edit Master Step"
+              title="Edit Master Step"
               aria-label="Edit Master Step"
-            />
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
             <Button
-              icon="delete"
-              design="Transparent"
-              onClick={() => {
-                setDeleteTarget(row.original);
-              }}
-              tooltip="Delete Master Step"
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteTarget(row.original)}
+              title="Delete Master Step"
               aria-label="Delete Master Step"
-            />
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         ),
       },
     ],
-    [deleteMutation, form]
+    [form]
   );
 
   return (
     <PageLayout
       title="Master Routing Steps"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Standardized production process steps catalogue</span>
-        </FlexBox>
+        </div>
       }
       icon="bullet-text"
       iconColor="teal"
@@ -153,8 +152,6 @@ export function MasterRoutingStepsPage() {
           filterPlaceholder="Search step code..."
           actions={
             <Button
-              icon="add"
-              design="Emphasized"
               className="button-hover-scale"
               onClick={() => {
                 setEditing(null);
@@ -162,6 +159,7 @@ export function MasterRoutingStepsPage() {
                 setOpen(true);
               }}
             >
+              <Plus className="h-4 w-4 mr-2" />
               Add Step
             </Button>
           }
@@ -175,32 +173,33 @@ export function MasterRoutingStepsPage() {
         onSubmit={form.handleSubmit((v) => (editing ? updateMutation.mutate(v) : createMutation.mutate(v)))}
         submitting={createMutation.isPending || updateMutation.isPending}
       >
-        <Form layout="S1 M1 L1" labelSpan="S12 M12 L12">
-          <FormItem labelContent={<Label required>Step Code</Label>}>
-            <Input
-              {...form.register("step_code")}
-              placeholder="e.g. SMT, PRESS_FIT, PACKING"
-            />
-          </FormItem>
-
-          <FormItem labelContent={<Label>Description</Label>}>
-            <TextArea
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="mrs-step_code">Step Code *</Label>
+            <Input id="mrs-step_code" {...form.register("step_code")} placeholder="e.g. SMT, PRESS_FIT, PACKING" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="mrs-description">Description</Label>
+            <Textarea
+              id="mrs-description"
               {...form.register("description")}
               placeholder="Describe the operations at this step"
               rows={3}
             />
-          </FormItem>
-
-          <FormItem labelContent={<Label>Status</Label>}>
+          </div>
+          <div className="flex items-center gap-2">
             <Controller
               control={form.control}
               name="is_active"
               render={({ field }) => (
-                <CheckBox checked={field.value} onChange={(e) => field.onChange(e.target.checked)} text="Active" />
+                <Checkbox id="mrs-active" checked={field.value} onCheckedChange={(v) => field.onChange(!!v)} />
               )}
             />
-          </FormItem>
-        </Form>
+            <Label htmlFor="mrs-active" className="cursor-pointer">
+              Active
+            </Label>
+          </div>
+        </div>
       </FormDialog>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
@@ -217,7 +216,6 @@ export function MasterRoutingStepsPage() {
           });
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

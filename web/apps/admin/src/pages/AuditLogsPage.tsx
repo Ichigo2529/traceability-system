@@ -5,15 +5,23 @@ import { sdk } from "../context/AuthContext";
 import { ConfigAuditLog } from "@traceability/sdk";
 import { DataTable } from "../components/shared/DataTable";
 import { formatDateTime } from "../lib/datetime";
-import { 
-    Select, 
-    Option, 
-    Label,
-    FlexBox,
-    FlexBoxAlignItems,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/history.js";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageLayout, Section } from "@traceability/ui";
+
+const ENTITY_OPTIONS = [
+  "",
+  "MODEL",
+  "REVISION",
+  "VARIANT",
+  "BOM",
+  "ROUTING_STEP",
+  "LABEL_TEMPLATE",
+  "LABEL_BINDING",
+  "MACHINE",
+  "DEVICE",
+  "USER",
+];
 
 export default function AuditLogsPage() {
   const [entityType, setEntityType] = useState("");
@@ -26,21 +34,24 @@ export default function AuditLogsPage() {
   const columns = useMemo<ColumnDef<ConfigAuditLog>[]>(
     () => [
       {
+        id: "created_at",
         header: "Time",
         accessorKey: "created_at",
         cell: ({ row }) => formatDateTime(row.original.created_at),
       },
       {
+        id: "username",
         header: "User",
         accessorKey: "username",
         cell: ({ row }) => row.original.username || "system",
       },
-      { header: "Entity", accessorKey: "entity_type" },
-      { header: "Action", accessorKey: "action" },
+      { id: "entity_type", header: "Entity", accessorKey: "entity_type" },
+      { id: "action", header: "Action", accessorKey: "action" },
       {
+        id: "entity_id",
         header: "Entity ID",
         accessorKey: "entity_id",
-        cell: ({ row }) => <span style={{ fontFamily: "monospace", fontSize: "0.875rem" }}>{row.original.entity_id}</span>,
+        cell: ({ row }) => <span className="font-mono text-sm">{row.original.entity_id}</span>,
       },
     ],
     []
@@ -50,44 +61,39 @@ export default function AuditLogsPage() {
     <PageLayout
       title="Configuration Audit Logs"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
-            <span className="indicator-live" />
-            <span>System-wide configuration changes and user actions</span>
-        </FlexBox>
+        <div className="flex items-center gap-2">
+          <span className="indicator-live" />
+          <span>System-wide configuration changes and user actions</span>
+        </div>
       }
       icon="history"
       iconColor="var(--icon-purple)"
     >
-      <Section
-        title="Audit Logs"
-        variant="card"
-      >
-        <DataTable 
-            data={logs} 
-            loading={isLoading}
-            columns={columns} 
-            filterPlaceholder="Search audit logs..." 
-            initialPageSize={20} 
-            actions={
-                <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-                    <Label>Filter by Entity Type:</Label>
-                    <div style={{ minWidth: "200px" }}>
-                        <Select onChange={(e) => setEntityType((e.target.selectedOption as any).dataset.value)}>
-                            <Option value="" data-value="" selected={entityType === ""}>All Entities</Option>
-                            <Option value="MODEL" data-value="MODEL" selected={entityType === "MODEL"}>MODEL</Option>
-                            <Option value="REVISION" data-value="REVISION" selected={entityType === "REVISION"}>REVISION</Option>
-                            <Option value="VARIANT" data-value="VARIANT" selected={entityType === "VARIANT"}>VARIANT</Option>
-                            <Option value="BOM" data-value="BOM" selected={entityType === "BOM"}>BOM</Option>
-                            <Option value="ROUTING_STEP" data-value="ROUTING_STEP" selected={entityType === "ROUTING_STEP"}>ROUTING_STEP</Option>
-                            <Option value="LABEL_TEMPLATE" data-value="LABEL_TEMPLATE" selected={entityType === "LABEL_TEMPLATE"}>LABEL_TEMPLATE</Option>
-                            <Option value="LABEL_BINDING" data-value="LABEL_BINDING" selected={entityType === "LABEL_BINDING"}>LABEL_BINDING</Option>
-                            <Option value="MACHINE" data-value="MACHINE" selected={entityType === "MACHINE"}>MACHINE</Option>
-                            <Option value="DEVICE" data-value="DEVICE" selected={entityType === "DEVICE"}>DEVICE</Option>
-                            <Option value="USER" data-value="USER" selected={entityType === "USER"}>USER</Option>
-                        </Select>
-                    </div>
-                </FlexBox>
-            }
+      <Section title="Audit Logs" variant="card">
+        <DataTable
+          data={logs}
+          loading={isLoading}
+          columns={columns}
+          filterPlaceholder="Search audit logs..."
+          initialPageSize={20}
+          actions={
+            <div className="flex items-center gap-2">
+              <Label>Filter by Entity Type:</Label>
+              <Select value={entityType} onValueChange={setEntityType}>
+                <SelectTrigger className="min-w-[200px]">
+                  <SelectValue placeholder="All Entities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Entities</SelectItem>
+                  {ENTITY_OPTIONS.filter(Boolean).map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          }
         />
       </Section>
     </PageLayout>

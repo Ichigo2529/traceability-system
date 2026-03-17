@@ -1,8 +1,9 @@
-import { useState, useCallback } from "react";
-import { Toast } from "@ui5/webcomponents-react";
+import { useCallback } from "react";
+import { toast as sonnerToast } from "sonner";
 
 /**
  * Declarative toast hook for consistent CRUD success/error feedback.
+ * Uses sonner under the hood (Toaster is rendered in App.tsx).
  *
  * Usage:
  *   const { ToastComponent, showToast } = useToast();
@@ -10,30 +11,15 @@ import { Toast } from "@ui5/webcomponents-react";
  *   // In onSuccess:
  *   showToast("User created successfully");
  *
- *   // In JSX (place once at bottom):
+ *   // In JSX (place once at bottom; no-op, Toaster is global):
  *   <ToastComponent />
  */
 export function useToast() {
-  const [open, setOpen] = useState(false);
-  const [message, setMessage] = useState("");
-
   const showToast = useCallback((msg: string) => {
-    setMessage(msg);
-    setOpen(true);
+    sonnerToast.success(msg);
   }, []);
 
-  const handleClose = useCallback(() => {
-    setOpen(false);
-  }, []);
-
-  const ToastComponent = useCallback(
-    () => (
-      <Toast open={open} onClose={handleClose}>
-        {message}
-      </Toast>
-    ),
-    [open, message, handleClose]
-  );
+  const ToastComponent = useCallback(() => null, []);
 
   return { showToast, ToastComponent } as const;
 }

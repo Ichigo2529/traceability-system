@@ -1,30 +1,21 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ColumnDef } from "@tanstack/react-table";
 import { sdk } from "../context/AuthContext";
 import { Machine } from "@traceability/sdk";
 import { DataTable } from "../components/shared/DataTable";
 import { formatApiError } from "../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../hooks/useToast";
-import { 
-    Button,
-    Input,
-    Label,
-    Select,
-    Option,
-    FlexBox,
-    FlexBoxAlignItems,
-    Avatar,
-    Form,
-    FormItem
-} from "@ui5/webcomponents-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormDialog } from "../components/shared/FormDialog";
 import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/edit.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/machine.js";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Plus, Pencil, Trash2, Cpu } from "lucide-react";
 
 const EMPTY_FORM = { name: "", station_type: "SCANNER", line_code: "", supported_variants: "" };
 const STATION_TYPES = ["SCANNER", "PRINTER", "TESTER", "ASSEMBLY", "PACKING"];
@@ -36,7 +27,7 @@ export default function MachinesPage() {
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
 
   const { data: machines = [], isLoading } = useQuery({
     queryKey: ["machines"],
@@ -44,7 +35,12 @@ export default function MachinesPage() {
   });
 
   const createMachine = useMutation({
-    mutationFn: async (data: any) => sdk.admin.createMachine(data),
+    mutationFn: async (data: {
+      name: string;
+      station_type: string;
+      line_code: string | null;
+      supported_variants: string[];
+    }) => sdk.admin.createMachine(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["machines"] });
       setIsModalOpen(false);
@@ -53,11 +49,16 @@ export default function MachinesPage() {
       setError(undefined);
       showToast("Machine created successfully");
     },
-    onError: (err) => setError(formatApiError(err))
+    onError: (err) => setError(formatApiError(err)),
   });
 
   const updateMachine = useMutation({
-    mutationFn: async (data: any) => sdk.admin.updateMachine(editingId!, data),
+    mutationFn: async (data: {
+      name: string;
+      station_type: string;
+      line_code: string | null;
+      supported_variants: string[];
+    }) => sdk.admin.updateMachine(editingId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["machines"] });
       setIsModalOpen(false);
@@ -66,7 +67,7 @@ export default function MachinesPage() {
       setError(undefined);
       showToast("Machine updated successfully");
     },
-    onError: (err) => setError(formatApiError(err))
+    onError: (err) => setError(formatApiError(err)),
   });
 
   const deleteMachine = useMutation({
@@ -106,49 +107,69 @@ export default function MachinesPage() {
         .map((s) => s.trim())
         .filter(Boolean),
     };
-
     if (editingId) updateMachine.mutate(payload);
     else createMachine.mutate(payload);
   };
 
-  const columns = [
-    {
-      header: "Name",
-      accessorKey: "name" as any,
-      cell: ({ row }: { row: any }) => (
-        <FlexBox alignItems={FlexBoxAlignItems.Center} style={{ gap: "0.5rem" }}>
-          <Avatar icon="machine" size="XS" colorScheme="Accent6" />
-          <span style={{ fontWeight: "bold" }}>{row.original.name}</span>
-        </FlexBox>
-      ),
-    },
-    { header: "Station Type", accessorKey: "station_type" as any },
-    {
-      header: "Line Code",
-      accessorKey: "line_code" as any,
-      cell: ({ row }: { row: any }) => (row.original.line_code ? <span style={{ fontFamily: "monospace" }}>{row.original.line_code}</span> : "-"),
-    },
-    {
-      header: "Supported Variants",
-      accessorKey: "supported_variants" as any,
-      cell: ({ row }: { row: any }) => <div style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.original.supported_variants?.length ? row.original.supported_variants.join(", ") : "-"}</div>,
-    },
-    {
-      header: "Actions",
-      accessorKey: "id" as any,
-      cell: ({ row }: { row: any }) => (
-        <FlexBox>
-          <Button icon="edit" design="Transparent" onClick={() => openEdit(row.original)} />
-          <Button 
-            icon="delete" 
-            design="Transparent" 
-            style={{ color: "var(--sapNegativeColor)" }}
-            onClick={() => setDeleteTarget(row.original.id)} 
-          />
-        </FlexBox>
-      ),
-    },
-  ];
+  const columns = useMemo<ColumnDef<Machine>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Name",
+        accessorKey: "name",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-8 w-8">
+              <AvatarFallback>
+                <Cpu className="h-4 w-4" />
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-bold">{row.original.name}</span>
+          </div>
+        ),
+      },
+      { id: "station_type", header: "Station Type", accessorKey: "station_type" },
+      {
+        id: "line_code",
+        header: "Line Code",
+        accessorKey: "line_code",
+        cell: ({ row }) =>
+          row.original.line_code ? <span className="font-mono text-sm">{row.original.line_code}</span> : "-",
+      },
+      {
+        id: "supported_variants",
+        header: "Supported Variants",
+        accessorKey: "supported_variants",
+        cell: ({ row }) => (
+          <div className="max-w-[200px] truncate">
+            {row.original.supported_variants?.length ? row.original.supported_variants.join(", ") : "-"}
+          </div>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => (
+          <div className="flex gap-1">
+            <Button type="button" variant="ghost" size="icon" onClick={() => openEdit(row.original)} title="Edit">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="text-destructive"
+              onClick={() => setDeleteTarget(row.original.id)}
+              title="Deactivate"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   const isSubmitting = createMachine.isPending || updateMachine.isPending;
 
@@ -156,72 +177,78 @@ export default function MachinesPage() {
     <PageLayout
       title="Production Machines"
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Configured physical equipment and assembly lines</span>
-        </FlexBox>
+        </div>
       }
       icon="machine"
       iconColor="indigo"
     >
       <div className="page-container">
         <ApiErrorBanner message={error} />
-        <DataTable 
-            data={machines} 
-            columns={columns}
-            loading={isLoading}
-            actions={
-                <Button icon="add" design="Emphasized" className="button-hover-scale" onClick={openCreate}>
-                    Add Machine
-                </Button>
-            }
+        <DataTable
+          data={machines}
+          columns={columns}
+          loading={isLoading}
+          actions={
+            <Button className="button-hover-scale" onClick={openCreate}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Machine
+            </Button>
+          }
         />
       </div>
 
       <FormDialog
-          open={isModalOpen}
-          title={editingId ? "Edit Machine" : "Create Machine"}
-          onClose={() => setIsModalOpen(false)}
-          onSubmit={submit}
-          submitting={isSubmitting}
+        open={isModalOpen}
+        title={editingId ? "Edit Machine" : "Create Machine"}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={submit}
+        submitting={isSubmitting}
       >
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem", minWidth: "400px", padding: "1rem" }}>
-              <Form layout="S1 M1 L1 XL1" labelSpan="S12 M12 L12 XL12">
-                  <FormItem labelContent={<Label required>Machine Name</Label>}>
-                      <Input 
-                          value={formData.name}
-                          onInput={(e) => setFormData({...formData, name: e.target.value})}
-                      />
-                  </FormItem>
-
-                  <FormItem labelContent={<Label required>Station Type</Label>}>
-                      <Select
-                          onChange={(e) => setFormData({...formData, station_type: (e.target.selectedOption as any).dataset.value!})}
-                      >
-                          {STATION_TYPES.map(type => (
-                              <Option key={type} selected={formData.station_type === type} data-value={type}>
-                                  {type}
-                              </Option>
-                          ))}
-                      </Select>
-                  </FormItem>
-
-                  <FormItem labelContent={<Label>Line Code</Label>}>
-                      <Input 
-                          value={formData.line_code}
-                          onInput={(e) => setFormData({...formData, line_code: e.target.value})}
-                      />
-                  </FormItem>
-
-                  <FormItem labelContent={<Label>Supported Variants (comma separated)</Label>}>
-                      <Input 
-                          value={formData.supported_variants}
-                          onInput={(e) => setFormData({...formData, supported_variants: e.target.value})}
-                          placeholder="WITH_SHROUD, NO_SHROUD"
-                      />
-                  </FormItem>
-              </Form>
+        <div className="flex flex-col gap-4 min-w-[400px]">
+          <div className="grid gap-2">
+            <Label htmlFor="machine-name">Machine Name *</Label>
+            <Input
+              id="machine-name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
           </div>
+          <div className="grid gap-2">
+            <Label>Station Type *</Label>
+            <Select value={formData.station_type} onValueChange={(v) => setFormData({ ...formData, station_type: v })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATION_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="machine-line">Line Code</Label>
+            <Input
+              id="machine-line"
+              value={formData.line_code}
+              onChange={(e) => setFormData({ ...formData, line_code: e.target.value })}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="machine-variants">Supported Variants (comma separated)</Label>
+            <Input
+              id="machine-variants"
+              value={formData.supported_variants}
+              onChange={(e) => setFormData({ ...formData, supported_variants: e.target.value })}
+              placeholder="WITH_SHROUD, NO_SHROUD"
+            />
+          </div>
+        </div>
       </FormDialog>
 
       <ConfirmDialog
@@ -240,8 +267,6 @@ export default function MachinesPage() {
           }
         }}
       />
-
-      <ToastComponent />
     </PageLayout>
   );
 }

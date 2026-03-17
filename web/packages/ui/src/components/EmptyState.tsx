@@ -1,8 +1,8 @@
 import React from "react";
-import { Title, Label, Button, Icon, FlexBox, FlexBoxDirection, FlexBoxAlignItems, FlexBoxJustifyContent } from "@ui5/webcomponents-react";
+import { FileText } from "lucide-react";
 
 interface EmptyStateProps {
-  icon?: string;
+  icon?: React.ReactNode;
   title: string;
   description?: string;
   actionText?: string;
@@ -11,47 +11,30 @@ interface EmptyStateProps {
 }
 
 export const EmptyState: React.FC<EmptyStateProps> = ({
-  icon = "document",
+  icon,
   title,
   description,
   actionText,
   onAction,
   style = {},
 }) => {
+  const IconNode = icon ?? <FileText className="w-10 h-10 text-muted-foreground/50" />;
   return (
-    <FlexBox
-      direction={FlexBoxDirection.Column}
-      alignItems={FlexBoxAlignItems.Center}
-      justifyContent={FlexBoxJustifyContent.Center}
-      style={{ padding: "4rem 2rem", width: "100%", textAlign: "center", ...style }}
-    >
-      <div style={{
-        width: "80px",
-        height: "80px",
-        borderRadius: "50%",
-        background: "var(--sapField_ReadOnly_Background)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        marginBottom: "1.5rem",
-        border: "1px solid var(--sapList_BorderColor)"
-      }}>
-        <Icon name={icon} style={{ width: "2.5rem", height: "2.5rem", color: "var(--sapContent_LabelColor)", opacity: 0.5 }} />
+    <div className="flex flex-col items-center justify-center py-16 px-8 w-full text-center" style={style}>
+      <div className="w-20 h-20 rounded-full bg-muted border border-border flex items-center justify-center mb-6">
+        {IconNode}
       </div>
-      
-      <Title level="H3" style={{ marginBottom: "0.5rem" }}>{title}</Title>
-      
-      {description && (
-        <Label style={{ marginBottom: "1.5rem", maxWidth: "400px", whiteSpace: "normal" }}>
-          {description}
-        </Label>
-      )}
-      
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      {description && <p className="text-sm text-muted-foreground mb-6 max-w-md">{description}</p>}
       {actionText && onAction && (
-        <Button design="Emphasized" icon="add" onClick={onAction}>
+        <button
+          type="button"
+          onClick={onAction}
+          className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+        >
           {actionText}
-        </Button>
+        </button>
       )}
-    </FlexBox>
+    </div>
   );
 };

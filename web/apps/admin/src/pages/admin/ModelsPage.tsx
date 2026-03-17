@@ -9,31 +9,24 @@ import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
-import {
-  Button,
-  FlexBox,
-  FlexBoxAlignItems,
-  FlexibleColumnLayout,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/add.js";
-import "@ui5/webcomponents-icons/dist/delete.js";
-import "@ui5/webcomponents-icons/dist/product.js";
+import { Button } from "@/components/ui/button";
 import { useToast } from "../../hooks/useToast";
 import { ModelDetailPanel } from "../../components/shared/ModelDetailPanel";
+import { Plus, Trash2 } from "lucide-react";
 
 export function ModelsPage() {
   const queryClient = useQueryClient();
   const [layout, setLayout] = useState<"OneColumn" | "TwoColumnsMidExpanded">("OneColumn");
   const [editing, setEditing] = useState<Model | null | undefined>(undefined);
 
-  // Sync layout with editing state to prevent empty FCL during HMR or manual reset
   useEffect(() => {
     if (editing === undefined && layout !== "OneColumn") {
       setLayout("OneColumn");
     }
   }, [editing, layout]);
+
   const [deleteTarget, setDeleteTarget] = useState<Model | null>(null);
-  const { showToast, ToastComponent } = useToast();
+  const { showToast } = useToast();
   const { data: models = [], isLoading } = useQuery({ queryKey: ["models"], queryFn: () => sdk.admin.getModels() });
 
   const deleteMutation = useMutation({
@@ -48,10 +41,27 @@ export function ModelsPage() {
     () => [
       { id: "code", header: "Model Code", accessorKey: "code", minSize: 120 },
       { id: "name", header: "Model Name", accessorKey: "name", minSize: 200 },
-      { id: "part_number", header: "Part Number", accessorKey: "part_number", minSize: 140, cell: ({ row }) => row.original.part_number || "-" },
+      {
+        id: "part_number",
+        header: "Part Number",
+        accessorKey: "part_number",
+        minSize: 140,
+        cell: ({ row }) => row.original.part_number || "-",
+      },
       { id: "pack_size", header: "FOF Tray Pack Size", accessorKey: "pack_size", minSize: 140 },
-      { id: "active_revision", header: "Active Revision", accessorKey: "active_revision_code", minSize: 140, cell: ({ row }) => row.original.active_revision_code || "-" },
-      { id: "status", header: "Status", minSize: 100, cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} /> },
+      {
+        id: "active_revision",
+        header: "Active Revision",
+        accessorKey: "active_revision_code",
+        minSize: 140,
+        cell: ({ row }) => row.original.active_revision_code || "-",
+      },
+      {
+        id: "status",
+        header: "Status",
+        minSize: 100,
+        cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} />,
+      },
       {
         id: "actions",
         header: "",
@@ -59,15 +69,18 @@ export function ModelsPage() {
         enableResizing: false,
         cell: ({ row }) => (
           <Button
-            icon="delete"
-            design="Transparent"
+            type="button"
+            variant="ghost"
+            size="icon"
             onClick={(e) => {
               e.stopPropagation();
               setDeleteTarget(row.original);
             }}
-            tooltip="Delete Model"
+            title="Delete Model"
             aria-label="Delete Model"
-          />
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         ),
       },
     ],
@@ -76,7 +89,7 @@ export function ModelsPage() {
 
   const columns = useMemo(() => {
     if (layout === "OneColumn") return allColumns;
-    return allColumns.filter(c => ["name", "part_number", "status", "actions"].includes(c.id as string));
+    return allColumns.filter((c) => ["name", "part_number", "status", "actions"].includes(c.id as string));
   }, [allColumns, layout]);
 
   return (
@@ -84,22 +97,20 @@ export function ModelsPage() {
       title="Models"
       fullHeight={true}
       subtitle={
-        <FlexBox alignItems={FlexBoxAlignItems.Center}>
+        <div className="flex items-center gap-2">
           <span className="indicator-live" />
           <span>Manage product models and specifications</span>
-        </FlexBox>
+        </div>
       }
       icon="product"
       iconColor="blue"
     >
-      <FlexibleColumnLayout
-        style={{ height: "100%" }}
-        layout={layout}
-        startColumn={
-          <div className="page-container" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-          <ApiErrorBanner 
-            message={deleteMutation.error ? formatApiError(deleteMutation.error) : undefined} 
-          />
+      <div className="flex h-full gap-0" style={{ minHeight: 0 }}>
+        <div
+          className={`page-container flex flex-col ${layout === "TwoColumnsMidExpanded" ? "w-1/2 min-w-0 border-r border-border" : "flex-1"}`}
+          style={{ height: "100%" }}
+        >
+          <ApiErrorBanner message={deleteMutation.error ? formatApiError(deleteMutation.error) : undefined} />
 
           <DataTable
             data={models}
@@ -112,35 +123,40 @@ export function ModelsPage() {
               setLayout("TwoColumnsMidExpanded");
             }}
             actions={
-              <Button 
-                  icon="add" 
-                  design="Emphasized" 
-                  className="button-hover-scale"
-                  onClick={() => {
-                      setEditing(null);
-                      setLayout("TwoColumnsMidExpanded");
-                  }}
+              <Button
+                className="button-hover-scale"
+                onClick={() => {
+                  setEditing(null);
+                  setLayout("TwoColumnsMidExpanded");
+                }}
               >
+                <Plus className="h-4 w-4 mr-2" />
                 New Model
               </Button>
             }
           />
         </div>
-      }
-      midColumn={
-        editing !== undefined && (
-          <ModelDetailPanel
-            model={editing!}
-            onClose={() => setLayout("OneColumn")}
-            onSaved={() => {
-              queryClient.invalidateQueries({ queryKey: ["models"] });
-              setLayout("OneColumn");
-              showToast(editing ? "Model updated successfully" : "Model created successfully");
-            }}
-          />
-        )
-      }
-    />
+
+        {layout === "TwoColumnsMidExpanded" && (
+          <div className="w-1/2 min-w-0 flex flex-col overflow-hidden">
+            {editing !== undefined && (
+              <ModelDetailPanel
+                model={editing!}
+                onClose={() => {
+                  setLayout("OneColumn");
+                  setEditing(undefined);
+                }}
+                onSaved={() => {
+                  queryClient.invalidateQueries({ queryKey: ["models"] });
+                  setLayout("OneColumn");
+                  showToast(editing ? "Model updated successfully" : "Model created successfully");
+                }}
+              />
+            )}
+          </div>
+        )}
+      </div>
+
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete Model"
@@ -152,7 +168,6 @@ export function ModelsPage() {
           setDeleteTarget(null);
         }}
       />
-      <ToastComponent />
     </PageLayout>
   );
 }

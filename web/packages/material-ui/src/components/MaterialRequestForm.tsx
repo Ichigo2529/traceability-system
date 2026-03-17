@@ -1,28 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { MaterialRequestCatalogItem, MaterialRequestMeta } from "@traceability/sdk";
-import {
-  BusyIndicator,
-  Button,
-  Dialog,
-  FlexBox,
-  FlexBoxAlignItems,
-  FlexBoxDirection,
-  FlexBoxJustifyContent,
-  Form,
-  FormItem,
-  Input,
-  Label,
-  MessageStrip,
-  Option,
-  Select,
-  Table,
-  TableCell,
-  TableHeaderCell,
-  TableHeaderRow,
-  TableRow,
-  Text,
-  Title,
-} from "@ui5/webcomponents-react";
 import type { MaterialRequestFormErrors } from "../lib/materialRequestSchema";
 
 export type MaterialRequestLineForm = {
@@ -37,7 +14,9 @@ export type MaterialRequestLineForm = {
 
 type MaterialRequestFormProps = {
   lines: MaterialRequestLineForm[];
-  setLines: (next: MaterialRequestLineForm[] | ((prev: MaterialRequestLineForm[]) => MaterialRequestLineForm[])) => void;
+  setLines: (
+    next: MaterialRequestLineForm[] | ((prev: MaterialRequestLineForm[]) => MaterialRequestLineForm[])
+  ) => void;
   selectedCostCenterId: string;
   setSelectedCostCenterId: (value: string) => void;
   meta: MaterialRequestMeta | null;
@@ -56,7 +35,6 @@ type MaterialRequestFormProps = {
   onCancel?: () => void;
   formatDate: (iso: string) => string;
   disabled?: boolean;
-  /** Validation errors from zod schema — passed in by parent after validate attempt */
   formErrors?: MaterialRequestFormErrors;
 };
 
@@ -71,6 +49,22 @@ function blankLine(itemNo: number): MaterialRequestLineForm {
     remarks: "",
   };
 }
+
+const formGroupStyle: React.CSSProperties = { display: "flex", flexDirection: "column", gap: "0.2rem", width: "100%" };
+const errorTextStyle: React.CSSProperties = { color: "var(--sapNegativeColor)", fontSize: "0.75rem" };
+const labelStyle: React.CSSProperties = { fontSize: "0.875rem", fontWeight: 600 };
+const selectStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0.5rem",
+  borderRadius: "4px",
+  border: "1px solid var(--sapField_BorderColor)",
+};
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "0.5rem",
+  borderRadius: "4px",
+  border: "1px solid var(--sapField_BorderColor)",
+};
 
 export function MaterialRequestForm({
   lines,
@@ -98,21 +92,19 @@ export function MaterialRequestForm({
   const [qtyTouched, setQtyTouched] = useState<Set<number>>(new Set());
   const [modelSwitchPending, setModelSwitchPending] = useState<{ idx: number; newModelId: string } | null>(null);
 
-  // Local blur-based qty validation (shows error immediately after blur)
   const isQtyInvalidLocal = (line: MaterialRequestLineForm, idx: number) =>
     qtyTouched.has(idx) &&
     line.part_number.trim().length > 0 &&
     (!Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
 
-  // Merged: prefer schema error (from submit attempt), fallback to local blur check
   const getQtyError = (line: MaterialRequestLineForm, idx: number): string | undefined => {
     const schemaErr = formErrors?.lines?.[idx]?.requested_qty;
     if (schemaErr) return schemaErr;
     if (isQtyInvalidLocal(line, idx)) return "Must be > 0";
     return undefined;
   };
-  const getModelError = (idx: number): string | undefined => formErrors?.lines?.[idx]?.model_id;
-  const getPartError = (idx: number): string | undefined => formErrors?.lines?.[idx]?.part_number;
+  const getModelError = (idx: number) => formErrors?.lines?.[idx]?.model_id;
+  const getPartError = (idx: number) => formErrors?.lines?.[idx]?.part_number;
   const ccError = formErrors?.cost_center_id;
   const formLevelError = formErrors?._form;
 
@@ -120,11 +112,7 @@ export function MaterialRequestForm({
     const map = new Map<string, { model_id: string; model_code: string; model_name: string }>();
     for (const row of catalog) {
       if (!map.has(row.model_id)) {
-        map.set(row.model_id, {
-          model_id: row.model_id,
-          model_code: row.model_code,
-          model_name: row.model_name,
-        });
+        map.set(row.model_id, { model_id: row.model_id, model_code: row.model_code, model_name: row.model_name });
       }
     }
     return Array.from(map.values()).sort((a, b) => a.model_code.localeCompare(b.model_code));
@@ -185,7 +173,11 @@ export function MaterialRequestForm({
     updateLine(index, {
       part_number: key,
       description:
-        [model?.component_name || model?.model_name || "", model?.rm_location ? `Loc ${model.rm_location}` : "", model?.qty_per_assy ? `Use ${model.qty_per_assy}/VCM` : ""]
+        [
+          model?.component_name || model?.model_name || "",
+          model?.rm_location ? `Loc ${model.rm_location}` : "",
+          model?.qty_per_assy ? `Use ${model.qty_per_assy}/VCM` : "",
+        ]
           .filter(Boolean)
           .join(" | ") || "",
       uom: model?.uom_default ?? "PCS",
@@ -193,33 +185,90 @@ export function MaterialRequestForm({
   };
 
   return (
-    <FlexBox direction={FlexBoxDirection.Column} style={{ gap: "1rem", flex: 1 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", flex: 1 }}>
       {/* Model-switch confirmation dialog */}
-      <Dialog
-        open={Boolean(modelSwitchPending)}
-        headerText="Change Model?"
-        footer={
-          <FlexBox style={{ gap: "0.5rem", padding: "0.5rem" }}>
-            <Button design="Emphasized" onClick={confirmModelSwitch}>Yes, change model</Button>
-            <Button design="Transparent" onClick={() => setModelSwitchPending(null)}>Cancel</Button>
-          </FlexBox>
-        }
-        onClose={() => setModelSwitchPending(null)}
-      >
-        <Text style={{ padding: "1rem 0" }}>
-          Changing the model will clear the selected part number and description for this row. Continue?
-        </Text>
-      </Dialog>
+      {modelSwitchPending && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.5)",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--sapGroup_ContentBackground)",
+              padding: "1.5rem",
+              borderRadius: "8px",
+              maxWidth: "400px",
+              width: "90%",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+            }}
+          >
+            <h3 style={{ margin: "0 0 1rem 0", fontSize: "1.125rem" }}>Change Model?</h3>
+            <p style={{ margin: "0 0 1rem 0", fontSize: "0.875rem" }}>
+              Changing the model will clear the selected part number and description for this row. Continue?
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => setModelSwitchPending(null)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  border: "1px solid var(--sapField_BorderColor)",
+                  borderRadius: "4px",
+                  background: "transparent",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmModelSwitch}
+                style={{
+                  padding: "0.5rem 1rem",
+                  border: "none",
+                  borderRadius: "4px",
+                  background: "var(--sapButton_Emphasized_Background)",
+                  color: "var(--sapButton_Emphasized_TextColor)",
+                }}
+              >
+                Yes, change model
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {sectionNotSet && (
-        <MessageStrip design="Critical" hideCloseButton>
+        <div
+          style={{
+            padding: "0.75rem 1rem",
+            background: "var(--sapCriticalBackground)",
+            border: "1px solid var(--sapCriticalBorderColor)",
+            borderRadius: "4px",
+          }}
+        >
           Your user account has no section assigned. You cannot create requests.
-        </MessageStrip>
+        </div>
       )}
       {formLevelError && (
-        <MessageStrip design="Critical" hideCloseButton>
+        <div
+          style={{
+            padding: "0.75rem 1rem",
+            background: "var(--sapCriticalBackground)",
+            border: "1px solid var(--sapCriticalBorderColor)",
+            borderRadius: "4px",
+          }}
+        >
           {formLevelError}
-        </MessageStrip>
+        </div>
       )}
 
       <div
@@ -227,216 +276,254 @@ export function MaterialRequestForm({
           padding: "1.5rem",
           background: "var(--sapObjectHeader_Background)",
           border: "1px solid var(--sapList_BorderColor)",
-          borderRadius: "var(--sapElement_BorderCornerRadius)",
+          borderRadius: "6px",
         }}
       >
-        <FlexBox justifyContent={FlexBoxJustifyContent.SpaceBetween} alignItems={FlexBoxAlignItems.Start} style={{ width: "100%", paddingBottom: "1.5rem" }}>
-          <FlexBox style={{ gap: "1.5rem" }} alignItems={FlexBoxAlignItems.Start}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            width: "100%",
+            paddingBottom: "1.5rem",
+          }}
+        >
+          <div style={{ display: "flex", gap: "1.5rem", alignItems: "flex-start" }}>
             <img src="/logo.png" alt="MMI Logo" style={{ height: "4.5rem", width: "auto", objectFit: "contain" }} />
-            <FlexBox direction={FlexBoxDirection.Column}>
-              <Title level="H3" style={{ fontStyle: "italic", marginBottom: "0.25rem", color: "var(--sapTextColor)" }}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <h3
+                style={{
+                  fontStyle: "italic",
+                  marginBottom: "0.25rem",
+                  margin: 0,
+                  color: "var(--sapTextColor)",
+                  fontSize: "1.125rem",
+                }}
+              >
                 MMI Precision Assembly (Thailand) Co., Ltd.
-              </Title>
-              <Text style={{ fontSize: "0.875rem" }}>
+              </h3>
+              <p style={{ fontSize: "0.875rem", margin: 0 }}>
                 888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand
-              </Text>
-              <FlexBox style={{ marginTop: "0.25rem", gap: "1rem" }}>
-                <Text style={{ fontSize: "0.875rem" }}>TEL : (6644) 000188</Text>
-                <Text style={{ fontSize: "0.875rem" }}>FAX : (6644) 000199</Text>
-              </FlexBox>
-            </FlexBox>
-          </FlexBox>
-        </FlexBox>
-
-        <div style={{ width: "100%", borderBottom: "2px solid var(--sapGroup_ContentBorderColor)", marginBottom: "1.5rem" }}>
-          <Title level="H3" style={{ marginBottom: "0.5rem" }}>
-            DIRECT MATERIAL ISSUE VOUCHER
-          </Title>
+              </p>
+              <div style={{ marginTop: "0.25rem", display: "flex", gap: "1rem" }}>
+                <span style={{ fontSize: "0.875rem" }}>TEL : (6644) 000188</span>
+                <span style={{ fontSize: "0.875rem" }}>FAX : (6644) 000199</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <Form layout="S1 M3 L4 XL4" labelSpan="S12 M12 L12 XL12">
-          <FormItem labelContent={<Label>NO.</Label>}>
-            <Text style={{ color: "var(--sapHighlightColor)", fontWeight: "bold" }}>{requestNo ?? "-"}</Text>
-          </FormItem>
-          <FormItem labelContent={<Label>DMI. NO.</Label>}>
-            <Text style={{ color: "var(--sapHighlightColor)", fontWeight: "bold" }}>{dmiNo ?? "-"}</Text>
-          </FormItem>
-          <FormItem labelContent={<Label>DATE</Label>}>
-            <Text>{formatDate(generatedAt ?? new Date().toISOString())}</Text>
-          </FormItem>
-          <FormItem labelContent={<Label>REQUESTOR</Label>}>
-            <Text>{requestorName ?? "-"}</Text>
-          </FormItem>
-          <FormItem labelContent={<Label>DEPARTMENT</Label>}>
-            <Text>{departmentName ?? "-"}</Text>
-          </FormItem>
-          <FormItem labelContent={<Label>SECTION</Label>}>
-            <Text>{sectionDisplay || "-"}</Text>
-          </FormItem>
-          <FormItem labelContent={<Label required showColon>COST CENTER</Label>}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem", width: "100%" }}>
-              <Select
-                id="material-cc-select"
-                disabled={sectionNotSet || disabled}
-                onChange={(e) => setSelectedCostCenterId(e.detail.selectedOption.getAttribute("data-value") ?? "")}
-                valueState={ccError ? "Negative" : "None"}
-                valueStateMessage={ccError ? <span>{ccError}</span> : undefined}
-                style={{ width: "100%" }}
-              >
-                <Option data-value="" selected={!selectedCostCenterId}>
-                  Select Cost Center
-                </Option>
-                {(meta?.allowed_cost_centers ?? []).map((cc) => (
-                  <Option key={cc.cost_center_id} data-value={cc.cost_center_id} selected={selectedCostCenterId === cc.cost_center_id}>
-                    {cc.group_code ? `${cc.group_code} | ` : ""}
-                    {cc.cost_code}
-                    {cc.short_text ? ` — ${cc.short_text}` : ""}
-                  </Option>
-                ))}
-              </Select>
-              {ccError && <Text style={{ color: "var(--sapNegativeColor)", fontSize: "0.75rem" }}>{ccError}</Text>}
-            </div>
-          </FormItem>
-        </Form>
+        <div
+          style={{
+            width: "100%",
+            borderBottom: "2px solid var(--sapGroup_ContentBorderColor)",
+            marginBottom: "1.5rem",
+          }}
+        >
+          <h3 style={{ marginBottom: "0.5rem", margin: 0, fontSize: "1.125rem" }}>DIRECT MATERIAL ISSUE VOUCHER</h3>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "1rem" }}>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>NO.</label>
+            <span style={{ color: "var(--sapHighlightColor)", fontWeight: "bold" }}>{requestNo ?? "-"}</span>
+          </div>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>DMI. NO.</label>
+            <span style={{ color: "var(--sapHighlightColor)", fontWeight: "bold" }}>{dmiNo ?? "-"}</span>
+          </div>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>DATE</label>
+            <span>{formatDate(generatedAt ?? new Date().toISOString())}</span>
+          </div>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>REQUESTOR</label>
+            <span>{requestorName ?? "-"}</span>
+          </div>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>DEPARTMENT</label>
+            <span>{departmentName ?? "-"}</span>
+          </div>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>SECTION</label>
+            <span>{sectionDisplay || "-"}</span>
+          </div>
+          <div style={formGroupStyle}>
+            <label style={labelStyle}>COST CENTER *</label>
+            <select
+              id="material-cc-select"
+              disabled={sectionNotSet || disabled}
+              value={selectedCostCenterId}
+              onChange={(e) => setSelectedCostCenterId(e.target.value)}
+              style={{ ...selectStyle, borderColor: ccError ? "var(--sapNegativeColor)" : undefined }}
+            >
+              <option value="">Select Cost Center</option>
+              {(meta?.allowed_cost_centers ?? []).map((cc) => (
+                <option key={cc.cost_center_id} value={cc.cost_center_id}>
+                  {cc.group_code ? `${cc.group_code} | ` : ""}
+                  {cc.cost_code}
+                  {cc.short_text ? ` — ${cc.short_text}` : ""}
+                </option>
+              ))}
+            </select>
+            {ccError && <span style={errorTextStyle}>{ccError}</span>}
+          </div>
+        </div>
       </div>
 
       <div
         style={{
           flex: 1,
           border: "1px solid var(--sapList_BorderColor)",
-          borderRadius: "var(--sapElement_BorderCornerRadius)",
+          borderRadius: "6px",
           overflow: "hidden",
           background: "var(--sapBaseColor)",
         }}
       >
-        <div style={{ padding: "1rem", background: "var(--sapBaseColor)", borderBottom: "1px solid var(--sapList_BorderColor)" }}>
-          <Title level="H5">Request Items</Title>
+        <div
+          style={{
+            padding: "1rem",
+            background: "var(--sapBaseColor)",
+            borderBottom: "1px solid var(--sapList_BorderColor)",
+          }}
+        >
+          <h4 style={{ margin: 0, fontSize: "1rem" }}>Request Items</h4>
         </div>
-        <div style={{ background: "var(--sapBaseColor)", overflowX: "auto" }}>
-          <BusyIndicator active={catalogLoading} style={{ width: "100%" }}>
-            <Table
-              style={{ width: "100%", minWidth: "52rem" } as React.CSSProperties}
-              headerRow={
-                <TableHeaderRow>
-                  <TableHeaderCell width="3rem"><Label style={{ textAlign: "center", display: "block" }}>#</Label></TableHeaderCell>
-                  <TableHeaderCell width="11rem"><Label>Model</Label></TableHeaderCell>
-                  <TableHeaderCell width="12rem"><Label>Part No.</Label></TableHeaderCell>
-                  <TableHeaderCell width="14rem"><Label>Description</Label></TableHeaderCell>
-                  <TableHeaderCell width="7rem"><Label>Qty *</Label></TableHeaderCell>
-                  <TableHeaderCell width="4.5rem"><Label style={{ textAlign: "center", display: "block" }}>UOM</Label></TableHeaderCell>
-                  <TableHeaderCell><Label>Remarks</Label></TableHeaderCell>
-                  {!disabled && <TableHeaderCell width="2.75rem"><Label></Label></TableHeaderCell>}
-                </TableHeaderRow>
-              }
+        <div style={{ background: "var(--sapBaseColor)", overflowX: "auto", position: "relative" }}>
+          {catalogLoading && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(255,255,255,0.7)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+              }}
             >
+              <span>Loading...</span>
+            </div>
+          )}
+          <table style={{ width: "100%", minWidth: "52rem", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--sapList_BorderColor)" }}>
+                <th style={{ width: "3rem", padding: "0.75rem", textAlign: "center", fontWeight: 600 }}>#</th>
+                <th style={{ width: "11rem", padding: "0.75rem", textAlign: "left", fontWeight: 600 }}>Model</th>
+                <th style={{ width: "12rem", padding: "0.75rem", textAlign: "left", fontWeight: 600 }}>Part No.</th>
+                <th style={{ width: "14rem", padding: "0.75rem", textAlign: "left", fontWeight: 600 }}>Description</th>
+                <th style={{ width: "7rem", padding: "0.75rem", textAlign: "left", fontWeight: 600 }}>Qty *</th>
+                <th style={{ width: "4.5rem", padding: "0.75rem", textAlign: "center", fontWeight: 600 }}>UOM</th>
+                <th style={{ padding: "0.75rem", textAlign: "left", fontWeight: 600 }}>Remarks</th>
+                {!disabled && <th style={{ width: "2.75rem", padding: "0.75rem" }} />}
+              </tr>
+            </thead>
+            <tbody>
               {lines.map((line, idx) => {
                 const qtyErr = getQtyError(line, idx);
                 const modelErr = getModelError(idx);
                 const partErr = getPartError(idx);
                 return (
-                  <TableRow key={idx}>
-                    <TableCell><Label style={{ textAlign: "center", display: "block" }}>{idx + 1}</Label></TableCell>
-                    <TableCell>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                        <Select
-                          onChange={(e) => {
-                            const selected = e.detail.selectedOption as unknown as { value: string };
-                            onModelChange(idx, selected.value);
-                          }}
+                  <tr key={idx} style={{ borderBottom: "1px solid var(--sapList_BorderColor)" }}>
+                    <td style={{ padding: "0.5rem", textAlign: "center" }}>{idx + 1}</td>
+                    <td style={{ padding: "0.5rem" }}>
+                      <div style={formGroupStyle}>
+                        <select
                           value={line.model_id}
                           disabled={disabled}
-                          valueState={modelErr ? "Negative" : "None"}
-                          valueStateMessage={modelErr ? <span>{modelErr}</span> : undefined}
-                          style={{ width: "100%" }}
+                          onChange={(e) => onModelChange(idx, e.target.value)}
+                          style={{ ...selectStyle, borderColor: modelErr ? "var(--sapNegativeColor)" : undefined }}
                         >
-                          <Option value="">Select Model</Option>
+                          <option value="">Select Model</option>
                           {modelOptions.map((model) => (
-                            <Option key={model.model_id} value={model.model_id}>
+                            <option key={model.model_id} value={model.model_id}>
                               {model.model_code}
-                            </Option>
+                            </option>
                           ))}
-                        </Select>
-                        {modelErr && <Text style={{ color: "var(--sapNegativeColor)", fontSize: "0.7rem" }}>{modelErr}</Text>}
+                        </select>
+                        {modelErr && <span style={errorTextStyle}>{modelErr}</span>}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                        <Select
-                          onChange={(e) => {
-                            const selected = e.detail.selectedOption as unknown as { value: string };
-                            onPartNumberChange(idx, selected.value);
-                          }}
+                    </td>
+                    <td style={{ padding: "0.5rem" }}>
+                      <div style={formGroupStyle}>
+                        <select
                           value={line.part_number}
                           disabled={disabled || !line.model_id}
-                          valueState={partErr ? "Negative" : "None"}
-                          valueStateMessage={partErr ? <span>{partErr}</span> : undefined}
-                          style={{ width: "100%" }}
+                          onChange={(e) => onPartNumberChange(idx, e.target.value)}
+                          style={{ ...selectStyle, borderColor: partErr ? "var(--sapNegativeColor)" : undefined }}
                         >
-                          <Option value="">{line.model_id ? "Select Component" : "Select model first"}</Option>
+                          <option value="">{line.model_id ? "Select Component" : "Select model first"}</option>
                           {(componentOptionsByModel.get(line.model_id) ?? []).map((item) => (
-                            <Option key={`${item.model_id}-${item.part_number}`} value={item.part_number}>
+                            <option key={`${item.model_id}-${item.part_number}`} value={item.part_number}>
                               {item.part_number} {item.component_name ? `- ${item.component_name}` : ""}
-                            </Option>
+                            </option>
                           ))}
-                        </Select>
-                        {partErr && <Text style={{ color: "var(--sapNegativeColor)", fontSize: "0.7rem" }}>{partErr}</Text>}
+                        </select>
+                        {partErr && <span style={errorTextStyle}>{partErr}</span>}
                       </div>
-                    </TableCell>
-                    <TableCell><Label wrappingType="Normal">{line.description || "-"}</Label></TableCell>
-                    <TableCell>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                        <Input
-                          type="Number"
-                          value={line.requested_qty?.toString() ?? ""}
-                          onInput={(e) => {
-                            updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined });
-                          }}
+                    </td>
+                    <td style={{ padding: "0.5rem", fontSize: "0.875rem" }}>{line.description || "-"}</td>
+                    <td style={{ padding: "0.5rem" }}>
+                      <div style={formGroupStyle}>
+                        <input
+                          type="number"
+                          value={line.requested_qty ?? ""}
+                          onChange={(e) =>
+                            updateLine(idx, { requested_qty: e.target.value ? Number(e.target.value) : undefined })
+                          }
                           onBlur={() => setQtyTouched((prev) => new Set([...prev, idx]))}
-                          valueState={qtyErr ? "Negative" : "None"}
-                          valueStateMessage={qtyErr ? <span>{qtyErr}</span> : undefined}
                           disabled={disabled}
-                          style={{ width: "100%", textAlign: "right" }}
+                          style={{
+                            ...inputStyle,
+                            textAlign: "right",
+                            borderColor: qtyErr ? "var(--sapNegativeColor)" : undefined,
+                          }}
                         />
-                        {qtyErr && (
-                          <Text style={{ color: "var(--sapNegativeColor)", fontSize: "0.7rem" }}>
-                            {qtyErr}
-                          </Text>
-                        )}
+                        {qtyErr && <span style={errorTextStyle}>{qtyErr}</span>}
                       </div>
-                    </TableCell>
-                    <TableCell><Label style={{ textAlign: "center", display: "block" }}>{line.uom || "PCS"}</Label></TableCell>
-                    <TableCell>
-                      <Input
+                    </td>
+                    <td style={{ padding: "0.5rem", textAlign: "center", fontSize: "0.875rem" }}>
+                      {line.uom || "PCS"}
+                    </td>
+                    <td style={{ padding: "0.5rem" }}>
+                      <input
                         value={line.remarks}
-                        onInput={(e) => updateLine(idx, { remarks: e.target.value })}
+                        onChange={(e) => updateLine(idx, { remarks: e.target.value })}
                         disabled={disabled}
-                        style={{ width: "100%" }}
+                        style={inputStyle}
                       />
-                    </TableCell>
+                    </td>
                     {!disabled && (
-                      <TableCell>
-                        <Button
-                          icon="delete"
-                          design="Transparent"
-                          tooltip="Remove this row"
+                      <td style={{ padding: "0.5rem" }}>
+                        <button
+                          type="button"
+                          title="Remove this row"
                           disabled={lines.length <= 1}
                           onClick={() =>
-                            setLines((prev) =>
-                              prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)
-                            )
+                            setLines((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== idx)))
                           }
-                        />
-                      </TableCell>
+                          style={{
+                            padding: "0.25rem",
+                            border: "none",
+                            background: "transparent",
+                            cursor: lines.length <= 1 ? "not-allowed" : "pointer",
+                            opacity: lines.length <= 1 ? 0.5 : 1,
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </td>
                     )}
-                  </TableRow>
+                  </tr>
                 );
               })}
-            </Table>
-          </BusyIndicator>
+            </tbody>
+          </table>
         </div>
-        <FlexBox
-          alignItems={FlexBoxAlignItems.Center}
+        <div
           style={{
+            display: "flex",
+            alignItems: "center",
             gap: "0.5rem",
             padding: "0.75rem 1rem",
             borderTop: "1px solid var(--sapList_BorderColor)",
@@ -444,28 +531,55 @@ export function MaterialRequestForm({
           }}
         >
           {!disabled && (
-            <Button
-              icon="add"
-              design="Transparent"
+            <button
+              type="button"
               onClick={() => setLines((prev) => [...prev, blankLine(prev.length + 1)])}
+              style={{
+                padding: "0.5rem 0.75rem",
+                border: "1px solid var(--sapField_BorderColor)",
+                borderRadius: "4px",
+                background: "transparent",
+              }}
             >
               Add Item
-            </Button>
+            </button>
           )}
           <div style={{ marginLeft: "auto", display: "flex", gap: "0.5rem", alignItems: "center" }}>
             {onCancel && (
-              <Button design="Transparent" onClick={onCancel}>
+              <button
+                type="button"
+                onClick={onCancel}
+                style={{
+                  padding: "0.5rem 1rem",
+                  border: "1px solid var(--sapField_BorderColor)",
+                  borderRadius: "4px",
+                  background: "transparent",
+                }}
+              >
                 Cancel
-              </Button>
+              </button>
             )}
             {onSubmit && (
-              <Button design="Emphasized" icon="paper-plane" onClick={onSubmit} disabled={disableSubmit}>
+              <button
+                type="button"
+                onClick={onSubmit}
+                disabled={disableSubmit}
+                style={{
+                  padding: "0.5rem 1rem",
+                  border: "none",
+                  borderRadius: "4px",
+                  background: "var(--sapButton_Emphasized_Background)",
+                  color: "var(--sapButton_Emphasized_TextColor)",
+                  cursor: disableSubmit ? "not-allowed" : "pointer",
+                  opacity: disableSubmit ? 0.7 : 1,
+                }}
+              >
                 {submitLabel}
-              </Button>
+              </button>
             )}
           </div>
-        </FlexBox>
+        </div>
       </div>
-    </FlexBox>
+    </div>
   );
 }

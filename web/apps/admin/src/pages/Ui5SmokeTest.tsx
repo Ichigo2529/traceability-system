@@ -1,89 +1,75 @@
-import { useRef } from "react";
-import { 
-    Button, 
-    Card, 
-    CardHeader, 
-    Input, 
-    Title,
-    Panel,
-    Icon,
-    FlexBox,
-    FlexBoxDirection,
-    FlexBoxAlignItems,
-    Dialog,
-    MessageStrip,
-    DialogDomRef,
-    Text,
-} from "@ui5/webcomponents-react";
-import "@ui5/webcomponents-icons/dist/employee.js";
-import "@ui5/webcomponents-icons/dist/settings.js";
-import "@ui5/webcomponents-icons/dist/message-information.js";
-import { useToast } from "../hooks/useToast";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { User, Settings, Info } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Ui5SmokeTest() {
-    const dialogRef = useRef<DialogDomRef>(null);
-    const { showToast, ToastComponent } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-    return (
-        <div style={{ padding: "2rem", minHeight: "100vh", background: "var(--sapBackgroundColor)", boxSizing: "border-box" }}>
-            <Title level="H1" style={{ marginBottom: "1rem" }}>UI5 Smoke Test</Title>
-            
+  return (
+    <div className="p-8 min-h-screen bg-background">
+      <h1 className="text-2xl font-bold mb-4">UI Smoke Test</h1>
 
-            <MessageStrip design="Information" style={{ marginBottom: "1rem" }}>
-                This page verifies that the root UI5 setup is working correctly.
-            </MessageStrip>
+      <Alert className="mb-4">
+        <Info className="h-4 w-4" />
+        <AlertDescription>
+          This page verifies that the shared UI (shadcn + Tailwind + Lucide) works correctly.
+        </AlertDescription>
+      </Alert>
 
-            <Panel headerText="Mandatory Controls" fixed>
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem" }}>
-                    <Input
-                        placeholder="Value state example"
-                        valueState="Negative"
-                        style={{ width: "100%" }}
-                    />
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                        <Button design="Emphasized" icon="employee" onClick={() => showToast("Success!")}>
-                            Show Success Toast
-                        </Button>
-                        <Button design="Attention" icon="settings" onClick={() => (dialogRef.current as any)?.show()}>
-                            Open Dialog
-                        </Button>
-                    </div>
-                </div>
-            </Panel>
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>Mandatory Controls</CardTitle>
+          <CardDescription>Input and buttons</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Input placeholder="Value state example" className="border-destructive" />
+          <div className="flex gap-2">
+            <Button onClick={() => toast.success("Success!")}>
+              <User className="h-4 w-4 mr-2" />
+              Show Success Toast
+            </Button>
+            <Button variant="secondary" onClick={() => setDialogOpen(true)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Open Dialog
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-            <div style={{ marginTop: "1rem" }}>
-                <Card header={<CardHeader titleText="Card Component" subtitleText="Basic List" />}>
-                   <div style={{ padding: "1rem" }}>
-                       <div style={{ padding: "0.5rem", borderBottom: "1px solid var(--sapList_BorderColor)" }}>Item 1</div>
-                       <div style={{ padding: "0.5rem", borderBottom: "1px solid var(--sapList_BorderColor)", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                           <Icon name="employee" /> Item 2
-                       </div>
-                       <div style={{ padding: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                           <Icon name="settings" /> Item 3
-                       </div>
-                   </div>
-                </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Card Component</CardTitle>
+          <CardDescription>Basic list</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y">
+            <div className="py-2">Item 1</div>
+            <div className="py-2 flex items-center gap-2">
+              <User className="h-4 w-4" /> Item 2
             </div>
-            
-            <div style={{ marginTop: "1rem" }}>
-                <Title level="H3">FlexBox Layout</Title>
-                <FlexBox direction={FlexBoxDirection.Row} alignItems={FlexBoxAlignItems.Center} style={{ gap: "1rem", padding: "1rem", background: "var(--sapList_Background)" }}>
-                    <div style={{ width: "50px", height: "50px", background: "var(--sapBrandColor)", borderRadius: "50%" }}></div>
-                    <div style={{ width: "50px", height: "50px", background: "var(--sapPositiveColor)", borderRadius: "50%" }}></div>
-                    <div style={{ width: "50px", height: "50px", background: "var(--sapNegativeColor)", borderRadius: "50%" }}></div>
-                </FlexBox>
+            <div className="py-2 flex items-center gap-2">
+              <Settings className="h-4 w-4" /> Item 3
             </div>
+          </div>
+        </CardContent>
+      </Card>
 
-            <Dialog ref={dialogRef} headerText="Smoke Test Dialog">
-                <div style={{ padding: "1rem" }}>
-                    <Text>If you see this, the Dialog component is working correctly.</Text>
-                </div>
-                <div slot="footer" style={{ padding: "0.5rem", display: "flex", justifyContent: "flex-end" }}>
-                    <Button onClick={() => (dialogRef.current as any)?.close()}>Close</Button>
-                </div>
-            </Dialog>
-
-            <ToastComponent />
-        </div>
-    );
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Smoke Test Dialog</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">If you see this, the Dialog component is working correctly.</p>
+          <DialogFooter>
+            <Button onClick={() => setDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
