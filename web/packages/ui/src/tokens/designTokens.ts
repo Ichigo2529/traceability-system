@@ -1,7 +1,7 @@
 /**
- * Design System - Spacing Scale
- * Canonical spacing values for consistent UX/UI
- * Based on 8px grid system (SAP Fiori Design System)
+ * Design System - Spacing and tokens
+ * Canonical spacing values for consistent UX/UI (8px grid).
+ * Color tokens reference shadcn-style CSS variables where used.
  */
 
 export const spacing = {
@@ -30,28 +30,16 @@ export const fontWeights = {
 } as const;
 
 export const colors = {
-  // Text colors
-  textPrimary: "var(--sapTextColor)",
-  textSecondary: "var(--sapContent_LabelColor)",
-  textInverted: "var(--sapShell_TextColor)",
-
-  // Background colors
-  bgPage: "var(--sapPage_Background)",
-  bgCard: "var(--sapCard_Background)",
-  bgHeader: "var(--sapObjectHeader_Background)",
-  bgHover: "var(--sapHover_Background)",
-
-  // Border colors
-  borderDefault: "var(--sapContent_BorderColor)",
-
-  // Semantic colors
-  success: "var(--sapSuccessColor)",
-  warning: "var(--sapWarningColor)",
-  error: "var(--sapErrorColor)",
-  info: "var(--sapInformationColor)",
-
-  // Brand colors
-  brand: "var(--sapBrandColor)",
+  textPrimary: "var(--foreground)",
+  textSecondary: "var(--muted-foreground)",
+  textInverted: "var(--primary-foreground)",
+  bgPage: "var(--background)",
+  bgCard: "var(--card)",
+  borderDefault: "var(--border)",
+  success: "var(--success, oklch(0.65 0.2 145))",
+  warning: "var(--warning, oklch(0.75 0.18 85))",
+  error: "var(--destructive)",
+  info: "var(--ring)",
 } as const;
 
 export const breakpoints = {

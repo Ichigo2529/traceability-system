@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { User, Settings, Info } from "lucide-react";
 import { toast } from "sonner";
 
-export default function Ui5SmokeTest() {
+export default function UISmokeTest() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   return (

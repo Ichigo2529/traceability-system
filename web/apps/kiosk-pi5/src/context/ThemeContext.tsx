@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { setTheme } from "@ui5/webcomponents-base/dist/config/Theme.js";
 
-type Theme = "sap_horizon" | "sap_horizon_dark";
+type Theme = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
@@ -10,26 +9,29 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+const STORAGE_KEY = "app-theme";
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem("ui5-theme") as Theme | null;
-    return saved || "sap_horizon";
+    const saved = localStorage.getItem(STORAGE_KEY) as Theme | null;
+    return saved === "dark" ? "dark" : "light";
   });
 
   useEffect(() => {
-    setTheme(theme);
-    localStorage.setItem("ui5-theme", theme);
+    const root = document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+    } else {
+      root.classList.remove("dark");
+    }
+    localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === "sap_horizon" ? "sap_horizon_dark" : "sap_horizon"));
+    setThemeState((prev) => (prev === "light" ? "dark" : "light"));
   };
 
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

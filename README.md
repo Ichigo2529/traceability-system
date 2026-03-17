@@ -1,6 +1,6 @@
 # Traceability System (Monorepo)
 
-Production-grade manufacturing traceability platform. Bun + Elysia + React + UI5 Web Components.
+Production-grade manufacturing traceability platform. Bun + Elysia + React + shadcn/ui (Tailwind + Radix).
 
 ## Documentation (start here)
 
@@ -12,7 +12,7 @@ Production-grade manufacturing traceability platform. Bun + Elysia + React + UI5
 
 ## Tech stack
 
-- **Frontend:** React + Vite, UI5 Web Components for React (SAP Horizon), TanStack React Query, Eden Treaty (SDK), Dexie (offline)
+- **Frontend:** React + Vite, shadcn/ui + Tailwind + Lucide, TanStack React Query, Eden Treaty (SDK), Dexie (offline)
 - **Backend:** Bun + Elysia + TypeScript + PostgreSQL + Drizzle
 - **Target infra:** Ubuntu 24 + Nginx + systemd/PM2
 

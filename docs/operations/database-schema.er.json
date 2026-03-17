@@ -1,0 +1,355 @@
+{
+  "meta": {
+    "source": "backend/src/db/schema/*.ts",
+    "generatedAt": "2026-03-05",
+    "description": "Database schema snapshot for ER diagram drafting."
+  },
+  "enums": [
+    { "name": "revision_status", "values": ["DRAFT", "ACTIVE", "INACTIVE"] },
+    { "name": "device_type", "values": ["pi", "pc", "tablet", "kiosk"] },
+    { "name": "device_status", "values": ["active", "disabled", "maintenance"] },
+    {
+      "name": "material_request_status",
+      "values": ["REQUESTED", "APPROVED", "REJECTED", "ISSUED", "PARTIALLY_RECEIVED", "INTAKE_COMPLETE", "CANCELLED"]
+    },
+    {
+      "name": "handover_batch_status",
+      "values": ["PENDING", "IN_TRANSIT", "RECEIVED", "RECEIVED_PARTIAL", "CANCELLED"]
+    },
+    { "name": "scan_session_status", "values": ["OPEN", "COMPLETED", "ABANDONED"] },
+    {
+      "name": "scan_event_result",
+      "values": ["MATCHED", "DUPLICATE", "NOT_FOUND", "EXPIRED", "PARSE_ERROR", "MISMATCH"]
+    },
+    { "name": "set_run_status", "values": ["ACTIVE", "COMPLETED", "CANCELLED", "HOLD"] },
+    { "name": "consumption_source_type", "values": ["SUPPLIER_PACK", "BAG100", "UNIT"] },
+    { "name": "hold_status", "values": ["OPEN", "RESOLVED", "SCRAPPED"] }
+  ],
+  "tables": [
+    { "name": "users", "pk": ["id"], "fks": [] },
+    { "name": "roles", "pk": ["id"], "fks": [] },
+    {
+      "name": "user_roles",
+      "pk": ["user_id", "role_id"],
+      "fks": [
+        { "column": "user_id", "references": "users.id" },
+        { "column": "role_id", "references": "roles.id" }
+      ]
+    },
+    { "name": "refresh_tokens", "pk": ["id"], "fks": [{ "column": "user_id", "references": "users.id" }] },
+    { "name": "permissions", "pk": ["id"], "fks": [] },
+    {
+      "name": "role_permissions",
+      "pk": ["role_id", "permission_id"],
+      "fks": [
+        { "column": "role_id", "references": "roles.id" },
+        { "column": "permission_id", "references": "permissions.id" }
+      ]
+    },
+
+    { "name": "processes", "pk": ["id"], "fks": [] },
+    { "name": "stations", "pk": ["id"], "fks": [{ "column": "process_id", "references": "processes.id" }] },
+    { "name": "departments", "pk": ["id"], "fks": [] },
+    {
+      "name": "workflow_approval_configs",
+      "pk": ["id"],
+      "fks": [{ "column": "approver_role_id", "references": "roles.id" }]
+    },
+    { "name": "app_settings", "pk": ["key"], "fks": [] },
+    { "name": "cost_centers", "pk": ["id"], "fks": [] },
+    { "name": "sections", "pk": ["id"], "fks": [] },
+    {
+      "name": "section_cost_centers",
+      "pk": ["id"],
+      "fks": [
+        { "column": "section_id", "references": "sections.id" },
+        { "column": "cost_center_id", "references": "cost_centers.id" }
+      ]
+    },
+    {
+      "name": "user_sections",
+      "pk": ["user_id"],
+      "fks": [
+        { "column": "user_id", "references": "users.id" },
+        { "column": "section_id", "references": "sections.id" }
+      ]
+    },
+    {
+      "name": "user_departments",
+      "pk": ["user_id"],
+      "fks": [
+        { "column": "user_id", "references": "users.id" },
+        { "column": "department_id", "references": "departments.id" }
+      ]
+    },
+
+    { "name": "machines", "pk": ["id"], "fks": [] },
+    {
+      "name": "devices",
+      "pk": ["id"],
+      "fks": [
+        { "column": "machine_id", "references": "machines.id" },
+        { "column": "station_id", "references": "stations.id" },
+        { "column": "process_id", "references": "processes.id" }
+      ]
+    },
+    {
+      "name": "device_operator_sessions",
+      "pk": ["id"],
+      "fks": [
+        { "column": "device_id", "references": "devices.id" },
+        { "column": "user_id", "references": "users.id" }
+      ]
+    },
+
+    { "name": "models", "pk": ["id"], "fks": [] },
+    { "name": "model_revisions", "pk": ["id"], "fks": [{ "column": "model_id", "references": "models.id" }] },
+    { "name": "variants", "pk": ["id"], "fks": [{ "column": "revision_id", "references": "model_revisions.id" }] },
+    { "name": "component_types", "pk": ["id"], "fks": [] },
+    {
+      "name": "part_numbers",
+      "pk": ["id"],
+      "fks": [{ "column": "component_type_id", "references": "component_types.id" }]
+    },
+    {
+      "name": "bom",
+      "pk": ["id"],
+      "fks": [
+        { "column": "revision_id", "references": "model_revisions.id" },
+        { "column": "variant_id", "references": "variants.id" }
+      ]
+    },
+    { "name": "routing", "pk": ["id"], "fks": [{ "column": "revision_id", "references": "model_revisions.id" }] },
+    {
+      "name": "routing_steps",
+      "pk": ["id"],
+      "fks": [
+        { "column": "routing_id", "references": "routing.id" },
+        { "column": "variant_only", "references": "variants.id" }
+      ]
+    },
+    { "name": "master_routing_steps", "pk": ["id"], "fks": [] },
+
+    {
+      "name": "units",
+      "pk": ["id"],
+      "fks": [
+        { "column": "model_revision_id", "references": "model_revisions.id" },
+        { "column": "variant_id", "references": "variants.id" },
+        { "column": "machine_id", "references": "machines.id" }
+      ]
+    },
+    {
+      "name": "unit_links",
+      "pk": ["id"],
+      "fks": [
+        { "column": "parent_unit_id", "references": "units.id" },
+        { "column": "child_unit_id", "references": "units.id" }
+      ]
+    },
+    {
+      "name": "events",
+      "pk": ["id"],
+      "fks": [
+        { "column": "unit_id", "references": "units.id" },
+        { "column": "machine_id", "references": "machines.id" },
+        { "column": "device_id", "references": "devices.id" },
+        { "column": "operator_user_id", "references": "users.id" }
+      ]
+    },
+
+    {
+      "name": "label_templates",
+      "pk": ["id"],
+      "fks": [{ "column": "revision_id", "references": "model_revisions.id" }]
+    },
+    {
+      "name": "label_bindings",
+      "pk": ["id"],
+      "fks": [
+        { "column": "model_revision_id", "references": "model_revisions.id" },
+        { "column": "variant_id", "references": "variants.id" },
+        { "column": "label_template_id", "references": "label_templates.id" }
+      ]
+    },
+    {
+      "name": "labels",
+      "pk": ["id"],
+      "fks": [
+        { "column": "unit_id", "references": "units.id" },
+        { "column": "label_template_id", "references": "label_templates.id" }
+      ]
+    },
+    { "name": "serial_counters", "pk": ["part_number", "shift_day", "line_code"], "fks": [] },
+
+    { "name": "suppliers", "pk": ["id"], "fks": [] },
+    { "name": "inventory_do", "pk": ["id"], "fks": [{ "column": "supplier_id", "references": "suppliers.id" }] },
+    {
+      "name": "supplier_packs",
+      "pk": ["id"],
+      "fks": [
+        { "column": "unit_id", "references": "units.id" },
+        { "column": "supplier_id", "references": "suppliers.id" },
+        { "column": "do_id", "references": "inventory_do.id" }
+      ]
+    },
+    {
+      "name": "component_2d_scans",
+      "pk": ["id"],
+      "fks": [
+        { "column": "inventory_do_id", "references": "inventory_do.id" },
+        { "column": "supplier_pack_id", "references": "supplier_packs.id" },
+        { "column": "unit_id", "references": "units.id" }
+      ]
+    },
+    {
+      "name": "supplier_part_profiles",
+      "pk": ["id"],
+      "fks": [{ "column": "supplier_id", "references": "suppliers.id" }]
+    },
+
+    { "name": "config_audit_logs", "pk": ["id"], "fks": [{ "column": "user_id", "references": "users.id" }] },
+    {
+      "name": "holds",
+      "pk": ["id"],
+      "fks": [
+        { "column": "unit_id", "references": "units.id" },
+        { "column": "created_by", "references": "users.id" },
+        { "column": "resolved_by", "references": "users.id" }
+      ]
+    },
+
+    {
+      "name": "material_requests",
+      "pk": ["id"],
+      "fks": [
+        { "column": "model_id", "references": "models.id" },
+        { "column": "request_section_id", "references": "sections.id" },
+        { "column": "request_cost_center_id", "references": "cost_centers.id" },
+        { "column": "requested_by_user_id", "references": "users.id" },
+        { "column": "approved_by_user_id", "references": "users.id" },
+        { "column": "dispatched_by_user_id", "references": "users.id" },
+        { "column": "issued_by_user_id", "references": "users.id" },
+        { "column": "received_by_user_id", "references": "users.id" },
+        { "column": "production_ack_by_user_id", "references": "users.id" },
+        { "column": "forklift_ack_by_user_id", "references": "users.id" }
+      ]
+    },
+    {
+      "name": "material_request_items",
+      "pk": ["id"],
+      "fks": [{ "column": "material_request_id", "references": "material_requests.id" }]
+    },
+    {
+      "name": "material_request_item_issues",
+      "pk": ["id"],
+      "fks": [
+        { "column": "material_request_id", "references": "material_requests.id" },
+        { "column": "material_request_item_id", "references": "material_request_items.id" },
+        { "column": "supplier_id", "references": "suppliers.id" },
+        { "column": "do_id", "references": "inventory_do.id" }
+      ]
+    },
+
+    {
+      "name": "handover_batches",
+      "pk": ["id"],
+      "fks": [
+        { "column": "material_request_id", "references": "material_requests.id" },
+        { "column": "issued_by_user_id", "references": "users.id" },
+        { "column": "assigned_forklift_user_id", "references": "users.id" }
+      ]
+    },
+    {
+      "name": "handover_batch_items",
+      "pk": ["id"],
+      "fks": [
+        { "column": "handover_batch_id", "references": "handover_batches.id" },
+        { "column": "material_request_item_issue_id", "references": "material_request_item_issues.id" }
+      ]
+    },
+    {
+      "name": "scan_sessions",
+      "pk": ["id"],
+      "fks": [
+        { "column": "handover_batch_id", "references": "handover_batches.id" },
+        { "column": "user_id", "references": "users.id" },
+        { "column": "device_id", "references": "devices.id" }
+      ]
+    },
+    {
+      "name": "scan_events",
+      "pk": ["id"],
+      "fks": [
+        { "column": "scan_session_id", "references": "scan_sessions.id" },
+        { "column": "handover_batch_id", "references": "handover_batches.id" },
+        { "column": "matched_batch_item_id", "references": "handover_batch_items.id" },
+        { "column": "matched_supplier_pack_id", "references": "supplier_packs.id" },
+        { "column": "user_id", "references": "users.id" },
+        { "column": "device_id", "references": "devices.id" }
+      ]
+    },
+
+    { "name": "set_runs", "pk": ["id"], "fks": [{ "column": "assy_unit_id", "references": "units.id" }] },
+    {
+      "name": "containers",
+      "pk": ["id"],
+      "fks": [
+        { "column": "set_run_id", "references": "set_runs.id" },
+        { "column": "unit_id", "references": "units.id" }
+      ]
+    },
+    { "name": "bag100", "pk": ["id"], "fks": [{ "column": "supplier_pack_id", "references": "supplier_packs.id" }] },
+    {
+      "name": "consumption",
+      "pk": ["id"],
+      "fks": [
+        { "column": "set_run_id", "references": "set_runs.id" },
+        { "column": "component_type_id", "references": "component_types.id" },
+        { "column": "machine_id", "references": "machines.id" }
+      ]
+    },
+
+    { "name": "email_settings", "pk": ["id"], "fks": [] },
+    {
+      "name": "email_reminder_logs",
+      "pk": ["id"],
+      "fks": [
+        { "column": "material_request_id", "references": "material_requests.id" },
+        { "column": "recipient_user_id", "references": "users.id" }
+      ]
+    }
+  ],
+  "implicitRelationships": [
+    {
+      "from": "departments.section_id",
+      "to": "sections.id",
+      "note": "Column exists but FK is not declared in current Drizzle schema."
+    },
+    {
+      "from": "cost_centers.section_id",
+      "to": "sections.id",
+      "note": "Column exists but FK is not declared in current Drizzle schema."
+    },
+    {
+      "from": "cost_centers.created_by",
+      "to": "users.id",
+      "note": "Column exists but FK is not declared in current Drizzle schema."
+    },
+    {
+      "from": "scan_sessions.station_id",
+      "to": "stations.id",
+      "note": "Column exists but FK is not declared in current Drizzle schema."
+    },
+    {
+      "from": "set_runs.model_revision_id",
+      "to": "model_revisions.id",
+      "note": "Column exists but FK is not declared in current Drizzle schema."
+    },
+    {
+      "from": "set_runs.variant_id",
+      "to": "variants.id",
+      "note": "Column exists but FK is not declared in current Drizzle schema."
+    }
+  ]
+}

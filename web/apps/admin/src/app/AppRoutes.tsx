@@ -64,7 +64,7 @@ const SetRecoveryPage = lazy(() =>
 );
 const EmailSettingsPage = lazy(() => import("../pages/admin/EmailSettingsPage"));
 
-const Ui5SmokeTest = lazy(() => import("../pages/Ui5SmokeTest"));
+const UISmokeTest = lazy(() => import("../pages/UISmokeTest"));
 const MachinesPage = lazy(() => import("../pages/MachinesPage"));
 const ModelDetailsPage = lazy(() => import("../pages/ModelDetailsPage"));
 const RevisionDetailsPage = lazy(() => import("../pages/RevisionDetailsPage"));
@@ -117,7 +117,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/test-ui" element={<Ui5SmokeTest />} />
+      <Route path="/test-ui" element={<UISmokeTest />} />
 
       <Route
         path="/admin"

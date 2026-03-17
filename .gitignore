@@ -62,8 +62,7 @@ pnpm-debug.log*
 *.sqlite
 *.db
 
-# Document / backup (optional)
-docs/
+# Backup (optional; docs/ is committed so README and .cursorrules links work)
 backups/
 
 # Dependencies

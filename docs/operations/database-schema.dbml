@@ -1,0 +1,423 @@
+// Generated for dbdiagram.io import
+// Source: docs/operations/database-schema.er.json
+
+Table users {
+  id uuid [pk]
+}
+
+Table roles {
+  id uuid [pk]
+}
+
+Table permissions {
+  id uuid [pk]
+}
+
+Table user_roles {
+  user_id uuid
+  role_id uuid
+
+  indexes {
+    (user_id, role_id) [pk]
+  }
+}
+
+Table refresh_tokens {
+  id uuid [pk]
+  user_id uuid
+}
+
+Table role_permissions {
+  role_id uuid
+  permission_id uuid
+
+  indexes {
+    (role_id, permission_id) [pk]
+  }
+}
+
+Table processes {
+  id uuid [pk]
+}
+
+Table stations {
+  id uuid [pk]
+  process_id uuid
+}
+
+Table departments {
+  id uuid [pk]
+}
+
+Table workflow_approval_configs {
+  id uuid [pk]
+  approver_role_id uuid
+}
+
+Table app_settings {
+  key varchar(120) [pk]
+}
+
+Table cost_centers {
+  id uuid [pk]
+}
+
+Table sections {
+  id uuid [pk]
+}
+
+Table section_cost_centers {
+  id uuid [pk]
+  section_id uuid
+  cost_center_id uuid
+}
+
+Table user_sections {
+  user_id uuid [pk]
+  section_id uuid
+}
+
+Table user_departments {
+  user_id uuid [pk]
+  department_id uuid
+}
+
+Table machines {
+  id uuid [pk]
+}
+
+Table devices {
+  id uuid [pk]
+  machine_id uuid
+  station_id uuid
+  process_id uuid
+}
+
+Table device_operator_sessions {
+  id uuid [pk]
+  device_id uuid
+  user_id uuid
+}
+
+Table models {
+  id uuid [pk]
+}
+
+Table model_revisions {
+  id uuid [pk]
+  model_id uuid
+}
+
+Table variants {
+  id uuid [pk]
+  revision_id uuid
+}
+
+Table component_types {
+  id uuid [pk]
+}
+
+Table part_numbers {
+  id uuid [pk]
+  component_type_id uuid
+}
+
+Table bom {
+  id uuid [pk]
+  revision_id uuid
+  variant_id uuid
+}
+
+Table routing {
+  id uuid [pk]
+  revision_id uuid
+}
+
+Table routing_steps {
+  id uuid [pk]
+  routing_id uuid
+  variant_only uuid
+}
+
+Table master_routing_steps {
+  id uuid [pk]
+}
+
+Table units {
+  id uuid [pk]
+  model_revision_id uuid
+  variant_id uuid
+  machine_id uuid
+}
+
+Table unit_links {
+  id uuid [pk]
+  parent_unit_id uuid
+  child_unit_id uuid
+}
+
+Table events {
+  id uuid [pk]
+  unit_id uuid
+  machine_id uuid
+  device_id uuid
+  operator_user_id uuid
+}
+
+Table label_templates {
+  id uuid [pk]
+  revision_id uuid
+}
+
+Table label_bindings {
+  id uuid [pk]
+  model_revision_id uuid
+  variant_id uuid
+  label_template_id uuid
+}
+
+Table labels {
+  id uuid [pk]
+  unit_id uuid
+  label_template_id uuid
+}
+
+Table serial_counters {
+  part_number varchar(100)
+  shift_day date
+  line_code varchar(50)
+
+  indexes {
+    (part_number, shift_day, line_code) [pk]
+  }
+}
+
+Table suppliers {
+  id uuid [pk]
+}
+
+Table inventory_do {
+  id uuid [pk]
+  supplier_id uuid
+}
+
+Table supplier_packs {
+  id uuid [pk]
+  unit_id uuid
+  supplier_id uuid
+  do_id uuid
+}
+
+Table component_2d_scans {
+  id uuid [pk]
+  inventory_do_id uuid
+  supplier_pack_id uuid
+  unit_id uuid
+}
+
+Table supplier_part_profiles {
+  id uuid [pk]
+  supplier_id uuid
+}
+
+Table config_audit_logs {
+  id uuid [pk]
+  user_id uuid
+}
+
+Table holds {
+  id uuid [pk]
+  unit_id uuid
+  created_by uuid
+  resolved_by uuid
+}
+
+Table material_requests {
+  id uuid [pk]
+  model_id uuid
+  request_section_id uuid
+  request_cost_center_id uuid
+  requested_by_user_id uuid
+  approved_by_user_id uuid
+  dispatched_by_user_id uuid
+  issued_by_user_id uuid
+  received_by_user_id uuid
+  production_ack_by_user_id uuid
+  forklift_ack_by_user_id uuid
+}
+
+Table material_request_items {
+  id uuid [pk]
+  material_request_id uuid
+}
+
+Table material_request_item_issues {
+  id uuid [pk]
+  material_request_id uuid
+  material_request_item_id uuid
+  supplier_id uuid
+  do_id uuid
+}
+
+Table handover_batches {
+  id uuid [pk]
+  material_request_id uuid
+  issued_by_user_id uuid
+  assigned_forklift_user_id uuid
+}
+
+Table handover_batch_items {
+  id uuid [pk]
+  handover_batch_id uuid
+  material_request_item_issue_id uuid
+}
+
+Table scan_sessions {
+  id uuid [pk]
+  handover_batch_id uuid
+  user_id uuid
+  device_id uuid
+}
+
+Table scan_events {
+  id uuid [pk]
+  scan_session_id uuid
+  handover_batch_id uuid
+  matched_batch_item_id uuid
+  matched_supplier_pack_id uuid
+  user_id uuid
+  device_id uuid
+}
+
+Table set_runs {
+  id uuid [pk]
+  assy_unit_id uuid
+}
+
+Table containers {
+  id uuid [pk]
+  set_run_id uuid
+  unit_id uuid
+}
+
+Table bag100 {
+  id uuid [pk]
+  supplier_pack_id uuid
+}
+
+Table consumption {
+  id uuid [pk]
+  set_run_id uuid
+  component_type_id uuid
+  machine_id uuid
+}
+
+Table email_settings {
+  id uuid [pk]
+}
+
+Table email_reminder_logs {
+  id uuid [pk]
+  material_request_id uuid
+  recipient_user_id uuid
+}
+
+Ref: user_roles.user_id > users.id
+Ref: user_roles.role_id > roles.id
+Ref: refresh_tokens.user_id > users.id
+Ref: role_permissions.role_id > roles.id
+Ref: role_permissions.permission_id > permissions.id
+Ref: stations.process_id > processes.id
+Ref: workflow_approval_configs.approver_role_id > roles.id
+Ref: section_cost_centers.section_id > sections.id
+Ref: section_cost_centers.cost_center_id > cost_centers.id
+Ref: user_sections.user_id > users.id
+Ref: user_sections.section_id > sections.id
+Ref: user_departments.user_id > users.id
+Ref: user_departments.department_id > departments.id
+Ref: devices.machine_id > machines.id
+Ref: devices.station_id > stations.id
+Ref: devices.process_id > processes.id
+Ref: device_operator_sessions.device_id > devices.id
+Ref: device_operator_sessions.user_id > users.id
+Ref: model_revisions.model_id > models.id
+Ref: variants.revision_id > model_revisions.id
+Ref: part_numbers.component_type_id > component_types.id
+Ref: bom.revision_id > model_revisions.id
+Ref: bom.variant_id > variants.id
+Ref: routing.revision_id > model_revisions.id
+Ref: routing_steps.routing_id > routing.id
+Ref: routing_steps.variant_only > variants.id
+Ref: units.model_revision_id > model_revisions.id
+Ref: units.variant_id > variants.id
+Ref: units.machine_id > machines.id
+Ref: unit_links.parent_unit_id > units.id
+Ref: unit_links.child_unit_id > units.id
+Ref: events.unit_id > units.id
+Ref: events.machine_id > machines.id
+Ref: events.device_id > devices.id
+Ref: events.operator_user_id > users.id
+Ref: label_templates.revision_id > model_revisions.id
+Ref: label_bindings.model_revision_id > model_revisions.id
+Ref: label_bindings.variant_id > variants.id
+Ref: label_bindings.label_template_id > label_templates.id
+Ref: labels.unit_id > units.id
+Ref: labels.label_template_id > label_templates.id
+Ref: inventory_do.supplier_id > suppliers.id
+Ref: supplier_packs.unit_id > units.id
+Ref: supplier_packs.supplier_id > suppliers.id
+Ref: supplier_packs.do_id > inventory_do.id
+Ref: component_2d_scans.inventory_do_id > inventory_do.id
+Ref: component_2d_scans.supplier_pack_id > supplier_packs.id
+Ref: component_2d_scans.unit_id > units.id
+Ref: supplier_part_profiles.supplier_id > suppliers.id
+Ref: config_audit_logs.user_id > users.id
+Ref: holds.unit_id > units.id
+Ref: holds.created_by > users.id
+Ref: holds.resolved_by > users.id
+Ref: material_requests.model_id > models.id
+Ref: material_requests.request_section_id > sections.id
+Ref: material_requests.request_cost_center_id > cost_centers.id
+Ref: material_requests.requested_by_user_id > users.id
+Ref: material_requests.approved_by_user_id > users.id
+Ref: material_requests.dispatched_by_user_id > users.id
+Ref: material_requests.issued_by_user_id > users.id
+Ref: material_requests.received_by_user_id > users.id
+Ref: material_requests.production_ack_by_user_id > users.id
+Ref: material_requests.forklift_ack_by_user_id > users.id
+Ref: material_request_items.material_request_id > material_requests.id
+Ref: material_request_item_issues.material_request_id > material_requests.id
+Ref: material_request_item_issues.material_request_item_id > material_request_items.id
+Ref: material_request_item_issues.supplier_id > suppliers.id
+Ref: material_request_item_issues.do_id > inventory_do.id
+Ref: handover_batches.material_request_id > material_requests.id
+Ref: handover_batches.issued_by_user_id > users.id
+Ref: handover_batches.assigned_forklift_user_id > users.id
+Ref: handover_batch_items.handover_batch_id > handover_batches.id
+Ref: handover_batch_items.material_request_item_issue_id > material_request_item_issues.id
+Ref: scan_sessions.handover_batch_id > handover_batches.id
+Ref: scan_sessions.user_id > users.id
+Ref: scan_sessions.device_id > devices.id
+Ref: scan_events.scan_session_id > scan_sessions.id
+Ref: scan_events.handover_batch_id > handover_batches.id
+Ref: scan_events.matched_batch_item_id > handover_batch_items.id
+Ref: scan_events.matched_supplier_pack_id > supplier_packs.id
+Ref: scan_events.user_id > users.id
+Ref: scan_events.device_id > devices.id
+Ref: set_runs.assy_unit_id > units.id
+Ref: containers.set_run_id > set_runs.id
+Ref: containers.unit_id > units.id
+Ref: bag100.supplier_pack_id > supplier_packs.id
+Ref: consumption.set_run_id > set_runs.id
+Ref: consumption.component_type_id > component_types.id
+Ref: consumption.machine_id > machines.id
+Ref: email_reminder_logs.material_request_id > material_requests.id
+Ref: email_reminder_logs.recipient_user_id > users.id
+
+// Optional/implicit refs from code comments (not declared as DB FK):
+// Ref: departments.section_id > sections.id
+// Ref: cost_centers.section_id > sections.id
+// Ref: cost_centers.created_by > users.id
+// Ref: scan_sessions.station_id > stations.id
+// Ref: set_runs.model_revision_id > model_revisions.id
+// Ref: set_runs.variant_id > variants.id

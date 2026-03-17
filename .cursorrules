@@ -8,7 +8,7 @@ Production-grade manufacturing traceability platform. Follow these rules for all
 
 - **Runtime / package manager:** Bun (workspaces: backend, web, web/apps/*, web/packages/*)
 - **Backend:** Elysia + TypeScript, PostgreSQL + Drizzle ORM
-- **Frontend:** React 19 + Vite 6, UI5 Web Components for React 2.20 (theme: **sap_horizon**), TanStack React Query, Eden Treaty
+- **Frontend:** React 19 + Vite 6, shadcn/ui + Tailwind + Lucide, TanStack React Query, Eden Treaty
 - **API client:** `@elysiajs/eden` + typed SDK in `web/packages/sdk`
 - **Validation:** Backend = TypeBox (`t.*`), Frontend forms = Zod + react-hook-form
 - **Offline (station):** Dexie (IndexedDB); idempotency via `event_id` (UUID)
@@ -60,10 +60,10 @@ docs/                    # All documentation (architecture/, project/, ui/, spec
 
 ## 4. Frontend rules
 
-- **Theme:** Use `sap_horizon`; set via `setTheme("sap_horizon")` and wrap app with `ThemeProvider` from `@ui5/webcomponents-react`. Use `::part()` and CSS variables for overrides.
+- **Theme:** Use CSS variables and optional `dark` class on `document.documentElement` for dark mode (see admin `ThemeContext`). No UI5/OpenUI5.
 - **State:** Server state = TanStack React Query; UI state = useState/Context. Use SDK (Eden) for all API calls.
 - **Forms:** Zod + react-hook-form in admin app; keep types in sync with API where possible.
-- **UI components:** Prefer `@ui5/webcomponents-react` and shared `@traceability/ui`; icons from `@ui5/webcomponents-icons/dist/<name>.js` (import per icon).
+- **UI components:** Use shadcn/ui (Radix primitives) in admin via `@/components/ui/*` and shared `@traceability/ui`; icons from Lucide (`lucide-react`).
 - **Paths:** In `web` use `@traceability/sdk`, `@traceability/ui`, `@traceability/offline-queue`, `@traceability/material`, `@traceability/material-ui` (see `web/tsconfig.json` / app tsconfig).
 
 ---
@@ -71,7 +71,7 @@ docs/                    # All documentation (architecture/, project/, ui/, spec
 ## 5. API and routes reference
 
 - **Backend:** `GET /health`; `/auth` (login, refresh, logout); `/admin/*` (CRUD users, roles, models, revisions, variants, BOM, routing, devices, stations, barcode templates, material requests, audit, etc.); `/device` (register, activate, heartbeat, operator); `/events`, `/labels`; `/trace`; `/material-requests`; `/inventory`; `/handover-batches`, `/scan-sessions`; `/admin/email-settings`; `/realtime`.
-- **Frontend:** `/login`, `/test-ui5` (no auth); `/admin/*` (RoleGuard: ADMIN); `/station/*` (RoleGuard: OPERATOR). See `web/apps/admin/src/app/AppRoutes.tsx` and `docs/architecture/api-and-routes.md`.
+- **Frontend:** `/login`, `/test-ui` (no auth); `/admin/*` (RoleGuard: ADMIN); `/station/*` (RoleGuard: OPERATOR). See `web/apps/admin/src/app/AppRoutes.tsx` and `docs/architecture/api-and-routes.md`.
 
 ---
 
@@ -88,7 +88,7 @@ docs/                    # All documentation (architecture/, project/, ui/, spec
 - **Architecture (aligned with code):** `docs/architecture/tech-stack.md`, `docs/architecture/database.md`, `docs/architecture/api-and-routes.md`
 - **Domain and rules:** `docs/specs/README.md` and numbered specs (01–19) — non-negotiable
 - **Project:** `docs/project/roadmap.md`, `docs/project/checklist.md`
-- **UI:** `docs/ui/` (guidelines, ui5-guide, patterns, fcl-standards) when present
+- **UI:** `docs/ui/` (guidelines, shadcn-guide, patterns, fcl-standards) when present
 - **Entry:** `docs/README.md`, `docs/INDEX.md`
 
 When adding features or changing behavior, update the relevant docs and keep `docs/architecture/*` in sync with the codebase.

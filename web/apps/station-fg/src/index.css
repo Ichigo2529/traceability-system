@@ -1,7 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn-style theme variables for @traceability/ui */
 :root {
-  --station-bg: radial-gradient(circle at 12% 8%, #f6fbff 0%, #edf4fb 46%, #e2ecf7 100%);
-  --station-text: #1f2d3d;
-  --station-muted: #5b6878;
+  --radius: 0.625rem;
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --border: oklch(0.922 0 0);
+  --muted-foreground: oklch(0.556 0 0);
 }
 
 html,
@@ -12,10 +21,15 @@ body,
 }
 
 body {
-  font-family: "72", "72full", "Segoe UI", Arial, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   font-size: 0.875rem;
-  color: var(--station-text);
-  background: var(--station-bg);
+  color: var(--foreground);
+  background: var(--background);
 }
 
 .station-shell {
@@ -26,33 +40,16 @@ body {
   justify-content: center;
 }
 
-.station-card {
-  width: min(48rem, 100%);
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 28px rgba(15, 33, 61, 0.08);
-}
-
 .station-content {
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
-  padding: 1.25rem;
-}
-
-.station-content ui5-button {
-  align-self: flex-start;
-}
-
-.station-description {
-  color: var(--station-muted);
-  line-height: 1.45;
 }
 
 @media (min-width: 768px) {
   .station-shell {
     padding: 2.5rem;
   }
-
   .station-content {
     padding: 1.5rem;
   }
