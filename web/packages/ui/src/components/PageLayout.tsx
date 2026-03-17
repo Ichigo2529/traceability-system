@@ -61,7 +61,7 @@ export function PageLayout({
           )}
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
             <h1 className="text-xl font-bold text-foreground m-0 truncate">{title}</h1>
-            {subtitle && <p className="text-sm text-muted-foreground m-0">{subtitle}</p>}
+            {subtitle && <div className="text-sm text-muted-foreground m-0">{subtitle}</div>}
           </div>
           {headerActions && <div className="flex items-center gap-2 ml-auto shrink-0">{headerActions}</div>}
         </div>

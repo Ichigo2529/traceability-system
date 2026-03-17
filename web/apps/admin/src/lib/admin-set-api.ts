@@ -1,7 +1,9 @@
 // ─── Admin Set & Material Recovery API ────────────────────
 // Thin wrapper around the hardened backend endpoints.
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { getApiBaseUrl } from "@traceability/sdk";
+
+const API_BASE = getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 function readAccessToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -25,8 +27,7 @@ function authHeaders(): Record<string, string> {
 
 const ERROR_MESSAGES: Record<string, string> = {
   CONSUMPTION_EXISTS: "Material already consumed. Reassignment is not allowed.",
-  CONCURRENT_MODIFICATION:
-    "This container was changed by another user. Please reload.",
+  CONCURRENT_MODIFICATION: "This container was changed by another user. Please reload.",
   INVALID_INPUT: "Reason must contain at least 5 characters.",
   INVALID_STATE: "Target set is not active.",
   NOT_FOUND: "Data not found or outdated. Please refresh.",
@@ -59,9 +60,7 @@ export type ReassignMaterialResult = {
 
 // ─── API call ─────────────────────────────────────────────
 
-export async function reassignMaterial(
-  payload: ReassignMaterialPayload
-): Promise<ReassignMaterialResult> {
+export async function reassignMaterial(payload: ReassignMaterialPayload): Promise<ReassignMaterialResult> {
   const res = await fetch(`${API_BASE}/admin/material/reassign`, {
     method: "POST",
     headers: authHeaders(),

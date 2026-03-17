@@ -126,7 +126,6 @@ export function MasterRoutingStepsPage() {
       title="Master Routing Steps"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Standardized production process steps catalogue</span>
         </div>
       }

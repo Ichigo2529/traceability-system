@@ -134,7 +134,6 @@ export function MaterialRequestCreatePage() {
       title="New Material Request"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Create a new material request</span>
         </div>
       }

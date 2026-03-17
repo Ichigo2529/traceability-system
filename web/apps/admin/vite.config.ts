@@ -24,6 +24,20 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    proxy: {
+      "/auth": { target: "http://localhost:3000", changeOrigin: true },
+      "/admin": { target: "http://localhost:3000", changeOrigin: true },
+      "/device": { target: "http://localhost:3000", changeOrigin: true },
+      "/health": { target: "http://localhost:3000", changeOrigin: true },
+      "/events": { target: "http://localhost:3000", changeOrigin: true },
+      "/trace": { target: "http://localhost:3000", changeOrigin: true },
+      "/material-requests": { target: "http://localhost:3000", changeOrigin: true },
+      "/realtime": { target: "http://localhost:3000", changeOrigin: true, ws: true },
+      "/inventory": { target: "http://localhost:3000", changeOrigin: true },
+      "/handover-batches": { target: "http://localhost:3000", changeOrigin: true },
+      "/scan-sessions": { target: "http://localhost:3000", changeOrigin: true },
+      "/labels": { target: "http://localhost:3000", changeOrigin: true },
+    },
   },
   resolve: {
     alias: {

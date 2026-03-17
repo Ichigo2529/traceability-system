@@ -141,7 +141,6 @@ export default function ModelDetailsPage() {
       fullHeight={true}
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Create drafts, configure BOM & routing, then activate when ready for production</span>
         </div>
       }
@@ -200,12 +199,15 @@ export default function ModelDetailsPage() {
               </div>
               <div className="space-y-2">
                 <Label className="font-semibold">Clone From (Optional)</Label>
-                <Select value={cloneFromRevisionId} onValueChange={setCloneFromRevisionId}>
+                <Select
+                  value={cloneFromRevisionId || "__empty__"}
+                  onValueChange={(v) => setCloneFromRevisionId(v === "__empty__" ? "" : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="-- Empty Draft --" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- Empty Draft --</SelectItem>
+                    <SelectItem value="__empty__">-- Empty Draft --</SelectItem>
                     {(revisions as ModelRevision[]).map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.revision_code} ({r.status})

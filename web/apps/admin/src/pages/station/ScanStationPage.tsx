@@ -12,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import layouts from "../../styles/layouts.module.css";
 
 type ScanRow = {
   assyId: string;
@@ -156,10 +155,10 @@ export function ScanStationPage() {
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Title bar */}
-      <header className="flex items-center justify-between border-b px-4 py-3">
+      <div className="flex items-center justify-between border-b px-4 py-3">
         <h2 className="text-xl font-semibold">Assembly Station</h2>
         <StatusBadge status={deviceStatus} />
-      </header>
+      </div>
 
       {/* Header area: Station, Process, Quantity */}
       <div className="flex justify-between items-center border-b px-4 py-4">
@@ -180,7 +179,7 @@ export function ScanStationPage() {
       </div>
 
       {/* Main content */}
-      <div className={`flex-1 overflow-auto ${layouts.station}`}>
+      <div className="flex-1 overflow-auto grid justify-center content-start gap-8 p-8">
         <div className="grid w-full max-w-[1200px] grid-cols-1 gap-4 lg:grid-cols-12">
           {/* Step Control */}
           <Card className="lg:col-span-4">

@@ -5,6 +5,7 @@ import {
   MaterialRequestIssueOptionsResponse,
   MaterialRequestMeta,
   createSdk,
+  getApiBaseUrl,
 } from "@traceability/sdk";
 import {
   CreateMaterialRequestPayload,
@@ -20,7 +21,7 @@ import {
   normalizeRequestDetail,
 } from "./materialRequests.normalizers";
 
-const sdk = createSdk(String(import.meta.env.VITE_API_BASE_URL ?? ""));
+const sdk = createSdk(getApiBaseUrl(import.meta.env.VITE_API_BASE_URL));
 
 export async function getMaterialRequestNextNumbers(): Promise<NextNumbersResponse> {
   const data = await sdk.material.getNextNumbers();
@@ -49,7 +50,7 @@ function authHeaders() {
 }
 
 export async function getMaterialRequestMeta(): Promise<MaterialRequestMeta> {
-  const baseUrl = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+  const baseUrl = getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
   const res = await fetch(`${baseUrl}/material-requests/meta`, {
     headers: { ...authHeaders(), "Content-Type": "application/json" } as any,
   });

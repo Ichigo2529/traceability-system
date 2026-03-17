@@ -1,35 +1,24 @@
 import React from "react";
+import { cn } from "../lib/utils";
 
 interface SkeletonProps {
   variant?: "text" | "circle" | "rectangle";
-  width?: string | number;
-  height?: string | number;
+  width?: string;
+  height?: string;
   className?: string;
-  style?: React.CSSProperties;
 }
 
-export const Skeleton: React.FC<SkeletonProps> = ({
-  variant = "text",
-  width,
-  height,
-  className = "",
-  style = {},
-}) => {
-  const baseStyle: React.CSSProperties = {
-    backgroundColor: "rgba(0, 0, 0, 0.08)",
-    borderRadius: variant === "circle" ? "50%" : variant === "text" ? "4px" : "8px",
-    width: width || (variant === "circle" ? "40px" : "100%"),
-    height: height || (variant === "text" ? "1em" : "40px"),
-    display: "inline-block",
-    position: "relative",
-    overflow: "hidden",
-    ...style,
-  };
+const variantClasses: Record<NonNullable<SkeletonProps["variant"]>, string> = {
+  text: "h-4 w-full rounded",
+  circle: "h-10 w-10 rounded-full",
+  rectangle: "h-10 w-full rounded-md",
+};
 
+export const Skeleton: React.FC<SkeletonProps> = ({ variant = "text", width, height, className }) => {
   return (
     <div
-      className={`ui-skeleton ${className}`}
-      style={baseStyle}
+      className={cn("animate-pulse bg-muted", variantClasses[variant], className)}
+      style={{ width, height }}
       aria-hidden="true"
     />
   );

@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import React from "react";
 
 interface Column<T> {
@@ -25,20 +26,19 @@ export function DataTable<T extends { id: string | number }>({
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex flex-col justify-center items-center gap-2 p-8 text-muted-foreground">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="text-sm">Loading…</span>
       </div>
     );
   }
 
   if (!data.length) {
-    return (
-      <div className="admin-table-card flex items-center justify-center p-8 text-muted-foreground">{emptyText}</div>
-    );
+    return <div className="flex items-center justify-center p-8 text-muted-foreground">{emptyText}</div>;
   }
 
   return (
-    <div className="admin-table-card overflow-auto" style={{ height: "100%", width: "100%" }}>
+    <div className="h-full w-full overflow-auto rounded border border-border">
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b bg-muted/50">

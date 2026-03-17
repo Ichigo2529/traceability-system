@@ -20,33 +20,32 @@ export function EdenFallbackDebugPanel() {
   if (!import.meta.env.DEV || !info.debugEnabled) return null;
 
   return (
-    <div className="admin-eden-panel">
-      <div className="admin-eden-panel-header">
-        <p className="admin-eden-panel-title">Eden Fallback Monitor</p>
-        <span className="admin-eden-panel-env-chip">DEV</span>
+    <div className="fixed bottom-4 right-4 z-50 w-72 rounded-lg border border-border bg-background/95 p-3 text-xs shadow-lg backdrop-blur-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="font-semibold text-foreground">Eden Fallback Monitor</p>
+        <span className="rounded bg-yellow-400/20 px-1.5 py-0.5 text-xs font-bold text-yellow-700">DEV</span>
       </div>
-      <p className="admin-eden-panel-info-line">
-        Strict preset: <span className="admin-eden-panel-info-value">{info.strictPreset || "none"}</span>
+      <p className="text-muted-foreground">
+        Strict preset: <span className="font-medium text-foreground">{info.strictPreset || "none"}</span>
       </p>
-      <p className="admin-eden-panel-info-line admin-eden-panel-info-line-spaced">
+      <p className="mb-2 text-muted-foreground">
         Strict scopes:{" "}
-        <span className="admin-eden-panel-info-value">
+        <span className="font-medium text-foreground">
           {info.strictScopes.length ? info.strictScopes.join(", ") : "none"}
         </span>
       </p>
-      <div className="admin-eden-panel-stats-list">
+      <div className="flex flex-col gap-1">
         {stats.length ? (
           stats.map((item) => (
-            <div key={item.scope} className="admin-eden-panel-stat-row">
-              <span className="admin-eden-panel-stat-scope">{item.scope}</span>
-              <span className="admin-eden-panel-stat-count">{item.count}</span>
+            <div key={item.scope} className="flex items-center justify-between rounded bg-muted px-2 py-1">
+              <span className="truncate text-muted-foreground">{item.scope}</span>
+              <span className="ml-2 font-bold text-foreground">{item.count}</span>
             </div>
           ))
         ) : (
-          <p className="admin-eden-panel-empty">No fallback recorded</p>
+          <p className="text-center text-muted-foreground">No fallback recorded</p>
         )}
       </div>
     </div>
   );
 }
-

@@ -12,6 +12,8 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { PageStack } from "@traceability/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -69,15 +71,17 @@ export function BondingStationPage() {
   });
 
   if (heartbeatQuery.isLoading) return <LoadingSkeleton label="Preparing bonding station..." />;
-  if (heartbeatQuery.error) return <ErrorState title="Bonding station offline" description="Device is not registered or token is invalid." />;
-  if (heartbeatQuery.data?.status === "disabled") return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
+  if (heartbeatQuery.error)
+    return <ErrorState title="Bonding station offline" description="Device is not registered or token is invalid." />;
+  if (heartbeatQuery.data?.status === "disabled")
+    return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
 
   return (
     <PageStack>
-      <div className="admin-toolbar">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="admin-page-title">Bonding Station</h1>
-          <p className="text-sm text-gray-500">Validate plate/magnet and create ASSY_120 by bonding.</p>
+          <h1 className="text-2xl font-bold text-foreground">Bonding Station</h1>
+          <p className="text-sm text-muted-foreground">Validate plate/magnet and create ASSY_120 by bonding.</p>
         </div>
       </div>
       <StationHeader
@@ -86,65 +90,107 @@ export function BondingStationPage() {
         deviceStatus={heartbeatQuery.data?.status || "active"}
       />
       <div className="grid gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2 admin-card">
-          <div className="p-4 border-b border-gray-100">
-            <h3 className="text-lg font-medium">Bonding Flow</h3>
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="admin-stack-2">
+        <Card className="xl:col-span-2">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle>Bonding Flow</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">Plate</p>
-              <ScanInput value={plateId} onChange={setPlateId} onSubmit={() => mutation.mutate({ eventType: "BONDING_PLATE_SCANNED", payload: { plate_id: plateId }, unitId: plateId })} placeholder="Scan plate ID" />
+              <ScanInput
+                value={plateId}
+                onChange={setPlateId}
+                onSubmit={() =>
+                  mutation.mutate({
+                    eventType: "BONDING_PLATE_SCANNED",
+                    payload: { plate_id: plateId },
+                    unitId: plateId,
+                  })
+                }
+                placeholder="Scan plate ID"
+              />
             </div>
-            <div className="admin-stack-2">
+            <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">Magnet Pack</p>
-              <ScanInput value={magnetPackId} onChange={setMagnetPackId} onSubmit={() => mutation.mutate({ eventType: "BONDING_MAGNET_SCANNED", payload: { magnet_pack_id: magnetPackId }, unitId: magnetPackId })} placeholder="Scan magnet pack ID" />
+              <ScanInput
+                value={magnetPackId}
+                onChange={setMagnetPackId}
+                onSubmit={() =>
+                  mutation.mutate({
+                    eventType: "BONDING_MAGNET_SCANNED",
+                    payload: { magnet_pack_id: magnetPackId },
+                    unitId: magnetPackId,
+                  })
+                }
+                placeholder="Scan magnet pack ID"
+              />
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                className="admin-button is-primary"
-                onClick={() => mutation.mutate({ eventType: "BONDING_PLATE_SCANNED", payload: { plate_id: plateId }, unitId: plateId })}
+              <Button
+                onClick={() =>
+                  mutation.mutate({
+                    eventType: "BONDING_PLATE_SCANNED",
+                    payload: { plate_id: plateId },
+                    unitId: plateId,
+                  })
+                }
                 disabled={!plateId.trim() || mutation.isPending}
               >
                 BONDING_PLATE_SCANNED
-              </button>
-              <button
-                className="admin-button is-secondary"
-                onClick={() => mutation.mutate({ eventType: "BONDING_MAGNET_SCANNED", payload: { magnet_pack_id: magnetPackId }, unitId: magnetPackId })}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  mutation.mutate({
+                    eventType: "BONDING_MAGNET_SCANNED",
+                    payload: { magnet_pack_id: magnetPackId },
+                    unitId: magnetPackId,
+                  })
+                }
                 disabled={!magnetPackId.trim() || mutation.isPending}
               >
                 BONDING_MAGNET_SCANNED
-              </button>
-              <button
-                className="admin-button is-secondary"
-                onClick={() => mutation.mutate({ eventType: "BONDING_START", payload: { plate_id: plateId, magnet_pack_id: magnetPackId } })}
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() =>
+                  mutation.mutate({
+                    eventType: "BONDING_START",
+                    payload: { plate_id: plateId, magnet_pack_id: magnetPackId },
+                  })
+                }
                 disabled={!plateId.trim() || !magnetPackId.trim() || mutation.isPending}
               >
                 BONDING_START
-              </button>
-              <button
-                className="admin-button is-primary"
-                onClick={() => mutation.mutate({ eventType: "BONDING_END", payload: { plate_id: plateId, magnet_pack_id: magnetPackId } })}
+              </Button>
+              <Button
+                onClick={() =>
+                  mutation.mutate({
+                    eventType: "BONDING_END",
+                    payload: { plate_id: plateId, magnet_pack_id: magnetPackId },
+                  })
+                }
                 disabled={!plateId.trim() || !magnetPackId.trim() || mutation.isPending}
               >
                 BONDING_END
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="admin-card">
-          <div className="p-4 border-b border-gray-100">
-            <h3 className="text-lg font-medium">Station Summary</h3>
-          </div>
-          <div className="p-4 admin-stack-2 text-sm">
+        <Card>
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle>Station Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 flex flex-col gap-2 text-sm">
             <p>
               Device status: <StatusBadge status={heartbeatQuery.data?.status || "active"} />
             </p>
             <p>Station: {heartbeatQuery.data?.station?.name || "Unassigned"}</p>
             <p>Process: {heartbeatQuery.data?.process?.name || "Unassigned"}</p>
             <p>Latest ASSY ID: {assyId ? <span className="font-mono text-xs">{assyId}</span> : "-"}</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       <FullscreenResultOverlay

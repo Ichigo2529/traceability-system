@@ -219,7 +219,6 @@ export function SectionsPage() {
       title="Sections"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Organizational sections and cost center mappings</span>
         </div>
       }

@@ -16,14 +16,15 @@ import { getNavIcon } from "./nav-icons";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { Suspense } from "react";
-import { Sun, Moon, Bell, Plus, Loader2, User, LogOut } from "lucide-react";
-import layouts from "../../styles/layouts.module.css";
+import { Sun, Moon, Bell, Loader2, User, LogOut, Search } from "lucide-react";
+type AdminGroup = "overview" | "master-data" | "engineering" | "operations" | "governance";
+type StationGroup = "setup" | "production" | "monitor" | "materials" | "history";
 
 type NavItem = {
   to: string;
   label: string;
   icon?: string;
-  group?: "overview" | "master-data" | "engineering" | "operations" | "governance";
+  group?: AdminGroup | StationGroup;
   roles?: string[];
 };
 
@@ -158,27 +159,47 @@ const adminNav: NavItem[] = [
 ];
 
 const stationNav: NavItem[] = [
-  { to: "/station/register", label: "Device Register", icon: "laptop" },
-  { to: "/station/login", label: "Operator Login", icon: "employee" },
-  { to: "/station/jigging", label: "Jigging / Wash", icon: "wrench" },
-  { to: "/station/bonding", label: "Bonding", icon: "attachment" },
-  { to: "/station/magnetize-flux", label: "Magnetize / Flux", icon: "action" },
-  { to: "/station/scan", label: "Assembly", icon: "factory" },
-  { to: "/station/label", label: "Label", icon: "qr-code" },
-  { to: "/station/packing", label: "Packing", icon: "product" },
-  { to: "/station/fg", icon: "shipping-status", label: "FG / Shipping" },
-  { to: "/station/queue", icon: "sys-monitor", label: "Queue Monitor" },
-  { to: "/station/material/request", icon: "request", label: "Prod Request", roles: ["PRODUCTION", "OPERATOR"] },
-  { to: "/station/material/store", icon: "approvals", label: "Store Approvals", roles: ["STORE", "SUPERVISOR"] },
-  { to: "/station/history", icon: "history", label: "Trace History" },
+  { to: "/station/register", label: "Device Register", icon: "laptop", group: "setup" },
+  { to: "/station/login", label: "Operator Login", icon: "employee", group: "setup" },
+  { to: "/station/jigging", label: "Jigging / Wash", icon: "wrench", group: "production" },
+  { to: "/station/bonding", label: "Bonding", icon: "attachment", group: "production" },
+  { to: "/station/magnetize-flux", label: "Magnetize / Flux", icon: "action", group: "production" },
+  { to: "/station/scan", label: "Assembly", icon: "factory", group: "production" },
+  { to: "/station/label", label: "Label", icon: "qr-code", group: "production" },
+  { to: "/station/packing", label: "Packing", icon: "product", group: "production" },
+  { to: "/station/fg", icon: "shipping-status", label: "FG / Shipping", group: "production" },
+  { to: "/station/queue", icon: "sys-monitor", label: "Queue Monitor", group: "monitor" },
+  {
+    to: "/station/material/request",
+    icon: "request",
+    label: "Prod Request",
+    group: "materials",
+    roles: ["PRODUCTION", "OPERATOR"],
+  },
+  {
+    to: "/station/material/store",
+    icon: "approvals",
+    label: "Store Approvals",
+    group: "materials",
+    roles: ["STORE", "SUPERVISOR"],
+  },
+  { to: "/station/history", icon: "history", label: "Trace History", group: "history" },
 ];
 
-const navSections = [
+const adminNavSections = [
   { key: "overview", title: "Overview", icon: "home" },
   { key: "master-data", title: "Master Data", icon: "grid" },
   { key: "engineering", title: "Engineering", icon: "wrench" },
   { key: "operations", title: "Operations", icon: "official-service" },
   { key: "governance", title: "Governance", icon: "key-user-settings" },
+] as const;
+
+const stationNavSections = [
+  { key: "setup", title: "Setup", icon: "laptop" },
+  { key: "production", title: "Production", icon: "factory" },
+  { key: "monitor", title: "Monitor", icon: "sys-monitor" },
+  { key: "materials", title: "Materials", icon: "request" },
+  { key: "history", title: "History", icon: "history" },
 ] as const;
 
 export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "station" }) {
@@ -226,42 +247,41 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
       className={cn(mode === "admin" ? "text-sm" : "text-base")}
       style={{ height: "100vh", display: "flex", flexDirection: "column" }}
     >
-      {/* Header */}
-      <header className="flex h-14 items-center gap-4 border-b bg-background px-4 shadow-sm">
-        <button
-          type="button"
-          onClick={() => navigate(mode === "admin" ? "/admin" : "/station/login")}
-          className="flex items-center gap-2 shrink-0"
-        >
-          <img src="/logo.png" alt="MMI Logo" className="h-6 max-h-6" />
-        </button>
-        <span className="font-semibold text-foreground truncate">
-          Traceability System | {mode === "admin" ? "Admin Console" : "Station Interface"}
-        </span>
-        <div className="flex-1 flex justify-center max-w-xs">
-          <Input
-            placeholder="Search pages..."
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSearch(searchValue);
-            }}
-            className="max-w-[300px]"
-            aria-label="Search navigation pages"
-          />
+      {/* Header — brand (left) | actions (right) */}
+      <header className="flex items-center justify-between h-14 border-b bg-background/95 backdrop-blur-sm px-4 shrink-0 z-10">
+        {/* Left: Brand */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={() => navigate(mode === "admin" ? "/admin" : "/station/login")}
+            className="shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Go to home"
+          >
+            <img src="/logo.png" alt="MMI Logo" className="h-7 w-auto" />
+          </button>
+          <div className="h-5 w-px bg-border shrink-0" />
+          <span className="text-sm font-medium text-foreground truncate">
+            {mode === "admin" ? "Admin Console" : "Station Interface"}
+          </span>
         </div>
-        <div className="flex items-center gap-1">
+
+        {/* Right: Actions */}
+        <div className="flex items-center justify-end gap-0.5">
+          {/* Theme toggle */}
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleTheme}
-            aria-label={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            className="h-8 w-8"
           >
             {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </Button>
+
+          {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Open notifications">
+              <Button variant="ghost" size="icon" aria-label="Notifications" className="h-8 w-8">
                 <Bell className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -269,53 +289,54 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="flex flex-col items-start gap-0.5">
-                <span className="font-medium">System Health OK</span>
+                <span className="font-medium text-sm">System Health OK</span>
                 <span className="text-xs text-muted-foreground">System started successfully · Just now</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="flex flex-col items-start gap-0.5">
-                <span className="font-medium">Approvals</span>
+                <span className="font-medium text-sm">Approvals</span>
                 <span className="text-xs text-muted-foreground">No pending approvals · Today</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("/admin/system-health")}>View All</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/admin/system-health")} className="text-sm">
+                View All
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="ghost" size="sm" onClick={() => {}} aria-label="Quick create">
-            <Plus className="h-4 w-4 mr-1" /> Quick Create
-          </Button>
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-border mx-1" />
+
+          {/* User avatar & dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="rounded-full focus:ring-2 focus:ring-ring"
-                aria-label={`User profile: ${user?.display_name}`}
+                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                aria-label={`User menu — ${user?.display_name ?? "User"}`}
               >
-                <Avatar className="h-8 w-8 border-2 border-border">
-                  <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                    {user?.display_name?.[0] ?? "U"}
+                <Avatar className="h-8 w-8 border border-border">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                    {user?.display_name?.[0]?.toUpperCase() ?? "U"}
                   </AvatarFallback>
                 </Avatar>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col">
-                  <span className="font-medium">{user?.display_name ?? "User"}</span>
-                  <span className="text-xs text-muted-foreground font-normal">
-                    {(user?.roles ?? []).join(", ") || "No role"}
-                  </span>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-sm text-foreground">{user?.display_name ?? "User"}</span>
+                  <span className="text-xs text-muted-foreground">{(user?.roles ?? []).join(", ") || "No role"}</span>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate("/admin/users")}>
-                <User className="mr-2 h-4 w-4" /> My Profile
+              <DropdownMenuItem onClick={() => navigate("/admin/users")} className="text-sm">
+                <User className="mr-2 h-4 w-4" />
+                My Profile
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  logout();
-                }}
-              >
-                <LogOut className="mr-2 h-4 w-4" /> Sign Out
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={logout} className="text-sm text-destructive focus:text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -325,82 +346,87 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside
-          className={cn("flex flex-col border-r bg-card w-[280px] shrink-0 overflow-y-auto", layouts.glassCard)}
-          style={{ borderTop: "none", borderBottom: "none", borderLeft: "none", borderRadius: 0 }}
+          className="flex flex-col border-r bg-sidebar w-[260px] shrink-0 overflow-y-auto"
           aria-label="Main navigation menu"
         >
-          <nav className="flex flex-col gap-1 p-2">
-            {mode === "admin"
-              ? navSections.map((section) => {
-                  const items = nav.filter((n) => n.group === section.key);
-                  if (items.length === 0) return null;
-                  const SectionIcon = getNavIcon(section.icon);
-                  return (
-                    <div key={section.key} className="pt-2 first:pt-0">
-                      <div className="flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        <SectionIcon className="h-3.5 w-3.5" />
-                        {section.title}
-                      </div>
-                      {items.map((item) => {
-                        const normalizedTo = item.to.replace(/\/$/, "");
-                        const isSelected =
-                          normalizedTo === "/admin"
-                            ? normalizedPath === "/admin"
-                            : normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/");
-                        const Icon = getNavIcon(item.icon);
-                        return (
-                          <button
-                            key={item.to}
-                            type="button"
-                            onClick={() => navigate(item.to)}
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                              isSelected
-                                ? "bg-primary/10 text-primary font-medium"
-                                : "hover:bg-accent hover:text-accent-foreground"
-                            )}
-                            aria-current={isSelected ? "page" : undefined}
-                            aria-label={`Navigate to ${item.label}`}
-                          >
-                            <Icon className="h-4 w-4 shrink-0" />
-                            {item.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })
-              : nav.map((item) => {
-                  const isSelected = location.pathname === item.to;
-                  const Icon = getNavIcon(item.icon);
-                  return (
-                    <button
-                      key={item.to}
-                      type="button"
-                      onClick={() => navigate(item.to)}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors",
-                        isSelected
-                          ? "bg-primary/10 text-primary font-medium"
-                          : "hover:bg-accent hover:text-accent-foreground"
-                      )}
-                      aria-current={isSelected ? "page" : undefined}
-                      aria-label={`Navigate to ${item.label}`}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      {item.label}
-                    </button>
-                  );
-                })}
-            <div className="mt-auto border-t pt-2">
+          {/* Sidebar: menu search (find page by name) */}
+          <div className="px-2 pt-2 pb-1 shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search menu…"
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSearch(searchValue);
+                }}
+                className="h-8 pl-8 text-sm bg-muted/50 border-muted-foreground/20 focus-visible:bg-background"
+                aria-label="Search menu"
+              />
+            </div>
+          </div>
+
+          <nav className="flex flex-col py-2 px-2">
+            {(mode === "admin" ? adminNavSections : stationNavSections).map((section, sectionIdx) => {
+              const items = nav.filter((n) => n.group === section.key);
+              if (items.length === 0) return null;
+              return (
+                <div key={section.key} className={cn("flex flex-col", sectionIdx > 0 && "mt-1")}>
+                  {/* Section header — subtle label, not competing with nav items */}
+                  {sectionIdx > 0 && <div className="mx-3 my-2 border-t border-border" />}
+                  <p className="px-3 pt-1 pb-1 text-xs font-medium tracking-wide text-muted-foreground select-none">
+                    {section.title}
+                  </p>
+
+                  {/* Nav items */}
+                  {items.map((item) => {
+                    const normalizedTo = item.to.replace(/\/$/, "");
+                    const isSelected =
+                      mode === "admin"
+                        ? normalizedTo === "/admin"
+                          ? normalizedPath === "/admin"
+                          : normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/")
+                        : location.pathname === item.to;
+                    const Icon = getNavIcon(item.icon);
+                    return (
+                      <button
+                        key={item.to}
+                        type="button"
+                        onClick={() => navigate(item.to)}
+                        className={cn(
+                          "group flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-left transition-colors duration-150",
+                          isSelected
+                            ? "bg-primary text-primary-foreground font-medium"
+                            : "text-foreground/80 hover:bg-accent hover:text-accent-foreground"
+                        )}
+                        aria-current={isSelected ? "page" : undefined}
+                        aria-label={`Navigate to ${item.label}`}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-4 w-4 shrink-0",
+                            isSelected ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
+                          )}
+                        />
+                        <span className="truncate text-sm leading-5">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+
+            {/* Sign Out */}
+            <div className="mt-auto">
+              <div className="mx-3 my-2 border-t border-border" />
               <button
                 type="button"
                 onClick={logout}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                className="group flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 aria-label="Sign out of the system"
               >
-                <LogOut className="h-4 w-4 shrink-0" />
-                Sign Out
+                <LogOut className="h-4 w-4 shrink-0 group-hover:text-foreground" />
+                <span className="leading-5">Sign Out</span>
               </button>
             </div>
           </nav>
@@ -414,9 +440,9 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
         >
           <Suspense
             fallback={
-              <div className="flex w-full h-full items-center justify-center flex-col gap-4">
+              <div className="flex w-full h-full items-center justify-center flex-col gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Loading page...</p>
+                <p className="text-sm text-muted-foreground">Loading…</p>
               </div>
             }
           >

@@ -129,7 +129,6 @@ export function ComponentTypesPage() {
       title="Component Types"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Canonical component categories for BOM and routing</span>
         </div>
       }

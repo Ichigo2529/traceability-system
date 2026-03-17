@@ -16,10 +16,11 @@ Entry point for all project documentation. Use the links below or [INDEX.md](IND
 
 ## Project and delivery
 
-| Document                                     | Description                               |
-| -------------------------------------------- | ----------------------------------------- |
-| [project/roadmap.md](project/roadmap.md)     | Vision, go-live targets, timeline, status |
-| [project/checklist.md](project/checklist.md) | Implementation checklist summary          |
+| Document                                                 | Description                                       |
+| -------------------------------------------------------- | ------------------------------------------------- |
+| [project/roadmap.md](project/roadmap.md)                 | Vision, go-live targets, timeline, status         |
+| [project/checklist.md](project/checklist.md)             | Implementation checklist summary                  |
+| [project/progress-report.md](project/progress-report.md) | Progress % and task status (อัปเดตสัปดาห์ละครั้ง) |
 
 ---
 
@@ -28,7 +29,7 @@ Entry point for all project documentation. Use the links below or [INDEX.md](IND
 | Document                                   | Description                                       |
 | ------------------------------------------ | ------------------------------------------------- |
 | [ui/guidelines.md](ui/guidelines.md)       | UI/UX guidelines (Fiori, layout, tables, dialogs) |
-| [ui/ui5-guide.md](ui/ui5-guide.md)         | UI5 Web Components guide                          |
+| [ui/shadcn-guide.md](ui/shadcn-guide.md)   | shadcn/ui (Radix + Tailwind + Lucide) guide       |
 | [ui/patterns.md](ui/patterns.md)           | UI patterns                                       |
 | [ui/fcl-standards.md](ui/fcl-standards.md) | Flexible Column Layout standards                  |
 | [ui/agent-reading.md](ui/agent-reading.md) | Required reading for AI agents                    |

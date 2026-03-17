@@ -116,7 +116,6 @@ export function RolesPage() {
       title="Roles & Permissions"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Role CRUD and permission matrix</span>
         </div>
       }

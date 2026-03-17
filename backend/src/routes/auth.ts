@@ -4,11 +4,7 @@ import { db } from "../db/connection";
 import { users, roles, userRoles, refreshTokens } from "../db/schema/auth";
 import { configAuditLogs } from "../db/schema/audit";
 import { verifyPassword } from "../lib/password";
-import {
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-} from "../lib/jwt";
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../lib/jwt";
 import { randomUUID } from "crypto";
 import { hash } from "bcryptjs";
 
@@ -28,11 +24,7 @@ async function getUserWithRoles(userId: string) {
 
 // ─── Helper: audit log ─────────────────────────────────
 
-async function auditLogin(
-  userId: string | null,
-  action: string,
-  detail: Record<string, unknown>
-) {
+async function auditLogin(userId: string | null, action: string, detail: Record<string, unknown>) {
   await db.insert(configAuditLogs).values({
     userId: userId,
     entityType: "AUTH",
@@ -44,21 +36,18 @@ async function auditLogin(
 }
 
 // ─── Auth Routes ────────────────────────────────────────
+// Use full paths (no prefix) to avoid Elysia prefix/404 issues when mounted on main app
 
-export const authRoutes = new Elysia({ prefix: "/auth" })
+export const authRoutes = new Elysia()
 
   // ── POST /auth/login ────────────────────────────────
   .post(
-    "/login",
+    "/auth/login",
     async ({ body, set }) => {
       const { username, password } = body;
 
       // Find user
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.username, username))
-        .limit(1);
+      const [user] = await db.select().from(users).where(eq(users.username, username)).limit(1);
 
       if (!user) {
         await auditLogin(null, "LOGIN_FAILED", {
@@ -162,7 +151,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
   // ── POST /auth/refresh ──────────────────────────────
   // Bible §08: Refresh rotation — invalidate old token on use
   .post(
-    "/refresh",
+    "/auth/refresh",
     async ({ body, set }) => {
       const { refresh_token } = body;
 
@@ -179,11 +168,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       }
 
       // Look up refresh token record
-      const [tokenRecord] = await db
-        .select()
-        .from(refreshTokens)
-        .where(eq(refreshTokens.id, payload.tokenId))
-        .limit(1);
+      const [tokenRecord] = await db.select().from(refreshTokens).where(eq(refreshTokens.id, payload.tokenId)).limit(1);
 
       if (!tokenRecord || tokenRecord.revoked) {
         set.status = 401;
@@ -195,17 +180,10 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
       }
 
       // Revoke old token (rotation)
-      await db
-        .update(refreshTokens)
-        .set({ revoked: true })
-        .where(eq(refreshTokens.id, payload.tokenId));
+      await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.id, payload.tokenId));
 
       // Get user + roles
-      const [user] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, payload.userId))
-        .limit(1);
+      const [user] = await db.select().from(users).where(eq(users.id, payload.userId)).limit(1);
 
       if (!user || !user.isActive) {
         set.status = 401;
@@ -220,9 +198,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 
       // Issue new tokens
       const newTokenId = randomUUID();
-      const newRefreshExpiry = new Date(
-        Date.now() + 16 * 60 * 60 * 1000
-      );
+      const newRefreshExpiry = new Date(Date.now() + 16 * 60 * 60 * 1000);
 
       const newRefreshStr = await signRefreshToken({
         userId: user.id,
@@ -262,7 +238,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
 
   // ── POST /auth/logout ───────────────────────────────
   .post(
-    "/logout",
+    "/auth/logout",
     async ({ body }) => {
       const { refresh_token } = body;
 
@@ -270,10 +246,7 @@ export const authRoutes = new Elysia({ prefix: "/auth" })
         const payload = await verifyRefreshToken(refresh_token);
 
         // Revoke the token
-        await db
-          .update(refreshTokens)
-          .set({ revoked: true })
-          .where(eq(refreshTokens.id, payload.tokenId));
+        await db.update(refreshTokens).set({ revoked: true }).where(eq(refreshTokens.id, payload.tokenId));
       } catch {
         // Even if token is invalid, return success (idempotent logout)
       }

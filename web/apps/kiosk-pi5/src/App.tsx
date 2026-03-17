@@ -1,8 +1,8 @@
-import { ApiClient } from "@traceability/sdk";
+import { ApiClient, getApiBaseUrl } from "@traceability/sdk";
 import { db } from "@traceability/offline-queue";
 import { Button, Card } from "@traceability/ui";
 
-const api = new ApiClient(import.meta.env.VITE_API_BASE_URL);
+const api = new ApiClient(getApiBaseUrl(import.meta.env.VITE_API_BASE_URL));
 
 function App() {
   console.log("API Client initialized:", api); // Suppress unused var

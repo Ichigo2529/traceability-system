@@ -31,6 +31,8 @@ import {
   DoIssueHistoryRow,
 } from "../../lib/inventory-api";
 
+const SELECT_NONE = "__none__";
+
 const schema = z.object({
   do_number: z.string().min(1, "Required"),
   supplier_id: z.string().optional(),
@@ -391,7 +393,6 @@ export function InventoryDoPage() {
       title="Delivery Orders"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Manage incoming Delivery Orders (DO) — must be entered before material issuing</span>
         </div>
       }
@@ -473,12 +474,15 @@ export function InventoryDoPage() {
               name="supplier_id"
               control={form.control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={field.onChange}>
+                <Select
+                  value={field.value || SELECT_NONE}
+                  onValueChange={(v) => field.onChange(v === SELECT_NONE ? "" : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="-- None --" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- None --</SelectItem>
+                    <SelectItem value={SELECT_NONE}>-- None --</SelectItem>
                     {(suppliers as { id: string; code: string; name: string }[]).map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.code} — {s.name}
@@ -495,12 +499,15 @@ export function InventoryDoPage() {
               name="part_number"
               control={form.control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={field.onChange}>
+                <Select
+                  value={field.value || SELECT_NONE}
+                  onValueChange={(v) => field.onChange(v === SELECT_NONE ? "" : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="-- Select or type --" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- Select or type --</SelectItem>
+                    <SelectItem value={SELECT_NONE}>-- Select or type --</SelectItem>
                     {(partNumbers as PartNumberMaster[]).map((pn) => (
                       <SelectItem key={pn.id} value={pn.part_number}>
                         {pn.part_number}

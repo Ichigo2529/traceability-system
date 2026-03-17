@@ -1,6 +1,7 @@
+import { getApiBaseUrl } from "@traceability/sdk";
 import { authHeaders } from "./api-client";
 
-const base = () => String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+const base = () => getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${base()}${path}`, {
@@ -76,8 +77,7 @@ export const createInventoryDo = (body: {
   qty_received?: number;
   reject_qty?: number;
   received_date?: string;
-}): Promise<InventoryDo> =>
-  api<InventoryDo>("/inventory/do", { method: "POST", body: JSON.stringify(body) });
+}): Promise<InventoryDo> => api<InventoryDo>("/inventory/do", { method: "POST", body: JSON.stringify(body) });
 
 export const updateInventoryDo = (
   id: string,
@@ -95,8 +95,7 @@ export const updateInventoryDo = (
     reject_qty?: number;
     received_date?: string;
   }
-): Promise<InventoryDo> =>
-  api<InventoryDo>(`/inventory/do/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+): Promise<InventoryDo> => api<InventoryDo>(`/inventory/do/${id}`, { method: "PATCH", body: JSON.stringify(body) });
 
 export const deleteInventoryDo = (id: string): Promise<{ id: string; deleted: boolean }> =>
   api(`/inventory/do/${id}`, { method: "DELETE" });

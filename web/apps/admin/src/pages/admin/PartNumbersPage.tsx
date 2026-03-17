@@ -142,7 +142,6 @@ export function PartNumbersPage() {
       title="Part Numbers"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Component master with base usage definitions</span>
         </div>
       }

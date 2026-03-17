@@ -8,7 +8,9 @@ const strictScopesFromEnv = String(import.meta.env.VITE_EDEN_STRICT_SCOPES ?? ""
   .map((scope) => scope.trim())
   .filter(Boolean);
 
-const strictPreset = String(import.meta.env.VITE_EDEN_STRICT_PRESET ?? "").trim().toLowerCase();
+const strictPreset = String(import.meta.env.VITE_EDEN_STRICT_PRESET ?? "")
+  .trim()
+  .toLowerCase();
 const criticalScopes = ["material.issue", "material.approve", "material.reject", "admin.workflow"];
 
 const strictScopes = new Set(
@@ -35,7 +37,7 @@ function extractPayload(result: EdenCallResult) {
 function recordFallback(scope: string, reason: string) {
   const next = (fallbackStats.get(scope) ?? 0) + 1;
   fallbackStats.set(scope, next);
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && fallbackDebugEnabled) {
     console.warn(`[eden:fallback] scope=${scope} count=${next} reason=${reason}`);
   }
 }

@@ -97,7 +97,7 @@ export function SuppliersPage() {
         id: "profiles",
         header: "Part Profiles",
         cell: ({ row }) => (
-          <span className="admin-supplier-profile-count">{profileCountByVendor.get(row.original.id) ?? 0}</span>
+          <span className="tabular-nums font-medium">{profileCountByVendor.get(row.original.id) ?? 0}</span>
         ),
       },
       {
@@ -161,7 +161,6 @@ export function SuppliersPage() {
       title="Vendors"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Vendor and external supplier master</span>
         </div>
       }

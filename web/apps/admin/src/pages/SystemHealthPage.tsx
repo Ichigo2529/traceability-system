@@ -67,7 +67,6 @@ export default function SystemHealthPage() {
       title="System Health"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Real-time diagnostics and fallback monitoring.</span>
         </div>
       }
@@ -100,7 +99,6 @@ export default function SystemHealthPage() {
       <Section
         title={
           <div className="flex items-center gap-2">
-            <span className="indicator-live" />
             <span>Material Request Realtime</span>
           </div>
         }

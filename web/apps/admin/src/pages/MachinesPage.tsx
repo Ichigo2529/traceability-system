@@ -178,7 +178,6 @@ export default function MachinesPage() {
       title="Production Machines"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Configured physical equipment and assembly lines</span>
         </div>
       }

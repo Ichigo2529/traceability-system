@@ -210,14 +210,11 @@ export function ApprovalsPage() {
           const approvers = row.original.approver_users ?? [];
           if (!approvers.length) return "-";
           return (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+            <div className="flex flex-col gap-1">
               {approvers.map((approver) => (
                 <span
                   key={approver.user_id}
-                  style={{
-                    fontSize: "0.875rem",
-                    color: approver.is_default ? "var(--sapContent_LabelColor)" : "inherit",
-                  }}
+                  className={`text-sm ${approver.is_default ? "text-muted-foreground" : ""}`}
                 >
                   •{" "}
                   {(approver.display_name || userMap[approver.user_id]?.display_name || approver.user_id) +
@@ -311,7 +308,6 @@ export function ApprovalsPage() {
       title="Approvals & Configuration"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Workflow rules and approval matrix</span>
         </div>
       }

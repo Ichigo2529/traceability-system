@@ -2,11 +2,19 @@ import { app } from "./app";
 import { holdStaleSetRuns } from "./lib/set-run-service";
 import { runMaterialRequestReminderCycle } from "./lib/reminder-service";
 
-const port = process.env.PORT ?? 3000;
+const port = Number(process.env.PORT ?? 3000);
+const host = process.env.HOST ?? "0.0.0.0";
 
-app.listen(port);
+// Use Bun.serve so hostname binding works and all routes are handled by Elysia
+Bun.serve({
+  port,
+  hostname: host,
+  fetch: app.fetch,
+});
 
-console.log(`Traceability backend running at http://localhost:${port}`);
+console.log(
+  `Traceability backend running at http://${host === "0.0.0.0" ? "localhost" : host}:${port} (listening on ${host})`
+);
 console.log(`   Health:  GET  /health`);
 console.log(`   Auth:    POST /auth/login | /auth/refresh | /auth/logout`);
 console.log(`   Admin:   GET  /admin/users | /admin/roles | /admin/devices`);
@@ -42,4 +50,6 @@ setInterval(async () => {
   await runMaterialRequestReminderCycle();
 }, REMINDER_CHECK_INTERVAL_MS);
 
-console.log(`[SCHEDULER] Material reminder check running every ${Math.floor(REMINDER_CHECK_INTERVAL_MS / 60000)} minutes`);
+console.log(
+  `[SCHEDULER] Material reminder check running every ${Math.floor(REMINDER_CHECK_INTERVAL_MS / 60000)} minutes`
+);

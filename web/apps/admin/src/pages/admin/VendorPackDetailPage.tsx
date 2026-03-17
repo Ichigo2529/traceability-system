@@ -311,7 +311,6 @@ export function VendorPackDetailPage() {
       title="Vendor Pack Detail"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Component / Part No. / Supplier / Pack Size / QR barcode profiles</span>
         </div>
       }

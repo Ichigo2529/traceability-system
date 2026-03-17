@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@traceability/sdk";
 import { QueryKey, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 
@@ -19,7 +20,11 @@ function readAccessToken(): string | null {
   }
 }
 
-export function useMaterialRequestsRealtime({ enabled, queryKeys, authenticated = true }: UseMaterialRequestsRealtimeOptions) {
+export function useMaterialRequestsRealtime({
+  enabled,
+  queryKeys,
+  authenticated = true,
+}: UseMaterialRequestsRealtimeOptions) {
   const queryClient = useQueryClient();
   const queryKeyDigest = useMemo(() => JSON.stringify(queryKeys), [queryKeys]);
   const isDev = import.meta.env.DEV;
@@ -43,7 +48,7 @@ export function useMaterialRequestsRealtime({ enabled, queryKeys, authenticated 
     const accessToken = readAccessToken();
     if (!accessToken) return;
 
-    const base = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+    const base = getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
     if (!base) return;
 
     const url = `${base}/realtime/material-requests?access_token=${encodeURIComponent(accessToken)}`;

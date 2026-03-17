@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { useForm, Controller } from "react-hook-form";
@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const ROLES = ["ADMIN", "SUPERVISOR", "OPERATOR", "STORE", "PRODUCTION", "QA"];
+const SELECT_NONE = "__none__";
 
 const userSchema = z.object({
   employee_code: z.string().optional().or(z.literal("")),
@@ -40,6 +41,7 @@ export function UsersPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
+  const editingRef = useRef<User | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
   const { showToast } = useToast();
   const form = useForm<UserForm>({
@@ -82,7 +84,7 @@ export function UsersPage() {
 
   const updateMutation = useMutation({
     mutationFn: (payload: UserForm) =>
-      (sdk.admin.updateUser as (id: string, p: object) => Promise<unknown>)(editing!.id, {
+      (sdk.admin.updateUser as (id: string, p: object) => Promise<unknown>)(editingRef.current!.id, {
         display_name: payload.name,
         employee_code: payload.employee_code,
         email: payload.email,
@@ -95,6 +97,7 @@ export function UsersPage() {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       setOpen(false);
       setEditing(null);
+      editingRef.current = null;
       showToast("User updated successfully");
     },
   });
@@ -137,7 +140,7 @@ export function UsersPage() {
       {
         id: "roles",
         header: "Roles",
-        cell: ({ row }) => <div className="admin-users-role-list-text">{(row.original.roles || []).join(", ")}</div>,
+        cell: ({ row }) => <div className="text-sm text-muted-foreground">{(row.original.roles || []).join(", ")}</div>,
         size: 300,
       },
       {
@@ -159,15 +162,17 @@ export function UsersPage() {
               title="Edit User"
               aria-label="Edit User"
               onClick={() => {
-                setEditing(row.original);
+                const user = row.original;
+                setEditing(user);
+                editingRef.current = user;
                 form.reset({
-                  employee_code: row.original.employee_code || "",
-                  name: row.original.display_name,
-                  username: row.original.username,
-                  email: row.original.email || "",
-                  section_id: (row.original as User & { section_id?: string }).section_id || undefined,
-                  department_id: (row.original as User & { department_id?: string }).department_id || undefined,
-                  roles: row.original.roles || ["OPERATOR"],
+                  employee_code: user.employee_code || "",
+                  name: user.display_name,
+                  username: user.username,
+                  email: user.email || "",
+                  section_id: (user as User & { section_id?: string }).section_id || undefined,
+                  department_id: (user as User & { department_id?: string }).department_id || undefined,
+                  roles: user.roles || ["OPERATOR"],
                 });
                 setOpen(true);
               }}
@@ -196,7 +201,6 @@ export function UsersPage() {
       title="Users"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Manage operator and admin identities</span>
         </div>
       }
@@ -227,6 +231,7 @@ export function UsersPage() {
               className="button-hover-scale"
               onClick={() => {
                 setEditing(null);
+                editingRef.current = null;
                 form.reset({ roles: ["OPERATOR"], name: "", username: "" });
                 setOpen(true);
               }}
@@ -292,12 +297,15 @@ export function UsersPage() {
               control={form.control}
               name="section_id"
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v || undefined)}>
+                <Select
+                  value={field.value || SELECT_NONE}
+                  onValueChange={(v) => field.onChange(v === SELECT_NONE ? undefined : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="None" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value={SELECT_NONE}>None</SelectItem>
                     {sections
                       .filter((s) => s.is_active)
                       .map((sec) => (
@@ -316,12 +324,15 @@ export function UsersPage() {
               control={form.control}
               name="department_id"
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v || undefined)}>
+                <Select
+                  value={field.value || SELECT_NONE}
+                  onValueChange={(v) => field.onChange(v === SELECT_NONE ? undefined : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="None" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value={SELECT_NONE}>None</SelectItem>
                     {departments
                       .filter((d) => d.is_active)
                       .map((dep: { id: string; name: string }) => (

@@ -44,6 +44,8 @@ import { formatApiError } from "../../lib/errors";
 import { toast } from "sonner";
 import { ScanInput } from "../../components/shared/ScanInput";
 
+const SELECT_NONE = "__none__";
+
 function blankLine(itemNo: number): MaterialRequestLineForm {
   return {
     item_no: itemNo,
@@ -463,7 +465,6 @@ export function ProductionMaterialRequestPage() {
         }
         subtitle={
           <div className="flex items-center gap-2">
-            <span className="indicator-live" />
             <span>
               {showCreateForm
                 ? "Create a new material request"
@@ -581,9 +582,10 @@ export function ProductionMaterialRequestPage() {
                       <div className="min-w-[14rem] space-y-1">
                         <Label>Part Number</Label>
                         <Select
-                          value={selectedPart}
+                          value={selectedPart || SELECT_NONE}
                           onValueChange={(v) => {
-                            setSelectedPart(v);
+                            const next = v === SELECT_NONE ? "" : v;
+                            setSelectedPart(next);
                             setSelectedDo("");
                           }}
                         >
@@ -591,7 +593,7 @@ export function ProductionMaterialRequestPage() {
                             <SelectValue placeholder="Select part number" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Select part number</SelectItem>
+                            <SelectItem value={SELECT_NONE}>Select part number</SelectItem>
                             {partOptions.map((part) => (
                               <SelectItem key={`part-${part}`} value={part}>
                                 {part}
@@ -602,12 +604,15 @@ export function ProductionMaterialRequestPage() {
                       </div>
                       <div className="min-w-[12rem] space-y-1">
                         <Label>DO Number</Label>
-                        <Select value={selectedDo} onValueChange={setSelectedDo}>
+                        <Select
+                          value={selectedDo || SELECT_NONE}
+                          onValueChange={(v) => setSelectedDo(v === SELECT_NONE ? "" : v)}
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="Select DO number" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Select DO number</SelectItem>
+                            <SelectItem value={SELECT_NONE}>Select DO number</SelectItem>
                             {doOptionsForPart.map((row) => (
                               <SelectItem key={`do-${selectedPart}-${row}`} value={row}>
                                 {row}

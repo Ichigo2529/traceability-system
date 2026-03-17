@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter } from "react-router-dom";
+import { HashRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import { OfflineQueueProvider } from "@traceability/offline-queue";
 import { AuthProvider, sdk } from "./context/AuthContext";
@@ -12,7 +12,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <OfflineQueueProvider client={sdk}>
-          <BrowserRouter
+          <HashRouter
             future={{
               v7_startTransition: true,
               v7_relativeSplatPath: true,
@@ -29,7 +29,7 @@ export default function App() {
                 style: { fontFamily: "Inter, sans-serif" },
               }}
             />
-          </BrowserRouter>
+          </HashRouter>
         </OfflineQueueProvider>
       </AuthProvider>
     </QueryClientProvider>

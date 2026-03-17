@@ -141,7 +141,6 @@ export default function HeartbeatMonitorPage() {
       title="Heartbeat Monitor"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Live device status monitoring | Online window: {onlineWindowMinutes}m</span>
         </div>
       }

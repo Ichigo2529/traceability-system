@@ -20,10 +20,11 @@ Current system (aligned with codebase and database).
 
 Program and delivery.
 
-| File                                         | Description                               |
-| -------------------------------------------- | ----------------------------------------- |
-| [project/roadmap.md](project/roadmap.md)     | Vision, go-live targets, timeline, status |
-| [project/checklist.md](project/checklist.md) | Implementation checklist summary          |
+| File                                                     | Description                                       |
+| -------------------------------------------------------- | ------------------------------------------------- |
+| [project/roadmap.md](project/roadmap.md)                 | Vision, go-live targets, timeline, status         |
+| [project/checklist.md](project/checklist.md)             | Implementation checklist summary                  |
+| [project/progress-report.md](project/progress-report.md) | Progress % and task status (อัปเดตสัปดาห์ละครั้ง) |
 
 ---
 
@@ -31,14 +32,13 @@ Program and delivery.
 
 UI/UX standards.
 
-| File                                       | Description                                    |
-| ------------------------------------------ | ---------------------------------------------- |
-| [ui/guidelines.md](ui/guidelines.md)       | UI/UX guidelines (layout, tables, dialogs)     |
-| [ui/shadcn-guide.md](ui/shadcn-guide.md)   | shadcn/ui (Radix + Tailwind + Lucide) guide    |
-| [ui/ui5-guide.md](ui/ui5-guide.md)         | _(deprecated)_ UI5 guide — see shadcn-guide.md |
-| [ui/patterns.md](ui/patterns.md)           | UI patterns                                    |
-| [ui/fcl-standards.md](ui/fcl-standards.md) | Flexible Column Layout standards               |
-| [ui/agent-reading.md](ui/agent-reading.md) | Required reading for AI agents                 |
+| File                                       | Description                                 |
+| ------------------------------------------ | ------------------------------------------- |
+| [ui/guidelines.md](ui/guidelines.md)       | UI/UX guidelines (layout, tables, dialogs)  |
+| [ui/shadcn-guide.md](ui/shadcn-guide.md)   | shadcn/ui (Radix + Tailwind + Lucide) guide |
+| [ui/patterns.md](ui/patterns.md)           | UI patterns                                 |
+| [ui/fcl-standards.md](ui/fcl-standards.md) | Flexible Column Layout standards            |
+| [ui/agent-reading.md](ui/agent-reading.md) | Required reading for AI agents              |
 
 ---
 

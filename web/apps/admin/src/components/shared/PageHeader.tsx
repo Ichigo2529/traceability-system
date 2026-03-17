@@ -1,13 +1,21 @@
 import { ReactNode } from "react";
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+}) {
   return (
-    <div className="admin-page-header">
-      <div className="admin-page-header-main">
-        <h1 className="admin-page-header-title">{title}</h1>
-        {description ? <p className="admin-page-header-description">{description}</p> : null}
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">{title}</h1>
+        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
-      {actions ? <div className="admin-page-header-actions">{actions}</div> : null}
+      {actions ? <div className="flex flex-shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
   );
 }

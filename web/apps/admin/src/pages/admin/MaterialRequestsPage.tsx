@@ -33,7 +33,6 @@ export default function MaterialRequestsPage() {
       title="Material Requests"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Internal warehouse transfer and material requisitions</span>
         </div>
       }

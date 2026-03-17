@@ -41,7 +41,6 @@ export default function ReadinessValidatorPage() {
       title="Readiness Validator"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Check model configuration completeness before activation</span>
         </div>
       }
@@ -62,17 +61,18 @@ export default function ReadinessValidatorPage() {
                 <Label>Model</Label>
                 <Select
                   disabled={isLoadingModels}
-                  value={selectedModelId}
+                  value={selectedModelId || "__none__"}
                   onValueChange={(v) => {
-                    setSelectedModelId(v);
-                    if (!v) setResult(null);
+                    const next = v === "__none__" ? "" : v;
+                    setSelectedModelId(next);
+                    if (!next) setResult(null);
                   }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="-- Select Model --" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">-- Select Model --</SelectItem>
+                    <SelectItem value="__none__">-- Select Model --</SelectItem>
                     {models.map((m: Model) => (
                       <SelectItem key={m.id} value={m.id}>
                         {m.code} - {m.name}

@@ -151,7 +151,6 @@ export function StationsPage() {
       title="Stations"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Factory stations bound to process and area</span>
         </div>
       }

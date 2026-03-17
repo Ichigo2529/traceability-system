@@ -12,6 +12,8 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { PageStack } from "@traceability/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -66,7 +68,12 @@ export function PackingStationPage() {
       });
     },
     onError: (err) => {
-      setOverlay({ open: true, mode: "NG", title: "GROUP NG", description: formatStationError(err, "Split group failed") });
+      setOverlay({
+        open: true,
+        mode: "NG",
+        title: "GROUP NG",
+        description: formatStationError(err, "Split group failed"),
+      });
     },
   });
 
@@ -87,24 +94,35 @@ export function PackingStationPage() {
         open: true,
         mode: "PASS",
         title: "OUTER PASS",
-        description: result.queued ? "Outer packing queued offline." : outerId ? `Outer ${outerId} created` : "Packed to outer",
+        description: result.queued
+          ? "Outer packing queued offline."
+          : outerId
+            ? `Outer ${outerId} created`
+            : "Packed to outer",
       });
     },
     onError: (err) => {
-      setOverlay({ open: true, mode: "NG", title: "OUTER NG", description: formatStationError(err, "Outer packing failed") });
+      setOverlay({
+        open: true,
+        mode: "NG",
+        title: "OUTER NG",
+        description: formatStationError(err, "Outer packing failed"),
+      });
     },
   });
 
   if (heartbeatQuery.isLoading) return <LoadingSkeleton label="Preparing packing station..." />;
-  if (heartbeatQuery.error) return <ErrorState title="Packing station offline" description="Device is not registered or token is invalid." />;
-  if (heartbeatQuery.data?.status === "disabled") return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
+  if (heartbeatQuery.error)
+    return <ErrorState title="Packing station offline" description="Device is not registered or token is invalid." />;
+  if (heartbeatQuery.data?.status === "disabled")
+    return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
 
   return (
     <PageStack>
-      <div className="admin-toolbar">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="admin-page-title">Packing Station</h1>
-          <p className="text-sm text-gray-500">Create groups from trays and pack group into outer carton.</p>
+          <h1 className="text-2xl font-bold text-foreground">Packing Station</h1>
+          <p className="text-sm text-muted-foreground">Create groups from trays and pack group into outer carton.</p>
         </div>
       </div>
       <StationHeader
@@ -114,64 +132,80 @@ export function PackingStationPage() {
       />
 
       <div className="grid gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2 admin-card">
-          <div className="p-4 border-b border-gray-100">
-            <h3 className="text-lg font-medium">Packing Flow</h3>
-          </div>
-          <div className="p-4 space-y-4">
-            <div className="admin-stack-2">
+        <Card className="xl:col-span-2">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle>Packing Flow</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">1) Split ASSY into Groups (2 x 60)</p>
-              <ScanInput value={assyId} onChange={setAssyId} onSubmit={() => splitMutation.mutate(assyId.trim())} placeholder="Scan ASSY ID" />
-              <button
-                className="admin-button is-primary"
+              <ScanInput
+                value={assyId}
+                onChange={setAssyId}
+                onSubmit={() => splitMutation.mutate(assyId.trim())}
+                placeholder="Scan ASSY ID"
+              />
+              <Button
                 onClick={() => splitMutation.mutate(assyId.trim())}
                 disabled={splitMutation.isPending || !assyId.trim()}
               >
                 {splitMutation.isPending ? "Creating..." : "Create Groups"}
-              </button>
+              </Button>
             </div>
 
-            <div className="admin-stack-2">
+            <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">2) Pack Group into Outer</p>
-              <ScanInput value={groupId} onChange={setGroupId} onSubmit={() => outerMutation.mutate(groupId.trim())} placeholder="Scan GROUP ID" />
-              <button
-                className="admin-button is-primary"
+              <ScanInput
+                value={groupId}
+                onChange={setGroupId}
+                onSubmit={() => outerMutation.mutate(groupId.trim())}
+                placeholder="Scan GROUP ID"
+              />
+              <Button
                 onClick={() => outerMutation.mutate(groupId.trim())}
                 disabled={outerMutation.isPending || !groupId.trim()}
               >
                 {outerMutation.isPending ? "Packing..." : "Pack to Outer"}
-              </button>
+              </Button>
             </div>
 
-            <div className="rounded-lg border p-3 text-sm">
-              <p className="font-medium">Latest Groups</p>
-              {!groups.length ? <p className="text-muted-foreground">No generated groups</p> : groups.map((g) => <p key={g} className="font-mono text-xs">{g}</p>)}
+            <div className="rounded-lg border border-border p-3 text-sm">
+              <p className="font-medium mb-1">Latest Groups</p>
+              {!groups.length ? (
+                <p className="text-muted-foreground">No generated groups</p>
+              ) : (
+                groups.map((g) => (
+                  <p key={g} className="font-mono text-xs text-foreground">
+                    {g}
+                  </p>
+                ))
+              )}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="admin-card">
-          <div className="p-4 border-b border-gray-100">
-            <h3 className="text-lg font-medium">Station Summary</h3>
-          </div>
-          <div className="p-4 admin-stack-2 text-sm">
+        <Card>
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle>Station Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 flex flex-col gap-2 text-sm">
             <p>
               Device status: <StatusBadge status={heartbeatQuery.data?.status || "active"} />
             </p>
             <p>Station: {heartbeatQuery.data?.station?.name || "Unassigned"}</p>
             <p>Process: {heartbeatQuery.data?.process?.name || "Unassigned"}</p>
             <p>Created outers: {outers.length}</p>
-            {outers.length ? (
-              <div className="rounded-lg border p-2">
+            {outers.length > 0 && (
+              <div className="rounded-lg border border-border p-2 mt-1">
                 {outers.map((id) => (
-                  <p key={id} className="font-mono text-xs">
+                  <p key={id} className="font-mono text-xs text-foreground">
                     {id}
                   </p>
                 ))}
               </div>
-            ) : null}
-          </div>
-        </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <FullscreenResultOverlay

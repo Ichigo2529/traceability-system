@@ -192,7 +192,6 @@ export function InboundPacksPage() {
       title="Inbound Material Packs"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Vendor pack reception and DO matching</span>
         </div>
       }

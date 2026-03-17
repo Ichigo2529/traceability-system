@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { PageLayout } from "@traceability/ui";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Package, ArrowRightCircle } from "lucide-react";
 import { getHandoverBatches, pickupBatch, startScanSession } from "../../lib/handover-api";
 import { useHandoverRealtime } from "../../hooks/useHandoverRealtime";
@@ -65,112 +66,87 @@ export function ForkliftIntakePage() {
       icon="shipping-status"
       iconColor="blue"
     >
-      <div className="flex gap-1 border-b mb-4">
-        <button
-          type="button"
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            selectedTab === "PENDING"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setSelectedTab("PENDING")}
-        >
-          Awaiting Pickup
-        </button>
-        <button
-          type="button"
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            selectedTab === "ACTIVE"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setSelectedTab("ACTIVE")}
-        >
-          My Active Hauls
-        </button>
-        <button
-          type="button"
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-            selectedTab === "COMPLETED"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-          onClick={() => setSelectedTab("COMPLETED")}
-        >
-          Completed
-        </button>
-      </div>
+      <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as TabKey)}>
+        <TabsList>
+          <TabsTrigger value="PENDING">Awaiting Pickup</TabsTrigger>
+          <TabsTrigger value="ACTIVE">My Active Hauls</TabsTrigger>
+          <TabsTrigger value="COMPLETED">Completed</TabsTrigger>
+        </TabsList>
 
-      <div className="p-4">
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <div
-              className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
-              aria-hidden
-            />
-          </div>
-        ) : batches.length === 0 ? (
-          <div className="flex flex-col items-center py-12 text-muted-foreground opacity-80">
-            <p className="text-lg mb-4">No batches found in this status.</p>
-          </div>
-        ) : (
-          <div className="border rounded-md overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-left font-semibold p-3">Batch No</th>
-                  <th className="text-left font-semibold p-3">MR ID</th>
-                  <th className="text-left font-semibold p-3">Created</th>
-                  <th className="text-left font-semibold p-3">Progress</th>
-                  <th className="text-left font-semibold p-3">Status</th>
-                  <th className="text-left font-semibold p-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {batches.map((batch) => (
-                  <tr key={batch.id} className="border-b last:border-0">
-                    <td className="p-3 font-semibold">{batch.batchNo}</td>
-                    <td className="p-3">{batch.materialRequestId.slice(0, 8)}…</td>
-                    <td className="p-3">{new Date(batch.createdAt).toLocaleString()}</td>
-                    <td className="p-3">
-                      {batch.scannedItemCount} / {batch.expectedItemCount}
-                    </td>
-                    <td className="p-3">
-                      <span
-                        className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
-                          statusVariant[batch.status] ?? "bg-muted text-muted-foreground"
-                        }`}
+        {(["PENDING", "ACTIVE", "COMPLETED"] as TabKey[]).map((tab) => (
+          <TabsContent key={tab} value={tab} className="mt-4">
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <div
+                  className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
+                  aria-hidden
+                />
+              </div>
+            ) : batches.length === 0 ? (
+              <div className="flex flex-col items-center py-12 text-muted-foreground">
+                <p className="text-lg">No batches found in this status.</p>
+              </div>
+            ) : (
+              <div className="border border-border rounded-md overflow-hidden">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b border-border bg-muted">
+                      <th className="text-left font-semibold px-4 py-3">Batch No</th>
+                      <th className="text-left font-semibold px-4 py-3">MR ID</th>
+                      <th className="text-left font-semibold px-4 py-3">Created</th>
+                      <th className="text-left font-semibold px-4 py-3">Progress</th>
+                      <th className="text-left font-semibold px-4 py-3">Status</th>
+                      <th className="text-left font-semibold px-4 py-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batches.map((batch) => (
+                      <tr
+                        key={batch.id}
+                        className="border-b border-border last:border-b-0 hover:bg-accent/50 transition-colors"
                       >
-                        {batch.status.replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td className="p-3">
-                      {selectedTab === "PENDING" && (
-                        <Button onClick={() => pickupMutation.mutate(batch.id)} disabled={pickupMutation.isPending}>
-                          <Package className="h-4 w-4 mr-2" />
-                          Acknowledge &amp; Pickup
-                        </Button>
-                      )}
-                      {selectedTab === "ACTIVE" && (
-                        <Button
-                          variant="default"
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() => startSessionMutation.mutate(batch.id)}
-                          disabled={startSessionMutation.isPending}
-                        >
-                          <ArrowRightCircle className="h-4 w-4 mr-2" />
-                          Start Scanning
-                        </Button>
-                      )}
-                      {selectedTab === "COMPLETED" && <Button variant="ghost">View Details</Button>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                        <td className="px-4 py-3 font-semibold text-foreground">{batch.batchNo}</td>
+                        <td className="px-4 py-3 text-foreground">{batch.materialRequestId.slice(0, 8)}…</td>
+                        <td className="px-4 py-3 text-foreground">{new Date(batch.createdAt).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-foreground">
+                          {batch.scannedItemCount} / {batch.expectedItemCount}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                              statusVariant[batch.status] ?? "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {batch.status.replace(/_/g, " ")}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {tab === "PENDING" && (
+                            <Button onClick={() => pickupMutation.mutate(batch.id)} disabled={pickupMutation.isPending}>
+                              <Package className="h-4 w-4 mr-2" />
+                              Acknowledge &amp; Pickup
+                            </Button>
+                          )}
+                          {tab === "ACTIVE" && (
+                            <Button
+                              onClick={() => startSessionMutation.mutate(batch.id)}
+                              disabled={startSessionMutation.isPending}
+                            >
+                              <ArrowRightCircle className="h-4 w-4 mr-2" />
+                              Start Scanning
+                            </Button>
+                          )}
+                          {tab === "COMPLETED" && <Button variant="ghost">View Details</Button>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
+        ))}
+      </Tabs>
     </PageLayout>
   );
 }

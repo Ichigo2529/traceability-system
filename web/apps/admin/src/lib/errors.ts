@@ -6,7 +6,7 @@ const FRIENDLY_CODE_MESSAGE: Record<string, string> = {
   INVALID_INPUT: "Invalid input",
   UNKNOWN_ERROR: "Request failed",
   FORBIDDEN: "You do not have permission to perform this action",
-  UNAUTHORIZED: "Authentication required",
+  UNAUTHORIZED: "Session expired. Please sign in again.",
   SECTION_NOT_SET: "Section not assigned — contact your administrator",
   COST_CENTER_DEFAULT_NOT_SET: "No default cost center set for your section — contact your administrator",
   INVALID_COST_CENTER: "Selected cost center is not allowed for your section",

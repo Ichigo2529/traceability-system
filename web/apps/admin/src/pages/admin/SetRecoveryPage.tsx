@@ -34,7 +34,6 @@ export function SetRecoveryPage() {
       title="Set Recovery Tools"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Administrative tools for correcting material assignments and set run state</span>
         </div>
       }

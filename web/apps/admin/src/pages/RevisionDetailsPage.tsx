@@ -618,7 +618,6 @@ export default function RevisionDetailsPage() {
       title={`Revision: ${revCode}`}
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>
             {modelName} ({modelCode}) — Revision details and BOM profile
           </span>

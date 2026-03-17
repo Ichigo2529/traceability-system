@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
 import {
   createMaterialQueryKeys,
   getMaterialIssueOptions,
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Printer } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { MaterialRequestVoucherView } from "../../components/material/MaterialRequestVoucherView";
@@ -473,7 +475,6 @@ export function StoreMaterialApprovalPage() {
       title={showingDetail ? (detailsQuery.data?.request_no ?? "Request Detail") : "Store Material Approval"}
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Shared issue material flow</span>
         </div>
       }
@@ -519,10 +520,7 @@ export function StoreMaterialApprovalPage() {
         ) : undefined
       }
     >
-      <div
-        className="page-container motion-safe:animate-fade-in"
-        style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-      >
+      <div className="flex flex-col gap-4 motion-safe:animate-fade-in">
         {showingDetail ? (
           detailsQuery.isLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -552,17 +550,14 @@ export function StoreMaterialApprovalPage() {
                   {WORKFLOW_STEPS.map((step, idx) => {
                     const done = workflowStepsDone[idx];
                     const active = idx === firstIncompleteIdx;
-                    const circleColor = done
-                      ? "var(--sapPositiveColor)"
-                      : active
-                        ? "var(--sapHighlightColor)"
-                        : "var(--sapNeutralBorderColor)";
                     return (
                       <div key={step.key} className="flex items-start flex-1 min-w-[80px] last:flex-none">
                         <div className="flex flex-col items-center min-w-[80px]">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                            style={{ background: circleColor }}
+                            className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm",
+                              done ? "bg-emerald-500" : active ? "bg-primary" : "bg-muted-foreground/40"
+                            )}
                           >
                             {done ? "✓" : idx + 1}
                           </div>
@@ -571,10 +566,7 @@ export function StoreMaterialApprovalPage() {
                           {active && <span className="text-xs font-medium text-destructive mt-0.5">Pending</span>}
                         </div>
                         {idx < WORKFLOW_STEPS.length - 1 && (
-                          <div
-                            className="flex-1 h-0.5 mt-4 min-w-2"
-                            style={{ background: done ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)" }}
-                          />
+                          <div className={cn("flex-1 h-0.5 mt-4 min-w-2", done ? "bg-emerald-500" : "bg-border")} />
                         )}
                       </div>
                     );
@@ -595,56 +587,30 @@ export function StoreMaterialApprovalPage() {
             </Alert>
           )
         ) : (
-          <div>
-            <div className="flex gap-1 border-b mb-4">
-              <button
-                type="button"
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  tab === "PENDING"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => setTab("PENDING")}
-                data-key="PENDING"
-              >
-                Waiting Approval
-              </button>
-              <button
-                type="button"
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                  tab === "HISTORY"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => setTab("HISTORY")}
-                data-key="HISTORY"
-              >
-                History
-              </button>
-            </div>
-            {tab === "PENDING" && (
-              <div className="pt-2">
-                <MaterialRequestListTable
-                  data={pendingQuery.data ?? []}
-                  loading={pendingQuery.isLoading}
-                  onView={(id) => setSelectedId(id)}
-                  formatDateTime={(s) => formatDateTime(s ?? "")}
-                  filterPlaceholder="Search waiting requests..."
-                />
-              </div>
-            )}
-            {tab === "HISTORY" && (
-              <div className="pt-2">
-                <MaterialRequestListTable
-                  data={historyQuery.data ?? []}
-                  loading={historyQuery.isLoading}
-                  onView={(id) => setSelectedId(id)}
-                  formatDateTime={(s) => formatDateTime(s ?? "")}
-                  filterPlaceholder="Search history..."
-                />
-              </div>
-            )}
-          </div>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+            <TabsList>
+              <TabsTrigger value="PENDING">Waiting Approval</TabsTrigger>
+              <TabsTrigger value="HISTORY">History</TabsTrigger>
+            </TabsList>
+            <TabsContent value="PENDING" className="pt-2">
+              <MaterialRequestListTable
+                data={pendingQuery.data ?? []}
+                loading={pendingQuery.isLoading}
+                onView={(id) => setSelectedId(id)}
+                formatDateTime={(s) => formatDateTime(s ?? "")}
+                filterPlaceholder="Search waiting requests..."
+              />
+            </TabsContent>
+            <TabsContent value="HISTORY" className="pt-2">
+              <MaterialRequestListTable
+                data={historyQuery.data ?? []}
+                loading={historyQuery.isLoading}
+                onView={(id) => setSelectedId(id)}
+                formatDateTime={(s) => formatDateTime(s ?? "")}
+                filterPlaceholder="Search history..."
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </div>
 

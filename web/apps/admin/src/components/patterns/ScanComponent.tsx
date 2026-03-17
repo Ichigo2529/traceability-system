@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Barcode, CheckCircle2 } from "lucide-react";
-import layouts from "../../styles/layouts.module.css";
 
 export type ScanStatus = "IDLE" | "PROCESSING" | "VALID" | "INVALID";
 
@@ -67,7 +66,7 @@ export function ScanComponent({
   };
 
   return (
-    <Card className={`${layouts.stationCard} ${layouts.glassCard}`}>
+    <Card className="w-full max-w-[720px] backdrop-blur-md bg-card/80 border border-border shadow-lg rounded-2xl">
       <CardHeader className="flex flex-row items-center gap-2">
         <Barcode className="h-5 w-5" />
         <h3 className="text-base font-semibold">{label}</h3>

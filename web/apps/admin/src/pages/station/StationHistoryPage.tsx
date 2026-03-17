@@ -36,12 +36,13 @@ export function StationHistoryPage() {
   const events = traceQuery.data?.events || [];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="border-b px-4 py-3">
-        <h2 className="text-xl font-semibold">History / Trace View</h2>
-      </header>
+    <div className="flex flex-col gap-4 p-4 max-w-[1000px] mx-auto">
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">History / Trace View</h2>
+        <p className="text-sm text-muted-foreground">Search and inspect unit traceability timeline</p>
+      </div>
 
-      <div className="p-4 max-w-[1000px] mx-auto flex flex-col gap-4 flex-1">
+      <div className="flex flex-col gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Trace & Search</CardTitle>

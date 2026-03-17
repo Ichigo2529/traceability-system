@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageLayout, Section } from "@traceability/ui";
 
+const SELECT_ALL_ENTITIES = "__all__";
+
 const ENTITY_OPTIONS = [
   "",
   "MODEL",
@@ -62,7 +64,6 @@ export default function AuditLogsPage() {
       title="Configuration Audit Logs"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>System-wide configuration changes and user actions</span>
         </div>
       }
@@ -79,12 +80,15 @@ export default function AuditLogsPage() {
           actions={
             <div className="flex items-center gap-2">
               <Label>Filter by Entity Type:</Label>
-              <Select value={entityType} onValueChange={setEntityType}>
+              <Select
+                value={entityType || SELECT_ALL_ENTITIES}
+                onValueChange={(v) => setEntityType(v === SELECT_ALL_ENTITIES ? "" : v)}
+              >
                 <SelectTrigger className="min-w-[200px]">
                   <SelectValue placeholder="All Entities" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Entities</SelectItem>
+                  <SelectItem value={SELECT_ALL_ENTITIES}>All Entities</SelectItem>
                   {ENTITY_OPTIONS.filter(Boolean).map((opt) => (
                     <SelectItem key={opt} value={opt}>
                       {opt}

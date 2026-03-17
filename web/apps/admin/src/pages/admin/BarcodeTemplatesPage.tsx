@@ -281,7 +281,6 @@ export function BarcodeTemplatesPage() {
       title="Barcode Templates"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>GS1-128 and 2D barcode parsing rules</span>
         </div>
       }

@@ -11,6 +11,7 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Button } from "../../components/ui/button";
+import { Label } from "../../components/ui/label";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { ApiError } from "@traceability/sdk";
@@ -52,23 +53,29 @@ export function LabelStationPage() {
         throw new ApiError("Online required for label generation", "OFFLINE_SERIAL_NOT_ALLOWED", 409);
       }
 
-      await publishEvent({
-        event_id: genEventId(),
-        event_type: "LABEL_GENERATE_REQUEST",
-        unit_id: targetAssyId,
-        payload: { assy_id: targetAssyId },
-        created_at_device: new Date().toISOString(),
-      }, { allowOfflineQueue: false });
+      await publishEvent(
+        {
+          event_id: genEventId(),
+          event_type: "LABEL_GENERATE_REQUEST",
+          unit_id: targetAssyId,
+          payload: { assy_id: targetAssyId },
+          created_at_device: new Date().toISOString(),
+        },
+        { allowOfflineQueue: false }
+      );
 
       const generated = await sdk.event.generateLabels(targetAssyId);
 
-      await publishEvent({
-        event_id: genEventId(),
-        event_type: "LABELS_GENERATED",
-        unit_id: targetAssyId,
-        payload: { assy_id: targetAssyId, label_count: generated.labels.length },
-        created_at_device: new Date().toISOString(),
-      }, { allowOfflineQueue: false });
+      await publishEvent(
+        {
+          event_id: genEventId(),
+          event_type: "LABELS_GENERATED",
+          unit_id: targetAssyId,
+          payload: { assy_id: targetAssyId, label_count: generated.labels.length },
+          created_at_device: new Date().toISOString(),
+        },
+        { allowOfflineQueue: false }
+      );
       return generated.labels;
     },
     onSuccess: (rows) => {
@@ -76,15 +83,22 @@ export function LabelStationPage() {
       setOverlay({ open: true, mode: "PASS", title: "LABEL PASS", description: `Generated ${rows.length} labels` });
     },
     onError: (err) => {
-      setOverlay({ open: true, mode: "NG", title: "LABEL NG", description: formatStationError(err, "Label generation failed") });
+      setOverlay({
+        open: true,
+        mode: "NG",
+        title: "LABEL NG",
+        description: formatStationError(err, "Label generation failed"),
+      });
     },
   });
 
   const canGenerate = assyId.trim() && checked.component && checked.qty && checked.layout;
 
   if (heartbeatQuery.isLoading) return <LoadingSkeleton label="Preparing label station..." />;
-  if (heartbeatQuery.error) return <ErrorState title="Label station offline" description="Device is not registered or token is invalid." />;
-  if (heartbeatQuery.data?.status === "disabled") return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
+  if (heartbeatQuery.error)
+    return <ErrorState title="Label station offline" description="Device is not registered or token is invalid." />;
+  if (heartbeatQuery.data?.status === "disabled")
+    return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
 
   return (
     <PageStack>
@@ -94,61 +108,78 @@ export function LabelStationPage() {
         processName={heartbeatQuery.data?.process?.name || "Unassigned"}
         deviceStatus={heartbeatQuery.data?.status || "active"}
       />
-      <div className="admin-label-layout">
-        <Card className="admin-label-main-card">
-          <CardHeader>
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card className="xl:col-span-2">
+          <CardHeader className="border-b border-border pb-4">
             <CardTitle>Label Generation</CardTitle>
           </CardHeader>
-          <CardContent className="admin-label-content">
-            <ScanInput value={assyId} onChange={setAssyId} onSubmit={() => generateMutation.mutate(assyId.trim())} placeholder="Scan ASSY ID" />
-            <div className="admin-label-checklist">
-              <p className="admin-label-checklist-title">Checklist</p>
-              <label className="admin-label-checklist-row">
-                <Checkbox checked={Boolean(checked.component)} onCheckedChange={(v) => setChecked((prev) => ({ ...prev, component: Boolean(v) }))} />
-                Components validated
+          <CardContent className="pt-4 flex flex-col gap-4">
+            <ScanInput
+              value={assyId}
+              onChange={setAssyId}
+              onSubmit={() => generateMutation.mutate(assyId.trim())}
+              placeholder="Scan ASSY ID"
+            />
+            <div className="rounded-lg border border-border p-4 flex flex-col gap-3">
+              <p className="text-sm font-semibold text-foreground">Checklist</p>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <Checkbox
+                  checked={Boolean(checked.component)}
+                  onCheckedChange={(v) => setChecked((prev) => ({ ...prev, component: Boolean(v) }))}
+                />
+                <Label className="cursor-pointer">Components validated</Label>
               </label>
-              <label className="admin-label-checklist-row">
-                <Checkbox checked={Boolean(checked.qty)} onCheckedChange={(v) => setChecked((prev) => ({ ...prev, qty: Boolean(v) }))} />
-                Quantity verified (6 trays)
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <Checkbox
+                  checked={Boolean(checked.qty)}
+                  onCheckedChange={(v) => setChecked((prev) => ({ ...prev, qty: Boolean(v) }))}
+                />
+                <Label className="cursor-pointer">Quantity verified (6 trays)</Label>
               </label>
-              <label className="admin-label-checklist-row">
-                <Checkbox checked={Boolean(checked.layout)} onCheckedChange={(v) => setChecked((prev) => ({ ...prev, layout: Boolean(v) }))} />
-                Label layout confirmed
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <Checkbox
+                  checked={Boolean(checked.layout)}
+                  onCheckedChange={(v) => setChecked((prev) => ({ ...prev, layout: Boolean(v) }))}
+                />
+                <Label className="cursor-pointer">Label layout confirmed</Label>
               </label>
             </div>
-            <Button onClick={() => generateMutation.mutate(assyId.trim())} disabled={!canGenerate || generateMutation.isPending}>
+            <Button
+              onClick={() => generateMutation.mutate(assyId.trim())}
+              disabled={!canGenerate || generateMutation.isPending}
+            >
               {generateMutation.isPending ? "Generating..." : "Generate Labels"}
             </Button>
-            {labels.length ? (
-              <div className="admin-label-table-shell">
-                <table className="admin-label-table">
-                  <thead className="admin-label-table-head">
-                    <tr>
-                      <th className="admin-label-th">Tray</th>
-                      <th className="admin-label-th">Serial</th>
-                      <th className="admin-label-th">Payload</th>
+            {labels.length > 0 && (
+              <div className="overflow-x-auto rounded border border-border">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-muted border-b border-border">
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">Tray</th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">Serial</th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">Payload</th>
                     </tr>
                   </thead>
                   <tbody>
                     {labels.map((label) => (
-                      <tr key={label.tray_id} className="admin-label-row">
-                        <td className="admin-label-td admin-label-td--mono">{label.tray_id}</td>
-                        <td className="admin-label-td">{label.serial}</td>
-                        <td className="admin-label-td admin-label-td--mono">{label.payload}</td>
+                      <tr key={label.tray_id} className="border-b border-border last:border-b-0 hover:bg-accent/50">
+                        <td className="px-4 py-3 font-mono text-xs text-foreground">{label.tray_id}</td>
+                        <td className="px-4 py-3 text-foreground">{label.serial}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-foreground">{label.payload}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            ) : null}
+            )}
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
+          <CardHeader className="border-b border-border pb-4">
             <CardTitle>Station Summary</CardTitle>
           </CardHeader>
-          <CardContent className="admin-label-summary-content">
+          <CardContent className="pt-4 flex flex-col gap-2 text-sm">
             <p>
               Device status: <StatusBadge status={heartbeatQuery.data?.status || "active"} />
             </p>

@@ -22,6 +22,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
+const SELECT_NONE = "__none__";
+
 const schema = z.object({
   code: z.string().min(1),
   name: z.string().min(1),
@@ -148,7 +150,6 @@ export function DepartmentsPage() {
       title="Departments"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Organizational units and cost centers</span>
         </div>
       }
@@ -235,12 +236,15 @@ export function DepartmentsPage() {
               name="section_id"
               control={form.control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v || undefined)}>
+                <Select
+                  value={field.value || SELECT_NONE}
+                  onValueChange={(v) => field.onChange(v === SELECT_NONE ? undefined : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="None" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value={SELECT_NONE}>None</SelectItem>
                     {(sections as Section[]).map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.section_name}

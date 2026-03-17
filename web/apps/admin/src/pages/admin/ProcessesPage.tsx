@@ -117,7 +117,6 @@ export function ProcessesPage() {
       title="Processes"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Manufacturing process master with sequence ordering</span>
         </div>
       }

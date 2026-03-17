@@ -29,6 +29,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const GROUP_CODES = ["DL", "IDL", "DIS", "ADM"] as const;
+const SELECT_NONE = "__none__";
 
 const schema = z.object({
   group_code: z.enum(GROUP_CODES),
@@ -158,7 +159,6 @@ export function CostCentersPage() {
       title="Cost Centers"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Manage cost center codes by group</span>
         </div>
       }
@@ -266,12 +266,15 @@ export function CostCentersPage() {
               name="section_id"
               control={form.control}
               render={({ field }) => (
-                <Select value={field.value || ""} onValueChange={(v) => field.onChange(v || undefined)}>
+                <Select
+                  value={field.value || SELECT_NONE}
+                  onValueChange={(v) => field.onChange(v === SELECT_NONE ? undefined : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="None" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value={SELECT_NONE}>None</SelectItem>
                     {sections.map((s: { id: string; section_name: string }) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.section_name}

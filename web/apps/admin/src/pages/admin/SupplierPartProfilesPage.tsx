@@ -168,7 +168,6 @@ export function SupplierPartProfilesPage() {
       title="Vendor Part Profiles"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Cross-reference between vendor PN and internal codes</span>
         </div>
       }

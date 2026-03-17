@@ -208,7 +208,6 @@ export default function BomPage() {
       title="BOM Configuration"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Maintain Bill of Materials for specific model revisions</span>
         </div>
       }

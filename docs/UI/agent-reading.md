@@ -19,7 +19,7 @@ Before changing UI or frontend behavior, read these in order.
 
 ## 2. When touching UI components
 
-- **[ui5-guide.md](ui5-guide.md):** Theme setup, UI5 usage, icons, styling.
+- **[shadcn-guide.md](shadcn-guide.md):** Theme setup, components, icons, styling.
 - **[patterns.md](patterns.md):** List page, detail page, form dialog, station flow, queue, empty/loading.
 
 ---

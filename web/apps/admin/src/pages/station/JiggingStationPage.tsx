@@ -8,6 +8,7 @@ import { ScanInput } from "../../components/shared/ScanInput";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
+import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -77,31 +78,17 @@ export function JiggingStationPage() {
     },
   });
 
-  if (heartbeatQuery.isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden />
-        <span className="ml-2 text-sm text-muted-foreground">Preparing jigging station...</span>
-      </div>
-    );
-  }
-
-  if (heartbeatQuery.error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-8">
-        <p className="text-muted-foreground">Station unavailable. Please verify connectivity.</p>
-      </div>
-    );
-  }
+  if (heartbeatQuery.isLoading) return <LoadingSkeleton label="Preparing jigging station..." />;
+  if (heartbeatQuery.error) return <ErrorState title="Station Unavailable" description="Please verify connectivity." />;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <header className="flex items-center justify-between px-4 py-3 border-b">
-        <h2 className="text-xl font-semibold">Jigging / Wash Station</h2>
+    <div className="flex flex-col gap-4 p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-foreground">Jigging / Wash Station</h2>
         <StatusBadge status={heartbeatQuery.data?.status || "active"} />
-      </header>
+      </div>
 
-      <div className="p-4 w-full box-border flex-1">
+      <div className="w-full">
         <StationHeader
           stationName={heartbeatQuery.data?.station?.name}
           processName={heartbeatQuery.data?.process?.name}

@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@traceability/sdk";
 import { QueryKey, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
@@ -43,7 +44,7 @@ export function useHandoverRealtime({ enabled, queryKeys }: UseHandoverRealtimeO
     const accessToken = readAccessToken();
     if (!accessToken) return;
 
-    const base = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+    const base = getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
     if (!base) return;
 
     const url = `${base}/realtime/handover-batches?access_token=${encodeURIComponent(accessToken)}`;

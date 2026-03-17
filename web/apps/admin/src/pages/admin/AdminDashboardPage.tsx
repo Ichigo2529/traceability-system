@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { sdk } from "../../context/AuthContext";
-import layouts from "../../styles/layouts.module.css";
 import { PageLayout, Skeleton } from "@traceability/ui";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,39 +19,50 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const QUICK_ACTIONS: { label: string; icon: LucideIcon; to: string; gradient: string }[] = [
-  { label: "Add User", icon: Users, to: "/admin/users", gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" },
-  {
-    label: "New Model",
-    icon: Package,
-    to: "/admin/models",
-    gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+type ColorKey = "indigo" | "cyan" | "pink" | "emerald" | "amber" | "teal";
+
+const colorMap: Record<ColorKey, { icon: string; glow: string; ring: string }> = {
+  indigo: {
+    icon: "bg-gradient-to-br from-indigo-500 to-purple-600",
+    glow: "from-indigo-500 to-purple-600",
+    ring: "text-indigo-500",
   },
-  {
-    label: "Add Station",
-    icon: Factory,
-    to: "/admin/stations",
-    gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+  cyan: {
+    icon: "bg-gradient-to-br from-cyan-400 to-blue-500",
+    glow: "from-cyan-400 to-blue-500",
+    ring: "text-cyan-500",
   },
-  {
-    label: "Inbound Pack",
-    icon: Truck,
-    to: "/admin/inbound-packs",
-    gradient: "linear-gradient(135deg, #2af598 0%, #009efd 100%)",
+  pink: {
+    icon: "bg-gradient-to-br from-pink-400 to-rose-500",
+    glow: "from-pink-400 to-rose-500",
+    ring: "text-pink-500",
   },
-  {
-    label: "Approvals",
-    icon: ClipboardCheck,
-    to: "/admin/approvals",
-    gradient: "linear-gradient(135deg, #fce38a 0%, #f38181 100%)",
+  emerald: {
+    icon: "bg-gradient-to-br from-emerald-400 to-blue-500",
+    glow: "from-emerald-400 to-blue-500",
+    ring: "text-emerald-500",
   },
-  {
-    label: "Audit Logs",
-    icon: History,
-    to: "/admin/audit-logs",
-    gradient: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
+  amber: {
+    icon: "bg-gradient-to-br from-amber-300 to-red-400",
+    glow: "from-amber-300 to-red-400",
+    ring: "text-amber-500",
   },
+  teal: {
+    icon: "bg-gradient-to-br from-teal-400 to-indigo-900",
+    glow: "from-teal-400 to-indigo-900",
+    ring: "text-teal-500",
+  },
+};
+
+const QUICK_ACTIONS: { label: string; icon: LucideIcon; to: string; color: ColorKey }[] = [
+  { label: "Add User", icon: Users, to: "/admin/users", color: "indigo" },
+  { label: "New Model", icon: Package, to: "/admin/models", color: "cyan" },
+  { label: "Add Station", icon: Factory, to: "/admin/stations", color: "pink" },
+  { label: "Inbound Pack", icon: Truck, to: "/admin/inbound-packs", color: "emerald" },
+  { label: "Approvals", icon: ClipboardCheck, to: "/admin/approvals", color: "amber" },
+  { label: "Audit Logs", icon: History, to: "/admin/audit-logs", color: "teal" },
 ];
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -67,11 +77,10 @@ function ReadinessItem({ pass, text }: { pass: boolean; text: string }) {
   return (
     <div className="flex items-center gap-2.5 py-2">
       <div
-        className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-        style={{
-          background: pass ? "linear-gradient(135deg,#2af598,#009efd)" : "linear-gradient(135deg,#f093fb,#f5576c)",
-          boxShadow: pass ? "0 2px 8px rgba(42,245,152,0.3)" : "0 2px 8px rgba(240,147,251,0.3)",
-        }}
+        className={cn(
+          "w-6 h-6 rounded-full flex items-center justify-center shrink-0",
+          pass ? "bg-emerald-500" : "bg-destructive"
+        )}
       >
         {pass ? <Check className="w-3.5 h-3.5 text-white" /> : <X className="w-3.5 h-3.5 text-white" />}
       </div>
@@ -128,46 +137,33 @@ export function AdminDashboardPage() {
       title="Admin Dashboard"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Quick actions and system health overview</span>
         </div>
       }
       icon="settings"
       iconColor="indigo"
     >
-      <div className={layouts.content} style={{ marginTop: "0.5rem" }}>
+      <div className="max-w-[1400px] mx-auto grid gap-6 w-full mt-2">
         <div className="grid grid-cols-12 gap-6">
-          <DashboardStatCard
-            icon="group"
-            label="Users"
-            value={users.length}
-            loading={loadingUsers}
-            gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-          />
+          <DashboardStatCard icon="group" label="Users" value={users.length} loading={loadingUsers} color="indigo" />
           <DashboardStatCard
             icon="laptop"
             label="Devices"
             value={devices.length}
             loading={loadingDevices}
-            gradient="linear-gradient(135deg, #2af598 0%, #009efd 100%)"
+            color="emerald"
           />
           <DashboardStatCard
             icon="factory"
             label="Stations"
             value={stations.length}
             loading={loadingStations}
-            gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)"
+            color="pink"
           />
-          <DashboardStatCard
-            icon="product"
-            label="Models"
-            value={models.length}
-            loading={loadingModels}
-            gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
-          />
+          <DashboardStatCard icon="product" label="Models" value={models.length} loading={loadingModels} color="cyan" />
         </div>
 
-        <Card className={layouts.glassCard + " mt-6"}>
+        <Card className="mt-2 bg-card border border-border shadow-sm">
           <CardHeader className="pb-2">
             <h4 className="text-lg font-semibold m-0">Quick Actions</h4>
             <Label className="opacity-70 text-xs">Jump to common tasks</Label>
@@ -176,6 +172,7 @@ export function AdminDashboardPage() {
             <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
               {QUICK_ACTIONS.map((action) => {
                 const IconC = action.icon;
+                const colors = colorMap[action.color];
                 return (
                   <button
                     key={action.to}
@@ -184,8 +181,10 @@ export function AdminDashboardPage() {
                     className="flex flex-col items-center gap-2.5 p-4 rounded-xl border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all cursor-pointer"
                   >
                     <div
-                      className="w-10 h-10 rounded-[10px] flex items-center justify-center text-white"
-                      style={{ background: action.gradient, boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }}
+                      className={cn(
+                        "w-10 h-10 rounded-[10px] flex items-center justify-center text-white shadow-sm",
+                        colors.icon
+                      )}
                     >
                       <IconC className="w-5 h-5" />
                     </div>
@@ -197,7 +196,7 @@ export function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className={layouts.glassCard + " mt-6"}>
+        <Card className="mt-2 bg-card border border-border shadow-sm">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <div>
               <h4 className="text-lg font-semibold m-0">System Readiness</h4>
@@ -205,13 +204,10 @@ export function AdminDashboardPage() {
             </div>
             {!readinessLoading && (
               <div
-                className="px-3 py-1 rounded-full text-xs font-bold text-white"
-                style={{
-                  background: isReady
-                    ? "linear-gradient(135deg,#2af598,#009efd)"
-                    : "linear-gradient(135deg,#f093fb,#f5576c)",
-                  boxShadow: isReady ? "0 2px 8px rgba(42,245,152,0.3)" : "0 2px 8px rgba(240,147,251,0.3)",
-                }}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-bold text-white",
+                  isReady ? "bg-emerald-500" : "bg-destructive"
+                )}
               >
                 {isReady ? "READY" : "NOT READY"}
               </div>
@@ -257,28 +253,25 @@ function DashboardStatCard({
   icon,
   label,
   value,
-  gradient,
+  color,
   loading,
 }: {
   icon: string;
   label: string;
   value: number;
-  gradient: string;
+  color: ColorKey;
   loading?: boolean;
 }) {
   const IconC = ICON_MAP[icon] ?? Package;
-  const color = gradient.split(",")[1]?.trim().split(" ")[0] ?? "#4facfe";
+  const colors = colorMap[color];
   return (
-    <Card
-      className={
-        layouts.glassCard +
-        " col-span-12 xl:col-span-3 lg:col-span-3 md:col-span-6 border-none overflow-hidden relative"
-      }
-    >
+    <Card className="col-span-12 xl:col-span-3 lg:col-span-3 md:col-span-6 border border-border overflow-hidden relative bg-card shadow-sm">
       <div className="p-6 relative z-10">
         <div
-          className="absolute -top-6 -right-6 w-[120px] h-[120px] rounded-full opacity-[0.08] blur-[20px]"
-          style={{ background: gradient }}
+          className={cn(
+            "absolute -top-6 -right-6 w-[120px] h-[120px] rounded-full opacity-[0.06] blur-[20px] bg-gradient-to-br",
+            colors.glow
+          )}
         />
         <div className="flex justify-between items-center">
           <div className="flex-1">
@@ -290,12 +283,12 @@ function DashboardStatCard({
             ) : (
               <h2 className="text-4xl font-black my-0.5 text-foreground">{value}</h2>
             )}
-            <div className="h-4 w-24 mt-2 opacity-40">
+            <div className={cn("h-4 w-24 mt-2 opacity-40", colors.ring)}>
               <svg viewBox="0 0 100 20" preserveAspectRatio="none" className="w-full h-full">
                 <path
                   d="M0 15 Q 10 5, 20 12 T 40 8 T 60 14 T 80 6 L 100 10"
                   fill="none"
-                  stroke={color}
+                  stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                 />
@@ -303,8 +296,10 @@ function DashboardStatCard({
             </div>
           </div>
           <div
-            className="w-14 h-14 rounded-2xl flex items-center justify-center text-white border border-white/20"
-            style={{ background: gradient, boxShadow: `0 8px 20px ${color}33` }}
+            className={cn(
+              "w-14 h-14 rounded-2xl flex items-center justify-center text-white border border-white/20 shadow-sm",
+              colors.icon
+            )}
           >
             <IconC className="w-7 h-7" />
           </div>

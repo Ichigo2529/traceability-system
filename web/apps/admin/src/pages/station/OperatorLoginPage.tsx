@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert } from "@/components/ui/alert";
 import { Loader2, AlertTriangle, Laptop, Factory, Cog, User } from "lucide-react";
-import layouts from "../../styles/layouts.module.css";
 
 function getShiftByTime(date: Date) {
   const h = date.getHours();
@@ -19,14 +18,7 @@ function getShiftByTime(date: Date) {
   return { code: "C", window: "22:00–06:00" };
 }
 
-const glassStyle: React.CSSProperties = {
-  background: "var(--glass-bg)",
-  backdropFilter: "var(--glass-blur)",
-  WebkitBackdropFilter: "var(--glass-blur)",
-  border: "1px solid var(--glass-border)",
-  boxShadow: "var(--glass-shadow)",
-  borderRadius: "20px",
-};
+const glassClassName = "bg-card/80 backdrop-blur-md border border-border shadow-lg rounded-2xl";
 
 function StationShell({ children }: { children: React.ReactNode }) {
   return (
@@ -102,9 +94,9 @@ export function OperatorLoginPage() {
   if (heartbeatQuery.error) {
     return (
       <StationShell>
-        <div style={{ ...glassStyle, padding: "2rem", maxWidth: "480px", width: "100%" }}>
+        <div className={`${glassClassName} p-8 max-w-[480px] w-full`}>
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-gradient-to-br from-pink-400 to-rose-500">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-destructive">
               <AlertTriangle className="w-5 h-5 text-white" />
             </div>
             <h2 className="text-lg font-semibold m-0">Station Unavailable</h2>
@@ -127,7 +119,7 @@ export function OperatorLoginPage() {
   if (status === "disabled") {
     return (
       <StationShell>
-        <div style={{ ...glassStyle, padding: "2rem", maxWidth: "480px", width: "100%" }}>
+        <div className={`${glassClassName} p-8 max-w-[480px] w-full`}>
           <Alert variant="destructive" className="rounded-lg">
             This device has been <strong>disabled</strong> by the administrator. Contact your supervisor.
           </Alert>
@@ -139,13 +131,13 @@ export function OperatorLoginPage() {
   return (
     <div className="h-full relative">
       <div className="premium-mesh-bg" />
-      <header className="bg-transparent border-b border-border py-4 px-4">
+      <div className="border-b border-border py-4 px-4">
         <h1 className="text-xl font-semibold text-foreground">Operator Login</h1>
-      </header>
-      <div className={layouts.station} style={{ padding: "2rem", paddingTop: "3rem" }}>
-        <Card className={layouts.stationCard}>
+      </div>
+      <div className="min-h-full grid justify-center content-start gap-8 p-8 pt-12">
+        <Card className="w-[720px] max-w-full bg-card/80 backdrop-blur-md border border-border shadow-lg rounded-2xl">
           <CardHeader className="flex flex-row items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-r from-cyan-400 to-cyan-500">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary">
               <Laptop className="w-4 h-4 text-white" />
             </div>
             <div>
@@ -172,9 +164,9 @@ export function OperatorLoginPage() {
           </CardContent>
         </Card>
 
-        <Card className={layouts.stationCard}>
+        <Card className="w-[720px] max-w-full bg-card/80 backdrop-blur-md border border-border shadow-lg rounded-2xl">
           <CardHeader className="flex flex-row items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-r from-violet-500 to-purple-600">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary">
               <User className="w-4 h-4 text-white" />
             </div>
             <div>

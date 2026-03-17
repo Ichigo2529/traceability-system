@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@traceability/sdk";
 import { QueryKey, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
@@ -67,7 +68,7 @@ export function useMaterialRequestsRealtime({ enabled, queryKeys }: UseMaterialR
       return;
     }
 
-    const base = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+    const base = getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
     if (!base) {
       updateMaterialRealtimeHealth({
         status: "error",

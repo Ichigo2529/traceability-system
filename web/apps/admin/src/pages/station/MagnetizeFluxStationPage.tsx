@@ -12,6 +12,8 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { PageStack } from "@traceability/ui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -64,15 +66,19 @@ export function MagnetizeFluxStationPage() {
   });
 
   if (heartbeatQuery.isLoading) return <LoadingSkeleton label="Preparing magnetize/flux station..." />;
-  if (heartbeatQuery.error) return <ErrorState title="Magnetize/Flux station offline" description="Device is not registered or token is invalid." />;
-  if (heartbeatQuery.data?.status === "disabled") return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
+  if (heartbeatQuery.error)
+    return (
+      <ErrorState title="Magnetize/Flux station offline" description="Device is not registered or token is invalid." />
+    );
+  if (heartbeatQuery.data?.status === "disabled")
+    return <ErrorState title="Device Disabled" description="This station is disabled by admin." />;
 
   return (
     <PageStack>
-      <div className="admin-toolbar">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="admin-page-title">Magnetize / Flux Station</h1>
-          <p className="text-sm text-gray-500">Transition ASSY through magnetize and flux decision.</p>
+          <h1 className="text-2xl font-bold text-foreground">Magnetize / Flux Station</h1>
+          <p className="text-sm text-muted-foreground">Transition ASSY through magnetize and flux decision.</p>
         </div>
       </div>
       <StationHeader
@@ -81,50 +87,51 @@ export function MagnetizeFluxStationPage() {
         deviceStatus={heartbeatQuery.data?.status || "active"}
       />
       <div className="grid gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2 admin-card">
-          <div className="p-4 border-b border-gray-100">
-            <h3 className="text-lg font-medium">Flux Decision</h3>
-          </div>
-          <div className="p-4 space-y-4">
-            <ScanInput value={assyId} onChange={setAssyId} onSubmit={() => mutation.mutate("MAGNETIZE_DONE")} placeholder="Scan ASSY ID" />
+        <Card className="xl:col-span-2">
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle>Flux Decision</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 flex flex-col gap-4">
+            <ScanInput
+              value={assyId}
+              onChange={setAssyId}
+              onSubmit={() => mutation.mutate("MAGNETIZE_DONE")}
+              placeholder="Scan ASSY ID"
+            />
             <div className="flex flex-wrap gap-2">
-              <button
-                className="admin-button is-primary"
-                onClick={() => mutation.mutate("MAGNETIZE_DONE")}
-                disabled={!assyId.trim() || mutation.isPending}
-              >
+              <Button onClick={() => mutation.mutate("MAGNETIZE_DONE")} disabled={!assyId.trim() || mutation.isPending}>
                 MAGNETIZE_DONE
-              </button>
-              <button
-                className="admin-button is-secondary"
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => mutation.mutate("FLUX_PASS")}
                 disabled={!assyId.trim() || mutation.isPending}
               >
                 FLUX_PASS
-              </button>
-              <button
-                className="admin-button is-destructive"
+              </Button>
+              <Button
+                variant="destructive"
                 onClick={() => mutation.mutate("FLUX_FAIL")}
                 disabled={!assyId.trim() || mutation.isPending}
               >
                 FLUX_FAIL (HOLD)
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="admin-card">
-          <div className="p-4 border-b border-gray-100">
-            <h3 className="text-lg font-medium">Station Summary</h3>
-          </div>
-          <div className="p-4 admin-stack-2 text-sm">
+        <Card>
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle>Station Summary</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4 flex flex-col gap-2 text-sm">
             <p>
               Device status: <StatusBadge status={heartbeatQuery.data?.status || "active"} />
             </p>
             <p>Station: {heartbeatQuery.data?.station?.name || "Unassigned"}</p>
             <p>Process: {heartbeatQuery.data?.process?.name || "Unassigned"}</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       <FullscreenResultOverlay

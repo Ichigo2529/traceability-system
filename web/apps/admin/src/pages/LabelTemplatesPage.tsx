@@ -158,7 +158,6 @@ export default function LabelTemplatesPage() {
       title="Label Templates"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Manage raw ZPL and JSON template bodies</span>
         </div>
       }

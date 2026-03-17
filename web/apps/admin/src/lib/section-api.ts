@@ -1,6 +1,7 @@
+import { getApiBaseUrl } from "@traceability/sdk";
 import { authHeaders } from "./api-client";
 
-const base = () => String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+const base = () => getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${base()}${path}`, {
@@ -33,14 +34,28 @@ export interface AdminCostCenter {
 
 export const getCostCenters = () => api<AdminCostCenter[]>("/admin/cost-centers");
 
-export const createCostCenter = (body: { group_code: string; cost_code: string; short_text: string; is_active?: boolean; section_id?: string; is_default?: boolean }) =>
-  api<AdminCostCenter>("/admin/cost-centers", { method: "POST", body: JSON.stringify(body) });
+export const createCostCenter = (body: {
+  group_code: string;
+  cost_code: string;
+  short_text: string;
+  is_active?: boolean;
+  section_id?: string;
+  is_default?: boolean;
+}) => api<AdminCostCenter>("/admin/cost-centers", { method: "POST", body: JSON.stringify(body) });
 
-export const updateCostCenter = (id: string, body: { group_code?: string; cost_code?: string; short_text?: string; is_active?: boolean; section_id?: string; is_default?: boolean }) =>
-  api<AdminCostCenter>(`/admin/cost-centers/${id}`, { method: "PUT", body: JSON.stringify(body) });
+export const updateCostCenter = (
+  id: string,
+  body: {
+    group_code?: string;
+    cost_code?: string;
+    short_text?: string;
+    is_active?: boolean;
+    section_id?: string;
+    is_default?: boolean;
+  }
+) => api<AdminCostCenter>(`/admin/cost-centers/${id}`, { method: "PUT", body: JSON.stringify(body) });
 
-export const deleteCostCenter = (id: string) =>
-  api<null>(`/admin/cost-centers/${id}`, { method: "DELETE" });
+export const deleteCostCenter = (id: string) => api<null>(`/admin/cost-centers/${id}`, { method: "DELETE" });
 
 // ── Sections ──────────────────────────────────────────────
 
@@ -69,11 +84,12 @@ export const getSections = () => api<AdminSection[]>("/admin/sections");
 export const createSection = (body: { section_code: string; section_name: string; is_active?: boolean }) =>
   api<AdminSection>("/admin/sections", { method: "POST", body: JSON.stringify(body) });
 
-export const updateSection = (id: string, body: { section_code?: string; section_name?: string; is_active?: boolean }) =>
-  api<AdminSection>(`/admin/sections/${id}`, { method: "PUT", body: JSON.stringify(body) });
+export const updateSection = (
+  id: string,
+  body: { section_code?: string; section_name?: string; is_active?: boolean }
+) => api<AdminSection>(`/admin/sections/${id}`, { method: "PUT", body: JSON.stringify(body) });
 
-export const deleteSection = (id: string) =>
-  api<null>(`/admin/sections/${id}`, { method: "DELETE" });
+export const deleteSection = (id: string) => api<null>(`/admin/sections/${id}`, { method: "DELETE" });
 
 export const addSectionCostCenter = (sectionId: string, body: { cost_center_id: string; is_default?: boolean }) =>
   api<any>(`/admin/sections/${sectionId}/cost-centers`, { method: "POST", body: JSON.stringify(body) });
@@ -82,7 +98,10 @@ export const removeSectionCostCenter = (sectionId: string, costCenterId: string)
   api<null>(`/admin/sections/${sectionId}/cost-centers/${costCenterId}`, { method: "DELETE" });
 
 export const setSectionDefaultCC = (sectionId: string, costCenterId: string) =>
-  api<any>(`/admin/sections/${sectionId}/default-cost-center`, { method: "PATCH", body: JSON.stringify({ cost_center_id: costCenterId }) });
+  api<any>(`/admin/sections/${sectionId}/default-cost-center`, {
+    method: "PATCH",
+    body: JSON.stringify({ cost_center_id: costCenterId }),
+  });
 
 // ── User Sections ─────────────────────────────────────────
 

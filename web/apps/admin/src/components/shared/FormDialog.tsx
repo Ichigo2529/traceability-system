@@ -36,6 +36,11 @@ export function FormDialog({
   onSubmit: () => void;
   children: ReactNode;
 }) {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit();
+  };
+
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <DialogContent className={contentClassName} style={width ? { maxWidth: width, width: "90vw" } : undefined}>
@@ -43,23 +48,21 @@ export function FormDialog({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {open && (
-          <div className={bodyClassName} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {children}
-          </div>
-        )}
-        <DialogFooter className="pt-4">
-          {footer ?? (
-            <>
-              <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={onSubmit} disabled={submitting}>
-                {submitting ? "Saving..." : submitText}
-              </Button>
-            </>
-          )}
-        </DialogFooter>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className={bodyClassName ?? "flex flex-col gap-4"}>{children}</div>
+          <DialogFooter className="pt-4">
+            {footer ?? (
+              <>
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? "Saving..." : submitText}
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

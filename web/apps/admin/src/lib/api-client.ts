@@ -1,8 +1,8 @@
-import { createSdk } from "@traceability/sdk";
+import { createSdk, getApiBaseUrl } from "@traceability/sdk";
 import { eden } from "./eden";
 import { callEdenWithFallback, callEdenWithFallbackVoid } from "./eden-fallback";
 
-export const sdk = createSdk(import.meta.env.VITE_API_BASE_URL);
+export const sdk = createSdk(getApiBaseUrl(import.meta.env.VITE_API_BASE_URL));
 
 function readAccessToken() {
   if (typeof window === "undefined") return null;
@@ -207,7 +207,11 @@ function installAdminEdenFallback() {
     );
 
   admin.getProcesses = () =>
-    preferEden(() => (eden as any).admin.processes.get({ headers: authHeaders() }), orig.getProcesses, "admin.processes");
+    preferEden(
+      () => (eden as any).admin.processes.get({ headers: authHeaders() }),
+      orig.getProcesses,
+      "admin.processes"
+    );
   admin.createProcess = (payload: any) =>
     preferEden(
       () => (eden as any).admin.processes.post(payload, { headers: authHeaders() }),
@@ -320,7 +324,11 @@ function installAdminEdenFallback() {
     );
 
   admin.getSuppliers = () =>
-    preferEden(() => (eden as any).admin.suppliers.get({ headers: authHeaders() }), orig.getSuppliers, "admin.suppliers");
+    preferEden(
+      () => (eden as any).admin.suppliers.get({ headers: authHeaders() }),
+      orig.getSuppliers,
+      "admin.suppliers"
+    );
   admin.createSupplier = (payload: any) =>
     preferEden(
       () => (eden as any).admin.suppliers.post(payload, { headers: authHeaders() }),
@@ -475,7 +483,10 @@ function installAdminEdenFallback() {
     );
   admin.assignDeviceMachine = (deviceId: string, machineId: string) =>
     preferEden(
-      () => (eden as any).admin.devices({ id: deviceId })["assign-machine"].put({ machine_id: machineId }, { headers: authHeaders() }),
+      () =>
+        (eden as any).admin
+          .devices({ id: deviceId })
+          ["assign-machine"].put({ machine_id: machineId }, { headers: authHeaders() }),
       () => orig.assignDeviceMachine(deviceId, machineId),
       "admin.machines"
     );
@@ -507,26 +518,36 @@ function installAdminEdenFallback() {
     );
   admin.updateRevision = (modelId: string, revisionId: string, payload: any) =>
     preferEden(
-      () => (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).put(payload, { headers: authHeaders() }),
+      () =>
+        (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).put(payload, { headers: authHeaders() }),
       () => orig.updateRevision(modelId, revisionId, payload),
       "admin.revisions"
     );
   admin.activateRevision = (modelId: string, revisionId: string) =>
     preferEden(
-      () => (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).activate.post({}, { headers: authHeaders() }),
+      () =>
+        (eden as any).admin
+          .models({ id: modelId })
+          .revisions({ revisionId })
+          .activate.post({}, { headers: authHeaders() }),
       () => orig.activateRevision(modelId, revisionId),
       "admin.revisions"
     );
 
   admin.getVariants = (modelId: string, revisionId: string) =>
     preferEden(
-      () => (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).variants.get({ headers: authHeaders() }),
+      () =>
+        (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).variants.get({ headers: authHeaders() }),
       () => orig.getVariants(modelId, revisionId),
       "admin.variants"
     );
   admin.createVariant = (modelId: string, revisionId: string, payload: any) =>
     preferEden(
-      () => (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).variants.post(payload, { headers: authHeaders() }),
+      () =>
+        (eden as any).admin
+          .models({ id: modelId })
+          .revisions({ revisionId })
+          .variants.post(payload, { headers: authHeaders() }),
       () => orig.createVariant(modelId, revisionId, payload),
       "admin.variants"
     );
@@ -551,11 +572,11 @@ function installAdminEdenFallback() {
   admin.setDefaultVariant = (modelId: string, revisionId: string, variantId: string) =>
     preferEden(
       () =>
-        (eden as any)
-          .admin.models({ id: modelId })
+        (eden as any).admin
+          .models({ id: modelId })
           .revisions({ revisionId })
-          .variants({ variantId })["set-default"]
-          .post({}, { headers: authHeaders() }),
+          .variants({ variantId })
+          ["set-default"].post({}, { headers: authHeaders() }),
       () => orig.setDefaultVariant(modelId, revisionId, variantId),
       "admin.variants"
     );
@@ -568,7 +589,11 @@ function installAdminEdenFallback() {
     );
   admin.createBomRow = (modelId: string, revisionId: string, payload: any) =>
     preferEden(
-      () => (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).bom.post(payload, { headers: authHeaders() }),
+      () =>
+        (eden as any).admin
+          .models({ id: modelId })
+          .revisions({ revisionId })
+          .bom.post(payload, { headers: authHeaders() }),
       () => orig.createBomRow(modelId, revisionId, payload),
       "admin.bom"
     );
@@ -593,13 +618,18 @@ function installAdminEdenFallback() {
 
   admin.getRouting = (modelId: string, revisionId: string) =>
     preferEden(
-      () => (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).routing.get({ headers: authHeaders() }),
+      () =>
+        (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).routing.get({ headers: authHeaders() }),
       () => orig.getRouting(modelId, revisionId),
       "admin.routing"
     );
   admin.createRoutingStep = (modelId: string, revisionId: string, payload: any) =>
     preferEden(
-      () => (eden as any).admin.models({ id: modelId }).revisions({ revisionId }).routing.post(payload, { headers: authHeaders() }),
+      () =>
+        (eden as any).admin
+          .models({ id: modelId })
+          .revisions({ revisionId })
+          .routing.post(payload, { headers: authHeaders() }),
       () => orig.createRoutingStep(modelId, revisionId, payload),
       "admin.routing"
     );
@@ -623,7 +653,11 @@ function installAdminEdenFallback() {
     );
 
   admin.getLabelTemplates = () =>
-    preferEden(() => (eden as any).admin.templates.get({ headers: authHeaders() }), orig.getLabelTemplates, "admin.labels");
+    preferEden(
+      () => (eden as any).admin.templates.get({ headers: authHeaders() }),
+      orig.getLabelTemplates,
+      "admin.labels"
+    );
   admin.createLabelTemplate = (payload: any) =>
     preferEden(
       () => (eden as any).admin.templates.post(payload, { headers: authHeaders() }),
@@ -645,7 +679,11 @@ function installAdminEdenFallback() {
 
   admin.getLabelBindings = (revisionId?: string) =>
     preferEden(
-      () => (eden as any).admin.bindings.get({ headers: authHeaders(), query: revisionId ? { revision_id: revisionId } : undefined }),
+      () =>
+        (eden as any).admin.bindings.get({
+          headers: authHeaders(),
+          query: revisionId ? { revision_id: revisionId } : undefined,
+        }),
       () => orig.getLabelBindings(revisionId),
       "admin.labels"
     );

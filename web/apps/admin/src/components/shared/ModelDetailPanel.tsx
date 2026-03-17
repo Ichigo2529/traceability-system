@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "./StatusBadge";
 import { Link2, PlusCircle, ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const schema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -120,12 +121,12 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
           return (
             <div className="flex items-center gap-2.5">
               <div
-                className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
-                style={{
-                  background: isActive
-                    ? "linear-gradient(135deg,#2af598,#009efd)"
-                    : "linear-gradient(135deg,#667eea,#764ba2)",
-                }}
+                className={cn(
+                  "w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0",
+                  isActive
+                    ? "bg-gradient-to-br from-emerald-400 to-blue-500"
+                    : "bg-gradient-to-br from-indigo-500 to-purple-600"
+                )}
               >
                 <Link2 className="w-3.5 h-3.5 text-white" />
               </div>
@@ -219,12 +220,12 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
 
   return (
     <div className="flex flex-col h-full rounded-r-2xl border-l border-border overflow-hidden bg-background">
-      <header className="flex items-center gap-4 px-4 py-3 border-b border-border flex-shrink-0">
+      <div className="flex items-center gap-4 px-4 py-3 border-b border-border flex-shrink-0">
         <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close">
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-lg font-semibold">{model ? `Overview: ${model.code}` : "Create Model"}</h1>
-      </header>
+      </div>
 
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         {model ? (
@@ -267,7 +268,7 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
         )}
       </div>
 
-      <footer className="flex justify-end gap-2 px-4 py-3 border-t border-border flex-shrink-0">
+      <div className="flex justify-end gap-2 px-4 py-3 border-t border-border flex-shrink-0">
         {activeTab === "general" && (
           <Button
             onClick={() => form.handleSubmit((v) => (model ? updateMutation.mutate(v) : createMutation.mutate(v)))()}
@@ -279,7 +280,7 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
         <Button type="button" variant="outline" onClick={onClose}>
           Close
         </Button>
-      </footer>
+      </div>
 
       <Dialog open={isDraftModalOpen} onOpenChange={setIsDraftModalOpen}>
         <DialogContent>
@@ -299,12 +300,15 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
             </div>
             <div className="grid gap-2">
               <Label>Clone From (Optional)</Label>
-              <Select value={cloneFromRevisionId || ""} onValueChange={setCloneFromRevisionId}>
+              <Select
+                value={cloneFromRevisionId || "__empty__"}
+                onValueChange={(v) => setCloneFromRevisionId(v === "__empty__" ? "" : v)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="-- Empty Draft --" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">-- Empty Draft --</SelectItem>
+                  <SelectItem value="__empty__">-- Empty Draft --</SelectItem>
                   {(revisions as ModelRevision[]).map((r) => (
                     <SelectItem key={r.id} value={r.id}>
                       {r.revision_code} ({r.status})

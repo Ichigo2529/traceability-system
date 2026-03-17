@@ -191,8 +191,7 @@ export function DevicesPage() {
           return (
             <div className="flex items-center gap-2">
               <span
-                className="inline-block w-2 h-2 rounded-full shrink-0"
-                style={{ background: online ? "var(--sapPositiveColor)" : "var(--sapNeutralBorderColor)" }}
+                className={`inline-block w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
               />
               <StatusBadge status={row.original.status || "disabled"} />
             </div>
@@ -291,7 +290,6 @@ export function DevicesPage() {
       title="Devices & Terminals"
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Hardware terminals and scanner registration</span>
         </div>
       }

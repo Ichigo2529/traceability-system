@@ -8,7 +8,7 @@ import { ThreeBackground } from "../components/ThreeBackground";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const formSchema = z.object({
@@ -47,44 +47,43 @@ export function LoginPage() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen w-screen p-4 relative overflow-hidden">
+    <div className="flex min-h-screen w-screen items-center justify-center overflow-hidden p-4 relative">
       <ThreeBackground />
 
-      <Card
-        className="w-full max-w-[400px] border-border/50 backdrop-blur-xl rounded-3xl p-4 animate-in fade-in slide-in-from-bottom-4 duration-500"
-        style={{
-          background: "rgba(10, 15, 30, 0.55)",
-          border: "1px solid rgba(79, 172, 254, 0.15)",
-          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(79, 172, 254, 0.06)",
-          color: "#e8eaf6",
-        }}
-      >
-        <CardContent className="pt-6 pb-2">
-          <div className="text-center px-4 pt-6">
-            <img
-              src="/logo.png"
-              alt="MMI Logo"
-              className="h-20 w-auto mb-4 drop-shadow-[0_4px_16px_rgba(79,172,254,0.3)]"
-            />
-            <h2 className="text-xl font-bold tracking-tight text-white m-0">Traceability System</h2>
-            <Label className="text-sm text-white/70 uppercase tracking-wider">Secure Sign In</Label>
+      <Card className="w-full max-w-[400px] animate-in fade-in slide-in-from-bottom-4 duration-500 rounded-2xl shadow-2xl backdrop-blur-md bg-white/90 border border-white/60">
+        <CardHeader className="space-y-1 text-center pb-2">
+          <div className="flex justify-center">
+            <img src="/logo.png" alt="MMI Logo" className="h-16 w-auto drop-shadow-sm" />
           </div>
+          <CardTitle className="text-xl font-semibold tracking-tight text-foreground">Traceability System</CardTitle>
+          <CardDescription className="text-sm uppercase tracking-wider text-muted-foreground">
+            Secure Sign In
+          </CardDescription>
+        </CardHeader>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 pb-6 pt-4">
+        <CardContent className="px-6 pb-4">
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
             <Controller
               name="username"
               control={control}
               render={({ field, fieldState: { error: err } }) => (
-                <div className="grid gap-2 w-full">
-                  <Label className="font-semibold text-sm text-white/85">Username</Label>
+                <div className="grid gap-2">
+                  <Label htmlFor="login-username" className="text-foreground">
+                    Username
+                  </Label>
                   <Input
+                    id="login-username"
                     {...field}
-                    className="rounded-[10px] h-[3.25rem] w-full text-base bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                    className="h-10 bg-background border-input"
                     placeholder="Enter your username"
-                    onChange={(e) => field.onChange(e.target.value)}
                     autoComplete="username"
+                    aria-invalid={!!err}
                   />
-                  {err && <p className="text-sm text-destructive">{err.message}</p>}
+                  {err && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {err.message}
+                    </p>
+                  )}
                 </div>
               )}
             />
@@ -93,39 +92,45 @@ export function LoginPage() {
               name="password"
               control={control}
               render={({ field, fieldState: { error: err } }) => (
-                <div className="grid gap-2 w-full">
-                  <Label className="font-semibold text-sm text-white/85">Password</Label>
+                <div className="grid gap-2">
+                  <Label htmlFor="login-password" className="text-foreground">
+                    Password
+                  </Label>
                   <Input
+                    id="login-password"
                     type="password"
-                    className="rounded-[10px] h-[3.25rem] w-full text-base bg-white/10 border-white/20 text-white placeholder:text-white/50"
+                    className="h-10 bg-background border-input"
                     placeholder="••••••••"
                     {...field}
-                    onChange={(e) => field.onChange(e.target.value)}
                     autoComplete="current-password"
+                    aria-invalid={!!err}
                   />
-                  {err && <p className="text-sm text-destructive">{err.message}</p>}
+                  {err && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {err.message}
+                    </p>
+                  )}
                 </div>
               )}
             />
 
             {error && (
-              <Alert variant="destructive" className="rounded-lg w-full">
+              <Alert variant="destructive" className="rounded-lg">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
 
             <Button
               type="submit"
-              className="h-[3.25rem] w-full rounded-[10px] font-semibold text-base mt-2 shadow-lg hover:opacity-90 transition-opacity"
-              style={{ boxShadow: "0 8px 25px rgba(79, 172, 254, 0.3)" }}
+              className="h-10 w-full font-medium mt-1 shadow-md hover:shadow-lg transition-shadow"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Signing in..." : "Sign In"}
+              {isSubmitting ? "Signing in…" : "Sign In"}
             </Button>
           </form>
         </CardContent>
 
-        <CardFooter className="flex flex-col gap-1 pt-6 pb-2 text-center text-xs text-white/50 border-t border-white/10">
+        <CardFooter className="flex flex-col gap-0.5 border-t border-border pt-4 text-center text-xs text-muted-foreground">
           <div>MMI Precision Assembly (Thailand) Co., Ltd.</div>
           <div>Copyright &copy; 2026</div>
         </CardFooter>

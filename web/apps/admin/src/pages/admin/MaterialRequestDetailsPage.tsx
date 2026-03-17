@@ -113,7 +113,6 @@ export function MaterialRequestDetailsPage() {
       title={detailsQuery.data?.request_no ?? "Loading..."}
       subtitle={
         <div className="flex items-center gap-2">
-          <span className="indicator-live" />
           <span>Material Request Details and Approvals</span>
         </div>
       }

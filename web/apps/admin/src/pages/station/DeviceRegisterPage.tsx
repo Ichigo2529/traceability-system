@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Laptop, LogOut, XCircle } from "lucide-react";
-import layouts from "../../styles/layouts.module.css";
 
 const schema = z.object({
   deviceCode: z.string().min(3, "Device code is required"),
@@ -64,18 +63,10 @@ export function DeviceRegisterPage() {
       <div className="min-h-screen">
         <div className="premium-mesh-bg" />
         <div className="flex justify-center items-center min-h-full py-8 px-4">
-          <div
-            className="rounded-[20px] p-8 max-w-[420px] w-full"
-            style={{
-              background: "var(--glass-bg)",
-              backdropFilter: "var(--glass-blur)",
-              border: "1px solid var(--glass-border)",
-              boxShadow: "var(--glass-shadow)",
-            }}
-          >
+          <div className="rounded-2xl p-8 max-w-[420px] w-full bg-card/80 backdrop-blur-md border border-border shadow-lg">
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-              style={{ background: "linear-gradient(135deg,#f093fb,#f5576c)" }}
+              style={{ background: "linear-gradient(135deg, oklch(0.7 0.2 330), oklch(0.65 0.22 15))" }}
             >
               <XCircle className="text-white w-5 h-5" />
             </div>
@@ -94,14 +85,11 @@ export function DeviceRegisterPage() {
   return (
     <div className="min-h-screen relative">
       <div className="premium-mesh-bg" />
-      <div className={layouts.station}>
-        <Card className={layouts.stationCard}>
+      <div className="min-h-full grid justify-center content-start gap-8 p-12">
+        <Card className="w-[720px] max-w-full grid gap-6 bg-card/80 backdrop-blur-md border border-border shadow-lg rounded-2xl transition-shadow hover:shadow-xl">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg,#4facfe,#00f2fe)" }}
-              >
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary">
                 <Laptop className="text-white w-4 h-4" />
               </div>
               <div>

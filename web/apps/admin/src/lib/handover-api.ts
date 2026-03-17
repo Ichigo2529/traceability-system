@@ -1,6 +1,7 @@
+import { getApiBaseUrl } from "@traceability/sdk";
 import { authHeaders } from "./api-client";
 
-const base = () => String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+const base = () => getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${base()}${path}`, {
@@ -104,10 +105,7 @@ export const submitScan = (
     body: JSON.stringify(body),
   });
 
-export const finalizeSession = (
-  sessionId: string,
-  body?: { remarks?: string }
-): Promise<ScanSession> =>
+export const finalizeSession = (sessionId: string, body?: { remarks?: string }): Promise<ScanSession> =>
   api<ScanSession>(`/handover/scan-sessions/${sessionId}/finalize`, {
     method: "POST",
     body: JSON.stringify(body ?? {}),
