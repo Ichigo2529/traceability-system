@@ -11,6 +11,8 @@ type MaterialRequestListTableProps = {
   createLabel?: string;
   filterPlaceholder?: string;
   formatDateTime: (value: string | null | undefined) => string;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
 };
 
 export function MaterialRequestListTable({
@@ -21,6 +23,8 @@ export function MaterialRequestListTable({
   createLabel = "New Request",
   filterPlaceholder = "Search request no., section, cost center...",
   formatDateTime,
+  emptyStateTitle = "No material requests",
+  emptyStateDescription,
 }: MaterialRequestListTableProps) {
   const columns = useMemo<ColumnDef<MaterialRequest>[]>(
     () => [
@@ -115,11 +119,14 @@ export function MaterialRequestListTable({
           return (
             <button
               type="button"
-              onClick={() => requestId && onView(requestId)}
+              onClick={(e) => {
+                e.stopPropagation();
+                requestId && onView(requestId);
+              }}
               disabled={!requestId}
               title={requestId ? "View Details" : "Missing request id"}
               aria-label="View Details"
-              className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-transparent px-3 py-1 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+              className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-transparent px-3 py-1 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               View
             </button>
@@ -136,12 +143,16 @@ export function MaterialRequestListTable({
       columns={columns}
       loading={loading}
       filterPlaceholder={filterPlaceholder}
+      emptyStateTitle={emptyStateTitle}
+      emptyStateDescription={emptyStateDescription}
+      emptyStateActionText={onCreate ? createLabel : undefined}
+      emptyStateOnAction={onCreate ?? undefined}
       actions={
         onCreate ? (
           <button
             type="button"
             onClick={onCreate}
-            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
+            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
             {createLabel}
           </button>

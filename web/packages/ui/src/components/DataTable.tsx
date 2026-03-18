@@ -41,6 +41,10 @@ export function DataTable<TData>({
   actions,
   loading,
   hideEmptyState,
+  emptyStateTitle,
+  emptyStateDescription,
+  emptyStateActionText,
+  emptyStateOnAction,
 }: {
   data: TData[];
   columns: ColumnDef<TData>[];
@@ -53,6 +57,10 @@ export function DataTable<TData>({
   actions?: React.ReactNode;
   loading?: boolean;
   hideEmptyState?: boolean;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
+  emptyStateActionText?: string;
+  emptyStateOnAction?: () => void;
 }) {
   const [internalGlobalFilter, setInternalGlobalFilter] = useState("");
   const [pagination, setPagination] = useState<PaginationState>({
@@ -275,8 +283,15 @@ export function DataTable<TData>({
         {!loading && !hideEmptyState && table.getRowModel().rows.length === 0 && (
           <div className="py-16 flex justify-center">
             <EmptyState
-              title="No records found"
-              description="Try adjusting your search or filters to find what you're looking for."
+              title={emptyStateTitle ?? "No records found"}
+              description={
+                emptyStateDescription ??
+                (emptyStateActionText
+                  ? undefined
+                  : "Try adjusting your search or filters to find what you're looking for.")
+              }
+              actionText={emptyStateActionText}
+              onAction={emptyStateOnAction}
             />
           </div>
         )}

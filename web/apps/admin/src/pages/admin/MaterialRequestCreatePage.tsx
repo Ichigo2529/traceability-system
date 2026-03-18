@@ -160,10 +160,10 @@ export function MaterialRequestCreatePage() {
         </div>
       }
     >
-      <div className="page-container motion-safe:animate-fade-in flex flex-col gap-4">
+      <div className="page-container motion-safe:animate-fade-in flex flex-col gap-6">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
-        <div className="flex flex-col gap-4 flex-1">
+        <div className="flex flex-col gap-5 flex-1">
           {sectionNotSet && (
             <Alert variant="destructive" className="mb-2">
               <AlertDescription>

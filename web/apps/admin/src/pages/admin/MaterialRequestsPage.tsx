@@ -39,7 +39,7 @@ export default function MaterialRequestsPage() {
       icon="request"
       iconColor="blue"
     >
-      <div className="page-container motion-safe:animate-fade-in">
+      <div className="page-container motion-safe:animate-fade-in flex flex-col gap-4">
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
         <MaterialRequestListTable
@@ -48,6 +48,8 @@ export default function MaterialRequestsPage() {
           onView={(id) => navigate(`/admin/material-requests/${id}`)}
           onCreate={() => navigate("/admin/material-requests/new")}
           formatDateTime={(s) => formatDateTime(s ?? "")}
+          emptyStateTitle="No material requests"
+          emptyStateDescription="Create a new request to start an internal transfer or requisition."
         />
       </div>
     </PageLayout>

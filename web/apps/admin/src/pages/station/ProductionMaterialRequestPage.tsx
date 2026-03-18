@@ -464,12 +464,44 @@ export function ProductionMaterialRequestPage() {
               : "Material Requests"
         }
         subtitle={
-          <div className="flex items-center gap-2">
-            <span>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* View mode / Event–Divert breadcrumb */}
+            <nav aria-label="Request flow" className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  setSelectedId(null);
+                  setFormErrors(undefined);
+                }}
+                className={`hover:text-foreground transition-colors ${!showCreateForm && !showingDetails ? "font-medium text-foreground" : ""}`}
+              >
+                List
+              </button>
+              {showCreateForm && (
+                <>
+                  <span aria-hidden>/</span>
+                  <span className="font-medium text-foreground">New request</span>
+                </>
+              )}
+              {showingDetails && !showCreateForm && (
+                <>
+                  <span aria-hidden>/</span>
+                  <span
+                    className="font-medium text-foreground truncate max-w-[12rem]"
+                    title={detailsQuery.data?.request_no}
+                  >
+                    {detailsQuery.data?.request_no ?? "Details"}
+                  </span>
+                </>
+              )}
+            </nav>
+            <span className="hidden sm:inline text-muted-foreground/70">·</span>
+            <span className="text-muted-foreground">
               {showCreateForm
                 ? "Create a new material request"
                 : showingDetails
-                  ? "Material Request Details"
+                  ? "View status and receive materials"
                   : "Internal warehouse transfer and material requisitions"}
             </span>
           </div>
@@ -486,10 +518,7 @@ export function ProductionMaterialRequestPage() {
         }}
         headerActions={showingDetails ? detailHeaderActions : undefined}
       >
-        <div
-          className="page-container motion-safe:animate-fade-in"
-          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-        >
+        <div className="page-container motion-safe:animate-fade-in flex flex-col gap-6">
           <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
           {sectionNotSet && (
@@ -541,15 +570,15 @@ export function ProductionMaterialRequestPage() {
                 }}
               />
 
-              {/* Approval info card (create form) */}
+              {/* Approval info card (create form) — Event/Divert preview */}
               {canReadApprovalConfig && (
-                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                  <h3 className="text-sm font-semibold text-primary mb-1">Approval Route</h3>
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <h3 className="text-sm font-semibold text-primary mb-2">Approval Route</h3>
                   {approvalFlowSummary ? (
                     <>
-                      <p className="text-sm">{approvalFlowSummary}</p>
+                      <p className="text-sm text-foreground/90">{approvalFlowSummary}</p>
                       {workflowMailRecipients.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1 block">
+                        <p className="text-xs text-muted-foreground mt-2">
                           Mail alert to: {workflowMailRecipients.join(", ")}
                         </p>
                       )}
@@ -568,17 +597,26 @@ export function ProductionMaterialRequestPage() {
               <>
                 <MaterialRequestVoucherView detail={detail} hideTopBarActions hideIssueTotalsBeforeIssued />
                 {canScanReceive && (
-                  <div className="rounded-lg border bg-card p-4">
-                    <h3 className="font-semibold mb-3">Receive & Scan 2D</h3>
-                    <p className="text-sm text-muted-foreground mb-2 block">
-                      Scanner mode: choose Part + DO, then keep scanning continuously.
+                  <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-base">Receive & Scan 2D</h3>
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                        Scanner mode
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Choose Part + DO, then scan 2D barcodes continuously. Use manual fallback if the scanner is
+                      unavailable.
                     </p>
                     {feedback.type !== "idle" && (
-                      <Alert variant={feedback.type === "success" ? "default" : "destructive"} className="mb-2">
+                      <Alert
+                        variant={feedback.type === "success" ? "default" : "destructive"}
+                        className="mb-4 transition-opacity"
+                      >
                         <AlertDescription>{feedback.message}</AlertDescription>
                       </Alert>
                     )}
-                    <div className="flex gap-3 flex-wrap">
+                    <div className="flex gap-4 flex-wrap items-end">
                       <div className="min-w-[14rem] space-y-1">
                         <Label>Part Number</Label>
                         <Select
@@ -638,15 +676,15 @@ export function ProductionMaterialRequestPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2 mt-3 flex-wrap">
+                    <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border">
                       <Button
-                        variant={manualMode ? "default" : "ghost"}
+                        variant={manualMode ? "default" : "outline"}
                         size="sm"
                         onClick={() => setManualMode((v) => !v)}
                       >
                         {manualMode ? "Manual Fallback ON" : "Use Manual Fallback"}
                       </Button>
-                      <Button size="sm" onClick={addStagedScan}>
+                      <Button variant="outline" size="sm" onClick={addStagedScan}>
                         Add Scan Row
                       </Button>
                       <Button
@@ -665,29 +703,43 @@ export function ProductionMaterialRequestPage() {
                       >
                         Clear All
                       </Button>
+                      <span
+                        className={`ml-auto text-sm font-medium ${
+                          coverage.ready ? "text-green-600 dark:text-green-400" : "text-muted-foreground"
+                        }`}
+                      >
+                        Coverage: {coverage.scannedCount}/{coverage.requiredCount} packs
+                        {coverage.missing.length ? ` · ${coverage.missing.length} remaining` : " · Ready"}
+                      </span>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1 block">
-                      Coverage (packs): {coverage.scannedCount}/{coverage.requiredCount}{" "}
-                      {coverage.missing.length ? `| Remaining ${coverage.missing.length}` : "| Ready"}
-                    </p>
                     {stagedScans.length > 0 && (
-                      <div className="mt-2 max-h-[11rem] overflow-y-auto border-t pt-2">
-                        {stagedScans.map((row, idx) => (
-                          <div key={row.id} className="text-sm flex justify-between items-center py-1">
-                            <span>
-                              {idx + 1}. {row.part_number} / {row.do_number} [{row.source}]
-                              {row.reason ? ` - ${row.reason}` : ""}
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeStagedScan(row.id)}
-                              aria-label="Remove"
+                      <div className="mt-4 max-h-44 overflow-y-auto rounded-md border border-border bg-muted/30 p-2">
+                        <p className="text-xs font-medium text-muted-foreground mb-2">
+                          Staged scans ({stagedScans.length})
+                        </p>
+                        <ul className="space-y-1">
+                          {stagedScans.map((row, idx) => (
+                            <li
+                              key={row.id}
+                              className="text-sm flex justify-between items-center py-1.5 px-2 rounded hover:bg-background/80"
                             >
-                              ×
-                            </Button>
-                          </div>
-                        ))}
+                              <span className="truncate">
+                                {idx + 1}. {row.part_number} / {row.do_number}
+                                {row.source ? ` [${row.source}]` : ""}
+                                {row.reason ? ` — ${row.reason}` : ""}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0"
+                                onClick={() => removeStagedScan(row.id)}
+                                aria-label="Remove this scan"
+                              >
+                                ×
+                              </Button>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </div>
@@ -698,43 +750,48 @@ export function ProductionMaterialRequestPage() {
                   </Alert>
                 )}
 
-                {/* Workflow Timeline */}
-                <div className="rounded-lg border bg-card p-4">
-                  <h3 className="font-semibold mb-3">Request Workflow</h3>
+                {/* Workflow Timeline — Event/Divert flow */}
+                <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                  <h3 className="font-semibold text-base mb-4">Request Workflow</h3>
 
-                  <div className="flex items-start overflow-x-auto pb-2">
+                  <div className="flex items-start overflow-x-auto pb-2 gap-0" role="list" aria-label="Workflow steps">
                     {WORKFLOW_STEPS.map((step, idx) => {
                       const done = workflowStepsDone[idx];
                       const active = idx === firstIncompleteIdx;
                       const rejected =
                         (detail.status === "REJECTED" || detail.status === "CANCELLED") && idx > 0 && !done;
                       const circleClass = done
-                        ? "bg-green-600"
+                        ? "bg-green-600 text-white ring-2 ring-green-600/30"
                         : active
-                          ? "bg-primary border-2 border-primary"
+                          ? "bg-primary text-primary-foreground ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
                           : rejected
-                            ? "bg-muted-foreground/50"
-                            : "bg-muted";
+                            ? "bg-muted-foreground/50 text-muted-foreground"
+                            : "bg-muted text-muted-foreground";
                       const textClass = done
-                        ? "text-green-600"
+                        ? "text-green-600 dark:text-green-400"
                         : active
                           ? "text-primary font-semibold"
                           : "text-muted-foreground";
                       return (
-                        <div key={step.key} className="flex items-start flex-1 min-w-0">
-                          <div className="flex flex-col items-center min-w-[80px]">
+                        <div key={step.key} className="flex items-start flex-1 min-w-0" role="listitem">
+                          <div className="flex flex-col items-center min-w-[84px]">
                             <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0 ${circleClass}`}
+                              className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${circleClass}`}
+                              aria-current={active ? "step" : undefined}
                             >
                               {done ? "✓" : idx + 1}
                             </div>
-                            <span className={`text-xs text-center mt-1 ${textClass}`}>{step.label}</span>
-                            <span className="text-[0.65rem] text-muted-foreground text-center">{step.sub}</span>
-                            {active && <span className="text-xs text-destructive mt-0.5">Pending</span>}
+                            <span className={`text-xs text-center mt-1.5 ${textClass}`}>{step.label}</span>
+                            <span className="text-[0.65rem] text-muted-foreground text-center mt-0.5">{step.sub}</span>
+                            {active && (
+                              <span className="text-[0.65rem] font-medium text-primary mt-1 px-1.5 py-0.5 rounded bg-primary/10">
+                                Current
+                              </span>
+                            )}
                           </div>
                           {idx < WORKFLOW_STEPS.length - 1 && (
                             <div
-                              className={`flex-1 h-0.5 mt-4 min-w-2 self-center ${done ? "bg-green-600" : "bg-muted"}`}
+                              className={`flex-1 h-0.5 mt-5 min-w-3 self-center rounded-full ${done ? "bg-green-600" : "bg-muted"}`}
                               aria-hidden
                             />
                           )}
@@ -744,9 +801,9 @@ export function ProductionMaterialRequestPage() {
                   </div>
 
                   {!isTerminalStatus && (
-                    <div className="mt-3 py-2 px-3 rounded bg-destructive/10 border-l-4 border-destructive">
+                    <div className="mt-4 py-3 px-4 rounded-lg bg-destructive/10 border border-destructive/20">
                       <p className="text-sm">
-                        <strong>Waiting for:</strong> {pendingApprovalText}
+                        <strong className="text-destructive">Waiting for:</strong> {pendingApprovalText}
                       </p>
                     </div>
                   )}
@@ -815,6 +872,8 @@ export function ProductionMaterialRequestPage() {
                 setShowCreateForm(true);
               }}
               formatDateTime={formatDateTime as any}
+              emptyStateTitle="No material requests yet"
+              emptyStateDescription="Create a new request to get materials from the warehouse."
             />
           )}
         </div>
