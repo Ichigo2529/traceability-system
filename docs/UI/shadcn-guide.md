@@ -96,4 +96,4 @@ Install with: `npx skills add <owner/repo>` or the specific skill ID shown on sk
 ## 9. References
 
 - [shadcn/ui](https://ui.shadcn.com/), [Radix UI](https://www.radix-ui.com/), [Tailwind CSS](https://tailwindcss.com/), [Lucide](https://lucide.dev/).
-- Project: [guidelines.md](guidelines.md), [patterns.md](patterns.md).
+- Project: [guidelines.md](guidelines.md).

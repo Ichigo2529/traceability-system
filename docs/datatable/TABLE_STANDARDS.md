@@ -3,7 +3,7 @@
 Scope:
 
 - Applies to ALL Admin pages that render tables using the shared DataTable component (`@traceability/ui` or admin DataTable).
-- Applies to tables in Admin inspection and FCL (Flexible Column Layout) start column.
+- Applies to all Admin list and inspection tables that use DataTable.
 - Shopfloor/Kiosk screens may use different patterns (see UI guidelines).
 
 Goal:

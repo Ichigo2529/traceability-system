@@ -88,10 +88,10 @@ So in this project, **“Device Fingerprinting & HMAC signing”** = **identify 
 
 ## Phase 1: Administration & Governance
 
-| Task                                  | Status | Notes                                                                                                                                                       |
-| ------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| UI5 Web Components & Horizon Theme    | ✅     | Admin and station apps use `@ui5/webcomponents-react`, `@ui5/webcomponents-fiori`; `docs/UI/` (layout, FCL, station pattern); Horizon theme (CSS variables) |
-| Sidebar & Navigation state management | ✅     | `web/apps/admin/src/components/layout/AppShell.tsx` — ShellBar, SideNavigation, SideNavigationItem/SubItem; state via React + routing                       |
+| Task                                  | Status | Notes                                                                                                                                                  |
+| ------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| UI5 Web Components & Horizon Theme    | ✅     | Admin and station apps use `@ui5/webcomponents-react`, `@ui5/webcomponents-fiori`; `docs/UI/` (layout, station pattern); Horizon theme (CSS variables) |
+| Sidebar & Navigation state management | ✅     | `web/apps/admin/src/components/layout/AppShell.tsx` — ShellBar, SideNavigation, SideNavigationItem/SubItem; state via React + routing                  |
 
 ---
 

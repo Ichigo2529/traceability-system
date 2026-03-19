@@ -88,7 +88,7 @@ docs/                    # All documentation (architecture/, project/, ui/, spec
 - **Architecture (aligned with code):** `docs/architecture/tech-stack.md`, `docs/architecture/database.md`, `docs/architecture/api-and-routes.md`
 - **Domain and rules:** `docs/specs/README.md` and numbered specs (01–19) — non-negotiable
 - **Project:** `docs/project/roadmap.md`, `docs/project/checklist.md`
-- **UI:** `docs/ui/` (guidelines, shadcn-guide, patterns, fcl-standards) when present
+- **UI:** `docs/UI/` (README, guidelines, shadcn-guide, agent-reading) when present
 - **Entry:** `docs/README.md`, `docs/INDEX.md`
 
 When adding features or changing behavior, update the relevant docs and keep `docs/architecture/*` in sync with the codebase.

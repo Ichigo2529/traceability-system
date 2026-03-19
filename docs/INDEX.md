@@ -34,10 +34,9 @@ UI/UX standards.
 
 | File                                       | Description                                 |
 | ------------------------------------------ | ------------------------------------------- |
+| [ui/README.md](ui/README.md)               | UI docs index and authority order           |
 | [ui/guidelines.md](ui/guidelines.md)       | UI/UX guidelines (layout, tables, dialogs)  |
 | [ui/shadcn-guide.md](ui/shadcn-guide.md)   | shadcn/ui (Radix + Tailwind + Lucide) guide |
-| [ui/patterns.md](ui/patterns.md)           | UI patterns                                 |
-| [ui/fcl-standards.md](ui/fcl-standards.md) | Flexible Column Layout standards            |
 | [ui/agent-reading.md](ui/agent-reading.md) | Required reading for AI agents              |
 
 ---
