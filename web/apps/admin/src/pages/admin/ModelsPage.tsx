@@ -21,8 +21,6 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "../../hooks/useToast";
 import { Plus, Pencil, GitBranch } from "lucide-react";
-import { ModelsBreadcrumb } from "../../components/models/ModelsBreadcrumb";
-
 const modelSchema = z.object({
   code: z.string().min(1, "Code is required"),
   name: z.string().min(1, "Name is required"),
@@ -235,14 +233,7 @@ export function ModelsPage() {
   return (
     <PageLayout
       title="Models"
-      subtitle={
-        <div className="flex flex-col gap-2">
-          <ModelsBreadcrumb items={[{ label: "Models" }]} />
-          <span className="text-muted-foreground">
-            Product models and tray pack settings. Open revisions to manage BOM and routing.
-          </span>
-        </div>
-      }
+      subtitle="Product models and tray pack settings. Open revisions to manage BOM and routing."
       icon="product"
       iconColor="blue"
       maxWidth="100%"
