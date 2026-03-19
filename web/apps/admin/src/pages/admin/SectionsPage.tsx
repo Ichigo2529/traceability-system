@@ -55,6 +55,7 @@ export function SectionsPage() {
   const [editing, setEditing] = useState<AdminSection | null>(null);
   const [disableTarget, setDisableTarget] = useState<AdminSection | null>(null);
   const [mappingTarget, setMappingTarget] = useState<AdminSection | null>(null);
+  const [removeMappingTarget, setRemoveMappingTarget] = useState<SectionCostCenterMapping | null>(null);
   const [addCCId, setAddCCId] = useState("");
   const [addCCDefault, setAddCCDefault] = useState(false);
   const { showToast } = useToast();
@@ -137,19 +138,34 @@ export function SectionsPage() {
 
   const columns = useMemo<ColumnDef<AdminSection>[]>(
     () => [
-      { id: "section_code", header: "Code", accessorKey: "section_code", size: 120 },
-      { id: "section_name", header: "Name", accessorKey: "section_name" },
+      {
+        id: "section_code",
+        header: "Section",
+        accessorKey: "section_code",
+        size: 220,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.section_code}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.section_name}</p>
+          </div>
+        ),
+      },
       {
         id: "cost_centers",
         header: "Cost Centers",
-        size: 140,
+        size: 220,
         cell: ({ row }) => {
           const count = row.original.cost_centers?.length ?? 0;
           const def = row.original.cost_centers?.find((m) => m.is_default);
           return (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">{count}</Badge>
-              {def ? <span className="text-xs opacity-70">default: {def.cost_code}</span> : null}
+            <div className="min-w-0 whitespace-normal">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">{count}</Badge>
+                <span className="text-sm text-foreground">{count === 1 ? "mapping" : "mappings"}</span>
+              </div>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {def ? `Default ${def.cost_code}` : "No default cost center"}
+              </p>
             </div>
           );
         },
@@ -157,8 +173,15 @@ export function SectionsPage() {
       {
         id: "status",
         header: "Status",
-        size: 100,
-        cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
+        size: 120,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <StatusBadge status={row.original.is_active ? "active" : "disabled"} />
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {row.original.is_active ? "Available for request routing" : "Not available for new requests"}
+            </p>
+          </div>
+        ),
       },
       {
         id: "actions",
@@ -215,7 +238,7 @@ export function SectionsPage() {
       title="Sections"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Organizational sections and cost center mappings</span>
+          <span>Manage request-routing sections and their allowed cost center mappings</span>
         </div>
       }
       icon="org-chart"
@@ -237,7 +260,12 @@ export function SectionsPage() {
           data={rows}
           columns={columns}
           loading={isLoading}
-          filterPlaceholder="Search sections..."
+          onRowClick={(section) => {
+            setMappingTarget(section);
+            setAddCCId("");
+            setAddCCDefault(false);
+          }}
+          filterPlaceholder="Search section code, name, or mapped cost center..."
           actions={
             <Button
               className="button-hover-scale"
@@ -272,8 +300,9 @@ export function SectionsPage() {
         )}
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label>Section Code *</Label>
+            <Label htmlFor="section-code">Section Code *</Label>
             <Input
+              id="section-code"
               value={form.watch("section_code")}
               onChange={(e) => form.setValue("section_code", e.target.value)}
               className={form.formState.errors.section_code ? "border-destructive" : ""}
@@ -283,8 +312,9 @@ export function SectionsPage() {
             )}
           </div>
           <div className="grid gap-2">
-            <Label>Section Name *</Label>
+            <Label htmlFor="section-name">Section Name *</Label>
             <Input
+              id="section-name"
               value={form.watch("section_name")}
               onChange={(e) => form.setValue("section_name", e.target.value)}
               className={form.formState.errors.section_name ? "border-destructive" : ""}
@@ -308,7 +338,14 @@ export function SectionsPage() {
         </div>
       </FormDialog>
 
-      <Dialog open={Boolean(liveMappingTarget)} onOpenChange={(v) => !v && setMappingTarget(null)}>
+      <Dialog
+        open={Boolean(liveMappingTarget)}
+        onOpenChange={(v) => {
+          if (v) return;
+          setMappingTarget(null);
+          setRemoveMappingTarget(null);
+        }}
+      >
         <DialogContent className="sm:max-w-[640px] max-w-[90vw]">
           <DialogHeader>
             <DialogTitle>Cost Centers — {liveMappingTarget?.section_name ?? ""}</DialogTitle>
@@ -362,7 +399,7 @@ export function SectionsPage() {
             </div>
 
             {(liveMappingTarget?.cost_centers?.length ?? 0) === 0 ? (
-              <p className="text-muted-foreground italic">No cost centers mapped yet.</p>
+              <p className="text-muted-foreground italic">No cost centers are mapped to this section yet.</p>
             ) : (
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
@@ -406,10 +443,7 @@ export function SectionsPage() {
                             title="Remove mapping"
                             aria-label="Remove cost center mapping"
                             disabled={removeMappingMut.isPending}
-                            onClick={() => {
-                              if (!liveMappingTarget) return;
-                              removeMappingMut.mutate({ sectionId: liveMappingTarget.id, ccId: m.cost_center_id });
-                            }}
+                            onClick={() => setRemoveMappingTarget(m)}
                           />
                         </td>
                       </tr>
@@ -440,6 +474,29 @@ export function SectionsPage() {
           deleteMut.mutate(disableTarget.id, {
             onSuccess: () => setDisableTarget(null),
           });
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(removeMappingTarget)}
+        title="Remove cost center mapping"
+        description={
+          removeMappingTarget
+            ? `Remove ${removeMappingTarget.cost_code} from ${liveMappingTarget?.section_name ?? "this section"}?`
+            : ""
+        }
+        confirmText="Remove Mapping"
+        destructive
+        submitting={removeMappingMut.isPending}
+        onCancel={() => setRemoveMappingTarget(null)}
+        onConfirm={() => {
+          if (!liveMappingTarget || !removeMappingTarget) return;
+          removeMappingMut.mutate(
+            { sectionId: liveMappingTarget.id, ccId: removeMappingTarget.cost_center_id },
+            {
+              onSuccess: () => setRemoveMappingTarget(null),
+            }
+          );
         }}
       />
     </PageLayout>

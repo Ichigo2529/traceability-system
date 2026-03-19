@@ -4,7 +4,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
 
 import { StationHeader } from "../../components/shared/StationHeader";
+import { StationActionBar, StationActionButton } from "../../components/shared/StationActionBar";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
+import { StationResultFeedback, type StationResultFeedbackState } from "../../components/shared/StationResultFeedback";
 import { ScanInput } from "../../components/shared/ScanInput";
 import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { StatusBadge } from "../../components/shared/StatusBadge";
@@ -13,7 +15,6 @@ import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { PageStack } from "@traceability/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -21,10 +22,17 @@ function genEventId() {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+const FLUX_ACTION_LABELS = {
+  MAGNETIZE_DONE: "Record Magnetize",
+  FLUX_PASS: "Mark Flux Pass",
+  FLUX_FAIL: "Mark Flux Hold",
+} as const;
+
 export function MagnetizeFluxStationPage() {
   const navigate = useNavigate();
   const { publishEvent } = useStationEvent();
   const [assyId, setAssyId] = useState("");
+  const [latestResult, setLatestResult] = useState<StationResultFeedbackState | null>(null);
   const [overlay, setOverlay] = useState<{ open: boolean; mode: "PASS" | "NG"; title: string; description?: string }>({
     open: false,
     mode: "PASS",
@@ -53,15 +61,22 @@ export function MagnetizeFluxStationPage() {
         created_at_device: new Date().toISOString(),
       }),
     onSuccess: (result, eventType) => {
-      setOverlay({
-        open: true,
-        mode: eventType === "FLUX_FAIL" ? "NG" : "PASS",
-        title: eventType,
-        description: result.queued ? "Event queued offline" : "Event accepted",
-      });
+      const nextResult = {
+        mode: (eventType === "FLUX_FAIL" ? "NG" : "PASS") as "PASS" | "NG",
+        title: result.queued ? "Queued Offline" : eventType === "FLUX_FAIL" ? "Hold Applied" : "Accepted",
+        description: `${FLUX_ACTION_LABELS[eventType]} ${result.queued ? "was queued for sync." : "was accepted."}`,
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
     onError: (err) => {
-      setOverlay({ open: true, mode: "NG", title: "NG", description: formatStationError(err, "Event rejected") });
+      const nextResult = {
+        mode: "NG" as const,
+        title: "Action Rejected",
+        description: formatStationError(err, "Event rejected"),
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
   });
 
@@ -92,31 +107,37 @@ export function MagnetizeFluxStationPage() {
             <CardTitle>Flux Decision</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 flex flex-col gap-4">
+            <StationResultFeedback result={latestResult} />
             <ScanInput
+              name="magnetize-assy-id"
+              ariaLabel="ASSY ID"
               value={assyId}
               onChange={setAssyId}
               onSubmit={() => mutation.mutate("MAGNETIZE_DONE")}
               placeholder="Scan ASSY ID"
             />
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => mutation.mutate("MAGNETIZE_DONE")} disabled={!assyId.trim() || mutation.isPending}>
-                MAGNETIZE_DONE
-              </Button>
-              <Button
+            <StationActionBar>
+              <StationActionButton
+                onClick={() => mutation.mutate("MAGNETIZE_DONE")}
+                disabled={!assyId.trim() || mutation.isPending}
+              >
+                Record Magnetize
+              </StationActionButton>
+              <StationActionButton
                 variant="secondary"
                 onClick={() => mutation.mutate("FLUX_PASS")}
                 disabled={!assyId.trim() || mutation.isPending}
               >
-                FLUX_PASS
-              </Button>
-              <Button
+                Mark Flux Pass
+              </StationActionButton>
+              <StationActionButton
                 variant="destructive"
                 onClick={() => mutation.mutate("FLUX_FAIL")}
                 disabled={!assyId.trim() || mutation.isPending}
               >
-                FLUX_FAIL (HOLD)
-              </Button>
-            </div>
+                Mark Flux Hold
+              </StationActionButton>
+            </StationActionBar>
           </CardContent>
         </Card>
 

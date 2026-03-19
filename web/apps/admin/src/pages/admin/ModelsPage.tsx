@@ -108,9 +108,15 @@ export function ModelsPage() {
         id: "code",
         header: "Code",
         accessorKey: "code",
-        minSize: 88,
-        maxSize: 140,
-        meta: { flex: 0.9 },
+        minSize: 120,
+        maxSize: 180,
+        meta: { flex: 1 },
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.code}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.part_number || "No part number"}</p>
+          </div>
+        ),
       },
       {
         id: "name",
@@ -119,6 +125,12 @@ export function ModelsPage() {
         minSize: 100,
         maxSize: 240,
         meta: { flex: 1.4 },
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.description || "No description"}</p>
+          </div>
+        ),
       },
       {
         id: "part_number",
@@ -153,11 +165,18 @@ export function ModelsPage() {
       {
         id: "status",
         header: "Status",
-        size: 76,
+        size: 116,
         minSize: 72,
-        maxSize: 88,
+        maxSize: 120,
         meta: { fixed: true },
-        cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} />,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <StatusBadge status={row.original.active ? "active" : "disabled"} />
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {row.original.active ? "Available for planning" : "Hidden from active use"}
+            </p>
+          </div>
+        ),
       },
       {
         id: "revisions",
@@ -233,7 +252,7 @@ export function ModelsPage() {
   return (
     <PageLayout
       title="Models"
-      subtitle="Product models and tray pack settings. Open revisions to manage BOM and routing."
+      subtitle="Manage product master data, tray pack size, and revision-ready models for BOM and routing work."
       icon="product"
       iconColor="blue"
       maxWidth="100%"
@@ -255,7 +274,8 @@ export function ModelsPage() {
           data={models}
           columns={columns}
           loading={isLoading}
-          filterPlaceholder="Search models..."
+          onRowClick={(model) => navigate(`/admin/models/${model.id}`)}
+          filterPlaceholder="Search model code, name, part number, or revision..."
           actions={
             <Button
               className="button-hover-scale"

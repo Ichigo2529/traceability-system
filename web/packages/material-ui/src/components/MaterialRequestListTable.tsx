@@ -15,6 +15,23 @@ type MaterialRequestListTableProps = {
   emptyStateDescription?: string;
 };
 
+function getStatusDetail(request: MaterialRequest) {
+  switch (request.status) {
+    case "REQUESTED":
+      return "Waiting for approval";
+    case "APPROVED":
+      return "Waiting for store issue";
+    case "ISSUED":
+      return request.production_ack_at ? "Production acknowledged" : "Waiting for production ACK";
+    case "REJECTED":
+      return "Request rejected";
+    case "CANCELLED":
+      return "Request withdrawn";
+    default:
+      return request.status;
+  }
+}
+
 export function MaterialRequestListTable({
   data,
   loading,
@@ -32,67 +49,81 @@ export function MaterialRequestListTable({
         header: "Request No.",
         accessorKey: "request_no",
         cell: ({ row }) => {
-          const v = row.original.request_no ?? "-";
-          return <span title={row.original.request_no ?? undefined}>{v}</span>;
+          const request = row.original;
+          const requestNo = request.request_no ?? "-";
+          const secondary = [request.dmi_no ? `DMI ${request.dmi_no}` : null, request.requested_by_name || null]
+            .filter(Boolean)
+            .join(" • ");
+          return (
+            <div className="min-w-0 whitespace-normal">
+              <p className="truncate font-medium text-foreground" title={request.request_no ?? undefined}>
+                {requestNo}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{secondary || "No DMI or requestor"}</p>
+            </div>
+          );
         },
-        minSize: 200,
-        size: 200,
+        minSize: 230,
+        size: 230,
+        meta: { flex: 220 },
       },
       {
         header: "Model",
         accessorKey: "model_code",
         cell: ({ row }) => {
-          const v = row.original.model_code || "-";
-          return <span title={row.original.model_code ?? undefined}>{v}</span>;
+          const request = row.original;
+          return (
+            <div className="min-w-0 whitespace-normal">
+              <p className="truncate font-medium text-foreground" title={request.model_code ?? undefined}>
+                {request.model_code || "-"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{request.model_name || "No model name"}</p>
+            </div>
+          );
         },
         minSize: 180,
         size: 180,
-      },
-      {
-        header: "DMI No.",
-        accessorKey: "dmi_no",
-        cell: ({ row }) => {
-          const v = row.original.dmi_no || "-";
-          return <span title={row.original.dmi_no ?? undefined}>{v}</span>;
-        },
-        minSize: 200,
-        size: 200,
       },
       {
         header: "Date",
         accessorKey: "created_at",
         cell: ({ row }) => {
-          const dt = formatDateTime((row.original.created_at ?? row.original.request_date) as any);
-          return <span title={dt}>{dt}</span>;
+          const request = row.original;
+          const created = formatDateTime((request.created_at ?? request.request_date) as any);
+          const updated = request.updated_at ? formatDateTime(request.updated_at) : null;
+          return (
+            <div className="min-w-0 whitespace-normal">
+              <p className="truncate text-foreground" title={created}>
+                {created}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {updated ? `Updated ${updated}` : "No recent update"}
+              </p>
+            </div>
+          );
         },
         minSize: 180,
         size: 180,
       },
       {
-        header: "Section",
+        header: "Routing",
         accessorKey: "section",
         cell: ({ row }) => {
-          const v = row.original.section || "-";
-          return <span title={row.original.section ?? undefined}>{v}</span>;
-        },
-        minSize: 180,
-        size: 180,
-      },
-      {
-        header: "Cost Center",
-        accessorKey: "cost_center",
-        cell: ({ row }) => {
-          const v = row.original.cost_center || "-";
-          return <span title={row.original.cost_center ?? undefined}>{v}</span>;
+          const request = row.original;
+          return (
+            <div className="min-w-0 whitespace-normal">
+              <p className="truncate text-foreground" title={request.section ?? undefined}>
+                {request.section || "-"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {[request.cost_center, request.process_name].filter(Boolean).join(" • ") || "No cost center or process"}
+              </p>
+            </div>
+          );
         },
         minSize: 220,
         size: 240,
-      },
-      {
-        header: "Process",
-        accessorKey: "process_name",
-        cell: ({ row }) => row.original.process_name || "-",
-        size: 100,
+        meta: { flex: 220 },
       },
       {
         header: "Items",
@@ -105,8 +136,13 @@ export function MaterialRequestListTable({
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.original.status} />,
-        size: 140,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <StatusBadge status={row.original.status} />
+            <p className="mt-1 truncate text-xs text-muted-foreground">{getStatusDetail(row.original)}</p>
+          </div>
+        ),
+        size: 170,
         meta: { fixed: true },
       },
       {
@@ -124,11 +160,11 @@ export function MaterialRequestListTable({
                 requestId && onView(requestId);
               }}
               disabled={!requestId}
-              title={requestId ? "View Details" : "Missing request id"}
-              aria-label="View Details"
+              title={requestId ? "Open request details" : "Missing request id"}
+              aria-label={requestId ? `Open request ${row.original.request_no ?? ""}` : "Missing request id"}
               className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-transparent px-3 py-1 text-sm font-medium shadow-sm hover:bg-accent hover:text-accent-foreground disabled:pointer-events-none disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
-              View
+              Open
             </button>
           );
         },
@@ -143,6 +179,7 @@ export function MaterialRequestListTable({
       columns={columns}
       loading={loading}
       filterPlaceholder={filterPlaceholder}
+      onRowClick={(row) => row.id && onView(row.id)}
       emptyStateTitle={emptyStateTitle}
       emptyStateDescription={emptyStateDescription}
       emptyStateActionText={onCreate ? createLabel : undefined}

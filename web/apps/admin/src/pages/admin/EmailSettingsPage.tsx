@@ -166,90 +166,123 @@ export function EmailSettingsPage() {
         subtitle="These settings are used by workflow alerts (material request and future modules)"
         variant="card"
       >
-        <div className="flex items-center justify-end gap-2 mb-4">
-          <Button variant="ghost" onClick={() => setOpenTestDialog(true)}>
-            Send Test Email
-          </Button>
-          <Button onClick={onSave} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? "Saving..." : "Save Settings"}
-          </Button>
-        </div>
-
-        {!settingsQuery.data && (
-          <Alert className="mb-4">
-            <AlertDescription>No SMTP setting found yet. Fill in values and click Save Settings.</AlertDescription>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSave();
+          }}
+        >
+          <Alert>
+            <AlertDescription>
+              Email alerts are currently {model.enabled ? "enabled" : "disabled"}.
+              {model.enabled
+                ? ` Messages will send from ${model.smtp_from_email || "the configured sender"} via ${model.smtp_host || "the configured SMTP host"}.`
+                : " Save and enable SMTP settings before workflow notifications can be delivered."}
+            </AlertDescription>
           </Alert>
-        )}
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label>SMTP Host *</Label>
-            <Input
-              value={model.smtp_host ?? ""}
-              onChange={(e) => setModel((m) => ({ ...m, smtp_host: e.target.value }))}
-            />
+          <div className="mb-4 flex items-center justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setOpenTestDialog(true)}>
+              Send Test Email
+            </Button>
+            <Button type="submit" disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? "Saving…" : "Save Settings"}
+            </Button>
           </div>
-          <div className="grid gap-2">
-            <Label>SMTP Port *</Label>
-            <Input
-              type="number"
-              value={String(model.smtp_port ?? 587)}
-              onChange={(e) => setModel((m) => ({ ...m, smtp_port: Number(e.target.value || 0) }))}
-            />
+
+          {!settingsQuery.data && (
+            <Alert className="mb-4">
+              <AlertDescription>
+                No saved SMTP configuration yet. Fill in the sender settings, then save to enable email delivery.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="smtp-host">SMTP Host *</Label>
+              <Input
+                id="smtp-host"
+                name="smtp-host"
+                value={model.smtp_host ?? ""}
+                onChange={(e) => setModel((m) => ({ ...m, smtp_host: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="smtp-port">SMTP Port *</Label>
+              <Input
+                id="smtp-port"
+                name="smtp-port"
+                type="number"
+                value={String(model.smtp_port ?? 587)}
+                onChange={(e) => setModel((m) => ({ ...m, smtp_port: Number(e.target.value || 0) }))}
+              />
+            </div>
+            <div className="grid gap-2 sm:col-span-2">
+              <Label htmlFor="smtp-username">SMTP Username</Label>
+              <Input
+                id="smtp-username"
+                name="smtp-username"
+                value={model.smtp_user ?? ""}
+                onChange={(e) => setModel((m) => ({ ...m, smtp_user: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2 sm:col-span-2">
+              <Label htmlFor="smtp-password">SMTP Password</Label>
+              <Input
+                id="smtp-password"
+                name="smtp-password"
+                type="password"
+                autoComplete="new-password"
+                placeholder={
+                  settingsQuery.data?.smtp_password ? "Leave blank to keep existing password" : "Enter SMTP password"
+                }
+                value={model.smtp_password ?? ""}
+                onChange={(e) => setModel((m) => ({ ...m, smtp_password: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="smtp-from-email">Sender Email *</Label>
+              <Input
+                id="smtp-from-email"
+                name="smtp-from-email"
+                type="email"
+                value={model.smtp_from_email ?? ""}
+                onChange={(e) => setModel((m) => ({ ...m, smtp_from_email: e.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="smtp-from-name">Sender Name</Label>
+              <Input
+                id="smtp-from-name"
+                name="smtp-from-name"
+                value={model.smtp_from_name ?? ""}
+                onChange={(e) => setModel((m) => ({ ...m, smtp_from_name: e.target.value }))}
+              />
+            </div>
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <Checkbox
+                id="smtp_secure"
+                checked={Boolean(model.smtp_secure)}
+                onCheckedChange={(v) => setModel((m) => ({ ...m, smtp_secure: !!v }))}
+              />
+              <Label htmlFor="smtp_secure" className="cursor-pointer font-normal">
+                Use secure SMTP connection
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <Checkbox
+                id="smtp_enabled"
+                checked={Boolean(model.enabled)}
+                onCheckedChange={(v) => setModel((m) => ({ ...m, enabled: !!v }))}
+              />
+              <Label htmlFor="smtp_enabled" className="cursor-pointer font-normal">
+                Enable email alerts
+              </Label>
+            </div>
           </div>
-          <div className="grid gap-2 sm:col-span-2">
-            <Label>SMTP Username</Label>
-            <Input
-              value={model.smtp_user ?? ""}
-              onChange={(e) => setModel((m) => ({ ...m, smtp_user: e.target.value }))}
-            />
-          </div>
-          <div className="grid gap-2 sm:col-span-2">
-            <Label>SMTP Password</Label>
-            <Input
-              type="password"
-              placeholder={
-                settingsQuery.data?.smtp_password ? "Leave blank to keep existing password" : "Enter SMTP password"
-              }
-              value={model.smtp_password ?? ""}
-              onChange={(e) => setModel((m) => ({ ...m, smtp_password: e.target.value }))}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Sender Email *</Label>
-            <Input
-              value={model.smtp_from_email ?? ""}
-              onChange={(e) => setModel((m) => ({ ...m, smtp_from_email: e.target.value }))}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Sender Name</Label>
-            <Input
-              value={model.smtp_from_name ?? ""}
-              onChange={(e) => setModel((m) => ({ ...m, smtp_from_name: e.target.value }))}
-            />
-          </div>
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <Checkbox
-              id="smtp_secure"
-              checked={Boolean(model.smtp_secure)}
-              onCheckedChange={(v) => setModel((m) => ({ ...m, smtp_secure: !!v }))}
-            />
-            <Label htmlFor="smtp_secure" className="cursor-pointer font-normal">
-              Use secure SMTP connection
-            </Label>
-          </div>
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <Checkbox
-              id="smtp_enabled"
-              checked={Boolean(model.enabled)}
-              onCheckedChange={(v) => setModel((m) => ({ ...m, enabled: !!v }))}
-            />
-            <Label htmlFor="smtp_enabled" className="cursor-pointer font-normal">
-              Enable email alerts
-            </Label>
-          </div>
-        </div>
+        </form>
       </Section>
 
       <Section
@@ -257,62 +290,85 @@ export function EmailSettingsPage() {
         subtitle="Automatic reminder emails for requests still waiting for approval"
         variant="card"
       >
-        <div className="flex items-center justify-end gap-2 mb-4">
-          <Button onClick={onSaveReminderPolicy} disabled={saveReminderPolicyMutation.isPending}>
-            {saveReminderPolicyMutation.isPending ? "Saving..." : "Save Reminder Policy"}
-          </Button>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <Checkbox
-              id="reminder_enabled"
-              checked={Boolean(reminderPolicy.enabled)}
-              onCheckedChange={(v) => setReminderPolicy((prev) => ({ ...prev, enabled: !!v }))}
-            />
-            <Label htmlFor="reminder_enabled" className="cursor-pointer font-normal">
-              Enable reminder emails for pending approvals
-            </Label>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSaveReminderPolicy();
+          }}
+        >
+          <Alert>
+            <AlertDescription>
+              Reminder policy is currently {reminderPolicy.enabled ? "enabled" : "disabled"}.
+              {reminderPolicy.enabled
+                ? reminderPolicy.cadence_mode === "daily"
+                  ? " Pending approvals will receive one reminder every 24 hours."
+                  : ` Pending approvals will receive reminders every ${reminderPolicy.interval_hours || 0} hour(s).`
+                : " Pending approvals will not receive reminder emails until this policy is enabled."}
+            </AlertDescription>
+          </Alert>
+
+          <div className="mb-4 flex items-center justify-end gap-2">
+            <Button type="submit" disabled={saveReminderPolicyMutation.isPending}>
+              {saveReminderPolicyMutation.isPending ? "Saving…" : "Save Reminder Policy"}
+            </Button>
           </div>
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <Checkbox
-              id="cadence_daily"
-              checked={reminderPolicy.cadence_mode === "daily"}
-              onCheckedChange={(v) =>
-                setReminderPolicy((prev) => ({
-                  ...prev,
-                  cadence_mode: v ? "daily" : "interval_hours",
-                  interval_hours: v ? 24 : prev.interval_hours || 24,
-                }))
-              }
-            />
-            <Label htmlFor="cadence_daily" className="cursor-pointer font-normal">
-              Use daily cadence (every 24 hours)
-            </Label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <Checkbox
+                id="reminder_enabled"
+                checked={Boolean(reminderPolicy.enabled)}
+                onCheckedChange={(v) => setReminderPolicy((prev) => ({ ...prev, enabled: !!v }))}
+              />
+              <Label htmlFor="reminder_enabled" className="cursor-pointer font-normal">
+                Enable reminder emails for pending approvals
+              </Label>
+            </div>
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <Checkbox
+                id="cadence_daily"
+                checked={reminderPolicy.cadence_mode === "daily"}
+                onCheckedChange={(v) =>
+                  setReminderPolicy((prev) => ({
+                    ...prev,
+                    cadence_mode: v ? "daily" : "interval_hours",
+                    interval_hours: v ? 24 : prev.interval_hours || 24,
+                  }))
+                }
+              />
+              <Label htmlFor="cadence_daily" className="cursor-pointer font-normal">
+                Use daily cadence (every 24 hours)
+              </Label>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reminder-interval-hours">Interval (hours)</Label>
+              <Input
+                id="reminder-interval-hours"
+                type="number"
+                value={String(reminderPolicy.interval_hours ?? 24)}
+                disabled={reminderPolicy.cadence_mode === "daily"}
+                onChange={(e) =>
+                  setReminderPolicy((prev) => ({ ...prev, interval_hours: Number(e.target.value || 0) }))
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="reminder-max-reminders">Max Reminders (optional)</Label>
+              <Input
+                id="reminder-max-reminders"
+                type="number"
+                placeholder="Leave empty for unlimited"
+                value={reminderPolicy.max_reminders == null ? "" : String(reminderPolicy.max_reminders)}
+                onChange={(e) =>
+                  setReminderPolicy((prev) => ({
+                    ...prev,
+                    max_reminders: e.target.value ? Number(e.target.value) : null,
+                  }))
+                }
+              />
+            </div>
           </div>
-          <div className="grid gap-2">
-            <Label>Interval (hours)</Label>
-            <Input
-              type="number"
-              value={String(reminderPolicy.interval_hours ?? 24)}
-              disabled={reminderPolicy.cadence_mode === "daily"}
-              onChange={(e) => setReminderPolicy((prev) => ({ ...prev, interval_hours: Number(e.target.value || 0) }))}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label>Max Reminders (optional)</Label>
-            <Input
-              type="number"
-              placeholder="Leave empty for unlimited"
-              value={reminderPolicy.max_reminders == null ? "" : String(reminderPolicy.max_reminders)}
-              onChange={(e) =>
-                setReminderPolicy((prev) => ({
-                  ...prev,
-                  max_reminders: e.target.value ? Number(e.target.value) : null,
-                }))
-              }
-            />
-          </div>
-        </div>
+        </form>
       </Section>
 
       <Dialog open={openTestDialog} onOpenChange={setOpenTestDialog}>
@@ -321,25 +377,38 @@ export function EmailSettingsPage() {
             <DialogTitle>Send Test Email</DialogTitle>
             <DialogDescription>Enter recipient email to send a test message.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2 py-4">
-            <Label htmlFor="test-recipient">Recipient</Label>
-            <Input
-              id="test-recipient"
-              type="email"
-              placeholder="name@example.com"
-              value={testRecipient}
-              onChange={(e) => setTestRecipient(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpenTestDialog(false)} disabled={testMutation.isPending}>
-              Cancel
-            </Button>
-            <Button onClick={onSendTest} disabled={testMutation.isPending}>
-              {testMutation.isPending ? "Sending..." : "Send"}
-            </Button>
-          </DialogFooter>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              onSendTest();
+            }}
+          >
+            <div className="grid gap-2 py-4">
+              <Label htmlFor="test-recipient">Recipient</Label>
+              <Input
+                id="test-recipient"
+                name="test-recipient"
+                type="email"
+                placeholder="name@example.com"
+                value={testRecipient}
+                onChange={(e) => setTestRecipient(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setOpenTestDialog(false)}
+                disabled={testMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={testMutation.isPending}>
+                {testMutation.isPending ? "Sending…" : "Send"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </PageLayout>

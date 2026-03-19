@@ -147,7 +147,7 @@ export function ComponentTypesPage() {
           data={rows}
           columns={columns}
           loading={isLoading}
-          filterPlaceholder="Search component type..."
+          filterPlaceholder="Search component type code, name, or description..."
           actions={
             <Button
               className="button-hover-scale"

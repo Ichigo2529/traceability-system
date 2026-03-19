@@ -91,20 +91,52 @@ export function SuppliersPage() {
 
   const columns = useMemo<ColumnDef<Vendor>[]>(
     () => [
-      { id: "code", header: "Code", accessorKey: "code" },
-      { id: "vendor_id", header: "Vendor ID", accessorKey: "vendor_id" },
-      { id: "name", header: "Name", accessorKey: "name" },
+      {
+        id: "code",
+        header: "Supplier",
+        accessorKey: "code",
+        size: 240,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.code}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.name}</p>
+          </div>
+        ),
+      },
+      {
+        id: "vendor_id",
+        header: "Vendor Ref",
+        accessorKey: "vendor_id",
+        size: 180,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">{row.original.vendor_id || "-"}</p>
+            <p className="truncate text-xs text-muted-foreground">External vendor identifier</p>
+          </div>
+        ),
+      },
       {
         id: "profiles",
         header: "Part Profiles",
         cell: ({ row }) => (
-          <span className="tabular-nums font-medium">{profileCountByVendor.get(row.original.id) ?? 0}</span>
+          <div className="min-w-0 whitespace-normal">
+            <p className="tabular-nums font-medium text-foreground">{profileCountByVendor.get(row.original.id) ?? 0}</p>
+            <p className="truncate text-xs text-muted-foreground">Mapped supplier part profiles</p>
+          </div>
         ),
       },
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
+        size: 120,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <StatusBadge status={row.original.is_active ? "active" : "disabled"} />
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {row.original.is_active ? "Available for sourcing and profiles" : "Hidden from active sourcing"}
+            </p>
+          </div>
+        ),
       },
       {
         id: "actions",
@@ -157,7 +189,7 @@ export function SuppliersPage() {
       title="Vendors"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Vendor and external supplier master</span>
+          <span>Manage supplier master data and jump into supplier-specific part profiles</span>
         </div>
       }
       icon="supplier"
@@ -179,7 +211,8 @@ export function SuppliersPage() {
           data={suppliers}
           columns={columns}
           loading={suppliersLoading}
-          filterPlaceholder="Search suppliers..."
+          onRowClick={(vendor) => navigate(`/admin/supplier-part-profiles?vendorId=${encodeURIComponent(vendor.id)}`)}
+          filterPlaceholder="Search supplier code, name, vendor ID, or profile coverage..."
           actions={
             <Button
               className="button-hover-scale"

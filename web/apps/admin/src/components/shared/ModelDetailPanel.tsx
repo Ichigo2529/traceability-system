@@ -11,13 +11,20 @@ import { DataTable } from "./DataTable";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { ApiErrorBanner } from "../ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
-import { UnderlineTabs } from "./UnderlineTabs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "./StatusBadge";
 import { Link2, Play, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -238,16 +245,19 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         {model ? (
           <>
-            <UnderlineTabs
+            <Tabs
               value={activeTab}
-              items={[
-                { key: "revisions", label: "Revisions" },
-                { key: "general", label: "General Info" },
-              ]}
-              onChange={(k) => setActiveTab(k as "revisions" | "general")}
-            />
-            {activeTab === "revisions" && (
-              <div className="p-4 overflow-y-auto flex-1">
+              onValueChange={(value) => setActiveTab(value as "revisions" | "general")}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <div className="border-b border-border px-4 py-3">
+                <TabsList>
+                  <TabsTrigger value="revisions">Revisions</TabsTrigger>
+                  <TabsTrigger value="general">General Info</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="revisions" className="mt-0 min-h-0 flex-1 overflow-y-auto p-4">
                 <ApiErrorBanner
                   message={activateRevision.isError ? formatApiError(activateRevision.error) : undefined}
                 />
@@ -256,21 +266,30 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
                   columns={revisionColumns}
                   loading={revisionsLoading}
                   hideEmptyState={false}
-                  actions={<Button onClick={() => setIsDraftModalOpen(true)}>New draft</Button>}
+                  actions={<Button onClick={() => setIsDraftModalOpen(true)}>New Draft</Button>}
                 />
-              </div>
-            )}
-            {activeTab === "general" && (
-              <div className="p-6 overflow-y-auto flex-1">
+              </TabsContent>
+
+              <TabsContent value="general" className="mt-0 min-h-0 flex-1 overflow-y-auto p-6">
                 <ApiErrorBanner message={updateMutation.isError ? formatApiError(updateMutation.error) : undefined} />
-                {formGrid}
-              </div>
-            )}
+                <form
+                  id="model-config-form"
+                  onSubmit={form.handleSubmit((v) => (model ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+                >
+                  {formGrid}
+                </form>
+              </TabsContent>
+            </Tabs>
           </>
         ) : (
           <div className="p-6 overflow-y-auto">
             <ApiErrorBanner message={createMutation.isError ? formatApiError(createMutation.error) : undefined} />
-            {formGrid}
+            <form
+              id="model-config-form"
+              onSubmit={form.handleSubmit((v) => (model ? updateMutation.mutate(v) : createMutation.mutate(v)))}
+            >
+              {formGrid}
+            </form>
           </div>
         )}
       </div>
@@ -278,10 +297,11 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
       <div className="flex justify-end gap-2 px-4 py-3 border-t border-border flex-shrink-0">
         {activeTab === "general" && (
           <Button
-            onClick={() => form.handleSubmit((v) => (model ? updateMutation.mutate(v) : createMutation.mutate(v)))()}
+            type="submit"
+            form="model-config-form"
             disabled={createMutation.isPending || updateMutation.isPending}
           >
-            {createMutation.isPending || updateMutation.isPending ? "Saving..." : "Save Config"}
+            {createMutation.isPending || updateMutation.isPending ? "Saving…" : "Save Config"}
           </Button>
         )}
         <Button type="button" variant="outline" onClick={onClose}>
@@ -293,60 +313,66 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Revision Draft</DialogTitle>
+            <DialogDescription>
+              Create a new draft revision, optionally cloning from an existing revision.
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <ApiErrorBanner message={createRevision.isError ? formatApiError(createRevision.error) : undefined} />
-            <div className="grid gap-2">
-              <Label htmlFor="draft-revision-code">Revision Code *</Label>
-              <Input
-                id="draft-revision-code"
-                value={newRevisionCode}
-                onChange={(e) => setNewRevisionCode(e.target.value)}
-                placeholder="e.g. R01"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Clone From (Optional)</Label>
-              <Select
-                value={cloneFromRevisionId || "__empty__"}
-                onValueChange={(v) => setCloneFromRevisionId(v === "__empty__" ? "" : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="-- Empty Draft --" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__empty__">-- Empty Draft --</SelectItem>
-                  {(revisions as ModelRevision[]).map((r) => (
-                    <SelectItem key={r.id} value={r.id}>
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="tabular-nums">{r.revision_code}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <span className="text-muted-foreground">
-                          {r.status === RevisionStatus.DRAFT
-                            ? "Draft"
-                            : r.status === RevisionStatus.ACTIVE
-                              ? "Active"
-                              : r.status}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              createRevision.mutate();
+            }}
+          >
+            <div className="flex flex-col gap-4 py-2">
+              <ApiErrorBanner message={createRevision.isError ? formatApiError(createRevision.error) : undefined} />
+              <div className="grid gap-2">
+                <Label htmlFor="draft-revision-code">Revision Code *</Label>
+                <Input
+                  id="draft-revision-code"
+                  value={newRevisionCode}
+                  onChange={(e) => setNewRevisionCode(e.target.value)}
+                  placeholder="e.g. R01"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="draft-clone-from">Clone From (Optional)</Label>
+                <Select
+                  value={cloneFromRevisionId || "__empty__"}
+                  onValueChange={(v) => setCloneFromRevisionId(v === "__empty__" ? "" : v)}
+                >
+                  <SelectTrigger id="draft-clone-from">
+                    <SelectValue placeholder="-- Empty Draft --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__empty__">-- Empty Draft --</SelectItem>
+                    {(revisions as ModelRevision[]).map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="tabular-nums">{r.revision_code}</span>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-muted-foreground">
+                            {r.status === RevisionStatus.DRAFT
+                              ? "Draft"
+                              : r.status === RevisionStatus.ACTIVE
+                                ? "Active"
+                                : r.status}
+                          </span>
                         </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsDraftModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={() => createRevision.mutate()}
-              disabled={createRevision.isPending || !newRevisionCode}
-            >
-              {createRevision.isPending ? "Creating..." : "Create"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsDraftModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createRevision.isPending || !newRevisionCode}>
+                {createRevision.isPending ? "Creating…" : "Create"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

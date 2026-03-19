@@ -75,7 +75,7 @@ export default function AuditLogsPage() {
           data={logs}
           loading={isLoading}
           columns={columns}
-          filterPlaceholder="Search audit logs..."
+          filterPlaceholder="Search event, actor, module, or record ID..."
           initialPageSize={20}
           actions={
             <div className="flex items-center gap-2">

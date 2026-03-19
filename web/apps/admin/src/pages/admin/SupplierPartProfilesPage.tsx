@@ -210,7 +210,7 @@ export function SupplierPartProfilesPage() {
           data={filteredRows}
           columns={columns}
           loading={profilesLoading || vendorsLoading || partNumbersLoading || parsersLoading}
-          filterPlaceholder="Search profile..."
+          filterPlaceholder="Search supplier, part number, vendor part, or parser..."
           actions={
             <Button
               className="button-hover-scale"

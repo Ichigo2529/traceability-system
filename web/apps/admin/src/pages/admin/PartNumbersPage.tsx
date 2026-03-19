@@ -85,15 +85,56 @@ export function PartNumbersPage() {
 
   const columns = useMemo<ColumnDef<PartNumberMaster>[]>(
     () => [
-      { id: "part_number", header: "Part Number", accessorKey: "part_number" },
-      { id: "component_type", header: "Component Type", accessorKey: "component_type_code" },
-      { id: "default_pack_size", header: "Base UOM (Usage/VCM)", accessorKey: "default_pack_size" },
-      { id: "rm_location", header: "RM Location", accessorKey: "rm_location" },
-      { id: "description", header: "Description", accessorKey: "description" },
+      {
+        id: "part_number",
+        header: "Part Number",
+        accessorKey: "part_number",
+        size: 220,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.part_number}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.description || "No description"}</p>
+          </div>
+        ),
+      },
+      {
+        id: "component_type",
+        header: "Component Setup",
+        accessorKey: "component_type_code",
+        size: 220,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">{row.original.component_type_code || "Not assigned"}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              RM {row.original.rm_location || "location not set"}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "default_pack_size",
+        header: "Usage / Pack",
+        accessorKey: "default_pack_size",
+        size: 140,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="tabular-nums text-foreground">{row.original.default_pack_size ?? "-"}</p>
+            <p className="truncate text-xs text-muted-foreground">Base usage per VCM</p>
+          </div>
+        ),
+      },
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.original.is_active ? "active" : "disabled"} />,
+        size: 120,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <StatusBadge status={row.original.is_active ? "active" : "disabled"} />
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {row.original.is_active ? "Available for BOM and requests" : "Hidden from active use"}
+            </p>
+          </div>
+        ),
       },
       {
         id: "actions",
@@ -138,7 +179,7 @@ export function PartNumbersPage() {
       title="Part Numbers"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Component master with base usage definitions</span>
+          <span>Manage component master data, usage defaults, and RM location references</span>
         </div>
       }
       icon="number-sign"
@@ -160,7 +201,19 @@ export function PartNumbersPage() {
           data={rows}
           columns={columns}
           loading={rowsLoading || typesLoading}
-          filterPlaceholder="Search part number..."
+          onRowClick={(part) => {
+            setEditing(part);
+            form.reset({
+              part_number: part.part_number,
+              component_type_id: part.component_type_id ?? undefined,
+              rm_location: part.rm_location ?? "",
+              description: part.description ?? "",
+              default_pack_size: part.default_pack_size ?? undefined,
+              is_active: part.is_active,
+            });
+            setOpen(true);
+          }}
+          filterPlaceholder="Search part number, description, component type, or RM location..."
           actions={
             <Button
               className="button-hover-scale"

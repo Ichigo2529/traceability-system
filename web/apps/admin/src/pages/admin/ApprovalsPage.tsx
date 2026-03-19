@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Pencil, Save, ArrowRight } from "lucide-react";
 import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
@@ -194,22 +195,61 @@ export function ApprovalsPage() {
 
   const columns = useMemo<ColumnDef<WorkflowApprovalConfig>[]>(
     () => [
-      { id: "flow_code", header: "Flow", accessorKey: "flow_code" },
-      { id: "flow_name", header: "Name", accessorKey: "flow_name" },
-      { id: "from_status", header: "From", accessorKey: "from_status" },
-      { id: "to_status", header: "To", accessorKey: "to_status" },
-      { id: "level", header: "Level", accessorKey: "level" },
+      {
+        id: "flow_code",
+        header: "Workflow",
+        accessorKey: "flow_code",
+        size: 240,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.flow_code}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.flow_name}</p>
+          </div>
+        ),
+      },
+      {
+        id: "transition",
+        header: "Transition",
+        size: 220,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">
+              {row.original.from_status}
+              {" -> "}
+              {row.original.to_status}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">Approval level L{row.original.level}</p>
+          </div>
+        ),
+      },
       {
         id: "approver_role",
-        header: "Approver Role",
-        cell: ({ row }) => row.original.approver_role_name || roleMap[row.original.approver_role_id || ""]?.name || "-",
+        header: "Routing Owner",
+        size: 220,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">
+              {row.original.approver_role_name ||
+                roleMap[row.original.approver_role_id || ""]?.name ||
+                "Unassigned role"}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {row.original.approver_users?.length
+                ? `${row.original.approver_users.length} named approver${row.original.approver_users.length === 1 ? "" : "s"}`
+                : "Role-only routing"}
+            </p>
+          </div>
+        ),
       },
       {
         id: "approver_users",
         header: "Approver Users",
+        size: 280,
         cell: ({ row }) => {
           const approvers = row.original.approver_users ?? [];
-          if (!approvers.length) return "-";
+          if (!approvers.length) {
+            return <span className="text-sm text-muted-foreground">No named approvers configured</span>;
+          }
           return (
             <div className="flex flex-col gap-1">
               {approvers.map((approver) => (
@@ -230,7 +270,15 @@ export function ApprovalsPage() {
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} />,
+        size: 120,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <StatusBadge status={row.original.active ? "active" : "disabled"} />
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {row.original.active ? "Rule is applied to routing" : "Rule is excluded from routing"}
+            </p>
+          </div>
+        ),
       },
       {
         id: "actions",
@@ -304,7 +352,7 @@ export function ApprovalsPage() {
       title="Approvals & Configuration"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Workflow rules and approval matrix</span>
+          <span>Configure workflow transitions, approval ownership, and online-indicator timing</span>
         </div>
       }
       icon="approvals"
@@ -349,6 +397,14 @@ export function ApprovalsPage() {
                 Current: {heartbeatSettings?.online_window_minutes ?? 2} minute(s)
               </span>
             </div>
+            <div className="px-4 pb-4">
+              <Alert>
+                <AlertDescription>
+                  Devices stay marked online for this window after their last heartbeat. Use a shorter window for kiosk
+                  environments that need faster offline visibility.
+                </AlertDescription>
+              </Alert>
+            </div>
           </Section>
         </div>
 
@@ -358,7 +414,27 @@ export function ApprovalsPage() {
             data={approvals}
             columns={columns}
             loading={approvalsLoading || rolesLoading || usersLoading}
-            filterPlaceholder="Search workflow by code/status..."
+            onRowClick={(rule) => {
+              setEditing(rule);
+              reset({
+                flow_code: rule.flow_code,
+                flow_name: rule.flow_name,
+                from_status: rule.from_status,
+                to_status: rule.to_status,
+                level: rule.level,
+                approver_role_id: rule.approver_role_id || "",
+                active: rule.active,
+              });
+              const approverRows =
+                rule.approver_users?.map((approver) => ({
+                  user_id: approver.user_id,
+                  email: approver.email ?? "",
+                  is_default: Boolean(approver.is_default),
+                })) ?? [];
+              setApproverRows(approverRows.length ? approverRows : [{ ...EMPTY_APPROVER_ROW }]);
+              setOpen(true);
+            }}
+            filterPlaceholder="Search workflow, transition status, approver role, or named approver..."
             actions={
               <Button
                 className="button-hover-scale"
@@ -388,7 +464,9 @@ export function ApprovalsPage() {
           <Section title="Status Transitions" variant="card">
             <div className="flex flex-col">
               {transitionGroups.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">No transition rules configured.</div>
+                <div className="text-center py-8 text-muted-foreground">
+                  No workflow transition rules are configured yet.
+                </div>
               ) : (
                 transitionGroups.map((group, index) => (
                   <div
@@ -431,9 +509,7 @@ export function ApprovalsPage() {
         open={open}
         title={editing ? "Edit Approval Rule" : "Create Approval Rule"}
         onClose={() => setOpen(false)}
-        onSubmit={() =>
-          handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))()
-        }
+        onSubmit={handleSubmit((values) => (editing ? updateMutation.mutate(values) : createMutation.mutate(values)))}
         submitting={createMutation.isPending || updateMutation.isPending}
         contentClassName="approval-dialog"
       >
@@ -442,12 +518,13 @@ export function ApprovalsPage() {
             <h4 className="font-semibold">Rule Configuration</h4>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
-                <Label>Flow Code *</Label>
+                <Label htmlFor="approval-flow-code">Flow Code *</Label>
                 <Controller
                   name="flow_code"
                   control={control}
                   render={({ field }) => (
                     <Input
+                      id="approval-flow-code"
                       {...field}
                       value={field.value || ""}
                       className={errors.flow_code ? "border-destructive" : ""}
@@ -457,12 +534,13 @@ export function ApprovalsPage() {
                 {errors.flow_code && <p className="text-sm text-destructive">{errors.flow_code.message}</p>}
               </div>
               <div className="grid gap-2">
-                <Label>Flow Name *</Label>
+                <Label htmlFor="approval-flow-name">Flow Name *</Label>
                 <Controller
                   name="flow_name"
                   control={control}
                   render={({ field }) => (
                     <Input
+                      id="approval-flow-name"
                       {...field}
                       value={field.value || ""}
                       className={errors.flow_name ? "border-destructive" : ""}
@@ -472,19 +550,19 @@ export function ApprovalsPage() {
                 {errors.flow_name && <p className="text-sm text-destructive">{errors.flow_name.message}</p>}
               </div>
               <div className="grid gap-2">
-                <Label>From Status *</Label>
+                <Label htmlFor="approval-from-status">From Status *</Label>
                 <Controller
                   name="from_status"
                   control={control}
-                  render={({ field }) => <Input {...field} value={field.value || ""} />}
+                  render={({ field }) => <Input id="approval-from-status" {...field} value={field.value || ""} />}
                 />
               </div>
               <div className="grid gap-2">
-                <Label>To Status *</Label>
+                <Label htmlFor="approval-to-status">To Status *</Label>
                 <Controller
                   name="to_status"
                   control={control}
-                  render={({ field }) => <Input {...field} value={field.value || ""} />}
+                  render={({ field }) => <Input id="approval-to-status" {...field} value={field.value || ""} />}
                 />
               </div>
               <div className="grid gap-2">

@@ -43,6 +43,10 @@ export function OperatorLoginPage() {
   });
 
   useEffect(() => {
+    badgeRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     if (!heartbeatQuery.error) return;
     const err = heartbeatQuery.error as { code?: string };
     if (err.code === "DEVICE_NOT_REGISTERED") {
@@ -174,56 +178,86 @@ export function OperatorLoginPage() {
               <p className="text-xs text-muted-foreground">Scan badge or enter Employee ID</p>
             </div>
           </CardHeader>
-          <CardContent className="pt-0 flex flex-col gap-4">
+          <CardContent className="pt-0">
             {operatorQuery.data && (
-              <Alert className="rounded-lg">An operator session is currently active on this device.</Alert>
+              <Alert className="mb-4 rounded-lg">An operator session is currently active on this device.</Alert>
             )}
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="font-semibold">Badge / Employee ID</Label>
-              <ScanInput
-                ref={badgeRef}
-                value={badge}
-                onChange={setBadge}
-                onSubmit={() => loginMutation.mutate()}
-                placeholder="Scan badge or type ID…"
-              />
-            </div>
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (loginMutation.isPending || !badge || !password) return;
+                loginMutation.mutate();
+              }}
+            >
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="operator-badge" className="font-semibold">
+                  Badge / Employee ID
+                </Label>
+                <ScanInput
+                  ref={badgeRef}
+                  id="operator-badge"
+                  name="operator-badge"
+                  ariaLabel="Badge or employee ID"
+                  value={badge}
+                  onChange={(nextValue) => {
+                    setError(null);
+                    setBadge(nextValue);
+                  }}
+                  onSubmit={() => {
+                    if (!password) return;
+                    loginMutation.mutate();
+                  }}
+                  placeholder="Scan badge or type ID…"
+                />
+              </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label className="font-semibold">Password / PIN</Label>
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••"
-                className="w-full"
-              />
-            </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="operator-password" className="font-semibold">
+                  Password / PIN
+                </Label>
+                <Input
+                  id="operator-password"
+                  name="operator-password"
+                  type="password"
+                  autoComplete="current-password"
+                  spellCheck={false}
+                  value={password}
+                  onChange={(e) => {
+                    setError(null);
+                    setPassword(e.target.value);
+                  }}
+                  placeholder="Enter password or PIN…"
+                  className="min-h-12 w-full text-base"
+                />
+              </div>
 
-            {error && (
-              <Alert variant="destructive" className="rounded-lg">
-                {error}
-              </Alert>
-            )}
+              {error && (
+                <Alert variant="destructive" className="rounded-lg">
+                  {error}
+                </Alert>
+              )}
 
-            <div className="flex gap-3 mt-2">
-              <Button
-                className="flex-1 rounded-lg h-12"
-                onClick={() => loginMutation.mutate()}
-                disabled={loginMutation.isPending || !badge || !password}
-              >
-                {loginMutation.isPending ? "Signing in…" : "Login"}
-              </Button>
-              <Button
-                variant="secondary"
-                className="rounded-lg h-12"
-                onClick={() => logoutMutation.mutate()}
-                disabled={logoutMutation.isPending}
-              >
-                Logout Operator
-              </Button>
-            </div>
+              <div className="mt-2 flex gap-3">
+                <Button
+                  type="submit"
+                  className="flex-1 rounded-lg h-12"
+                  disabled={loginMutation.isPending || !badge || !password}
+                >
+                  {loginMutation.isPending ? "Signing in…" : "Login"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="rounded-lg h-12"
+                  onClick={() => logoutMutation.mutate()}
+                  disabled={logoutMutation.isPending}
+                >
+                  Logout Operator
+                </Button>
+              </div>
+            </form>
           </CardContent>
         </Card>
       </div>

@@ -172,7 +172,7 @@ export default function HeartbeatMonitorPage() {
           data={filteredData}
           columns={columns}
           loading={isLoading}
-          filterPlaceholder="Search devices by code, name, ip..."
+          filterPlaceholder="Search device code, name, station, or IP..."
           actions={
             <div className="flex items-center gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>

@@ -91,6 +91,7 @@ Page title + optional "Add" or primary action in header. Toolbar: filters, searc
 ### Detail page (Admin)
 
 Back navigation to list or parent. Title + key metadata at top. Tabs or sections for related data. Actions: Edit, Delete, or workflow (Approve, Issue, etc.) with clear feedback.
+Printable forms or PDFs are always secondary actions. The on-screen detail view must use summary cards, task cards, workflow/timeline, and focused action panels instead of document-style layouts.
 
 ### Form dialog (Admin)
 
@@ -99,6 +100,7 @@ Modal with form; title reflects action (e.g. "New process", "Edit station"). Foo
 ### Station flow (single purpose)
 
 One main action per screen (e.g. scan, confirm, next). Large touch targets; clear success/error message. Back or "Exit" to leave flow; optional progress indicator for multi-step.
+For receive/acknowledgement flows: show selection context first, keep scanner input focused, display coverage/progress clearly, and require a final review-confirm step before ACK.
 
 ### Queue / pending list
 

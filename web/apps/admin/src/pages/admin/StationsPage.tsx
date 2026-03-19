@@ -89,20 +89,53 @@ export function StationsPage() {
 
   const columns = useMemo<ColumnDef<Station>[]>(
     () => [
-      { id: "code", header: "Code", accessorKey: "station_code" },
-      { id: "name", header: "Name", accessorKey: "name" },
-      { id: "line", header: "Line", accessorKey: "line", cell: ({ row }) => row.original.line || "-" },
-      { id: "area", header: "Area", accessorKey: "area", cell: ({ row }) => row.original.area || "-" },
+      {
+        id: "code",
+        header: "Station",
+        accessorKey: "station_code",
+        size: 240,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.station_code}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.name}</p>
+          </div>
+        ),
+      },
+      {
+        id: "location",
+        header: "Location",
+        size: 220,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">{row.original.line || "No line assigned"}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.area || "No area assigned"}</p>
+          </div>
+        ),
+      },
       {
         id: "process",
-        header: "Process",
+        header: "Process Binding",
         accessorKey: "process_name",
-        cell: ({ row }) => row.original.process_name || "-",
+        size: 220,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">{row.original.process_name || "Unassigned"}</p>
+            <p className="truncate text-xs text-muted-foreground">Used for routing and device assignment</p>
+          </div>
+        ),
       },
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} />,
+        size: 120,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <StatusBadge status={row.original.active ? "active" : "disabled"} />
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {row.original.active ? "Available for operations" : "Not used in active routing"}
+            </p>
+          </div>
+        ),
       },
       {
         id: "actions",
@@ -147,7 +180,7 @@ export function StationsPage() {
       title="Stations"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Factory stations bound to process and area</span>
+          <span>Manage operational stations, physical location, and process binding</span>
         </div>
       }
       icon="factory"
@@ -169,7 +202,19 @@ export function StationsPage() {
           data={stations}
           columns={columns}
           loading={stationsLoading || processesLoading}
-          filterPlaceholder="Search station..."
+          onRowClick={(station) => {
+            setEditing(station);
+            form.reset({
+              station_code: station.station_code,
+              name: station.name,
+              line: station.line || "",
+              area: station.area || "",
+              process_id: station.process_id || "",
+              active: station.active,
+            });
+            setOpen(true);
+          }}
+          filterPlaceholder="Search station code, name, line, area, or process..."
           actions={
             <Button
               className="button-hover-scale"

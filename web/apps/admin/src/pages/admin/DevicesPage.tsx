@@ -168,20 +168,48 @@ export function DevicesPage() {
 
   const columns = useMemo<ColumnDef<DeviceInfo>[]>(
     () => [
-      { id: "device_code", header: "Code", accessorKey: "device_code" },
-      { id: "name", header: "Name", accessorKey: "name" },
       {
-        id: "station",
-        header: "Station",
-        cell: ({ row }) => row.original.assigned_station?.name ?? stationMap[row.original.station_id || ""] ?? "-",
+        id: "device_code",
+        header: "Device",
+        accessorKey: "device_code",
+        size: 220,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.device_code || "-"}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.name || "Unnamed device"}</p>
+          </div>
+        ),
       },
       {
-        id: "process",
-        header: "Process",
-        cell: ({ row }) => row.original.assigned_process?.name ?? processMap[row.original.process_id || ""] ?? "-",
+        id: "assignment",
+        header: "Assignment",
+        cell: ({ row }) => {
+          return (
+            <div className="min-w-0 whitespace-normal">
+              <p className="truncate text-foreground">
+                {row.original.assigned_station?.name ??
+                  stationMap[row.original.station_id || ""] ??
+                  "Unassigned station"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {row.original.assigned_process?.name ??
+                  processMap[row.original.process_id || ""] ??
+                  "No process mapped"}
+              </p>
+            </div>
+          );
+        },
       },
-      { id: "device_type", header: "Type", accessorKey: "device_type" },
-      { id: "ip_address", header: "IP", accessorKey: "ip_address", cell: ({ row }) => row.original.ip_address || "-" },
+      {
+        id: "device_type",
+        header: "Type / Network",
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">{row.original.device_type || "-"}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.ip_address || "No IP recorded"}</p>
+          </div>
+        ),
+      },
       {
         id: "status",
         header: "Status",
@@ -190,16 +218,20 @@ export function DevicesPage() {
           const seen = hb ? Date.now() - new Date(hb).getTime() : Number.MAX_SAFE_INTEGER;
           const online = seen <= onlineWindowMin * 60 * 1000 && row.original.status === "active";
           return (
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-block w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
-              />
-              <StatusBadge status={row.original.status || "disabled"} />
+            <div className="min-w-0 whitespace-normal">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-block w-2 h-2 rounded-full shrink-0 ${online ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                />
+                <StatusBadge status={row.original.status || "disabled"} />
+              </div>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {online ? "Online in heartbeat window" : `Last seen ${toDateText(row.original.last_heartbeat_at)}`}
+              </p>
             </div>
           );
         },
       },
-      { id: "last_heartbeat_at", header: "Last Seen", cell: ({ row }) => toDateText(row.original.last_heartbeat_at) },
       {
         id: "actions",
         header: "Actions",
@@ -286,7 +318,7 @@ export function DevicesPage() {
       title="Devices & Terminals"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Hardware terminals and scanner registration</span>
+          <span>Manage station hardware, assignments, and activation state across the shopfloor</span>
         </div>
       }
       icon="wrench"
@@ -319,7 +351,21 @@ export function DevicesPage() {
           data={devices}
           columns={columns}
           loading={devicesLoading || stationsLoading || processesLoading || settingsLoading}
-          filterPlaceholder="Search device code, station, IP..."
+          onRowClick={(device) => {
+            setEditing(device);
+            reset({
+              device_code: device.device_code || "",
+              name: device.name || "",
+              device_type: (device.device_type as DeviceForm["device_type"]) || "pi",
+              station_id: device.station_id || "",
+              process_id: device.process_id || "",
+              ip_address: device.ip_address || "",
+              status: (device.status as DeviceForm["status"]) || "active",
+              activation_pin: "000000",
+            });
+            setOpen(true);
+          }}
+          filterPlaceholder="Search device code, name, station, process, or IP..."
           actions={
             <Button
               className="button-hover-scale"

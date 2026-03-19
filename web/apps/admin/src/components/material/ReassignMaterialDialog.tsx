@@ -1,11 +1,19 @@
 import { useState, useCallback, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "../ui/select";
 import { reassignMaterial, mapApiError, type ReassignMaterialPayload } from "../../lib/admin-set-api";
+import { ConfirmDialog } from "../shared/ConfirmDialog";
 
 const PRESET_REASONS = [
   { value: "Loaded wrong set", label: "Loaded wrong set" },
@@ -105,121 +113,127 @@ export function ReassignMaterialDialog({
         <DialogContent className="min-w-[420px]" onPointerDownOutside={() => !showConfirm && !loading && handleClose()}>
           <DialogHeader>
             <DialogTitle>Reassign Material</DialogTitle>
+            <DialogDescription>Move this container to a different set run with a documented reason.</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            {loading && (
-              <div className="flex justify-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              </div>
-            )}
-            {successMsg && (
-              <Alert className="border-green-500 bg-green-50 dark:bg-green-950/30">
-                <AlertDescription>
-                  <strong>Reassignment completed</strong>
-                  <br />
-                  {successMsg}
-                </AlertDescription>
-              </Alert>
-            )}
-            {apiError && (
-              <Alert variant="destructive">
-                <AlertDescription>{apiError}</AlertDescription>
-              </Alert>
-            )}
-            <div className="grid gap-2">
-              <Label>Container ID</Label>
-              <Input value={containerId} readOnly />
-            </div>
-            <div className="grid gap-2">
-              <Label>Source Set Run</Label>
-              <Input value={fromSetRunId} readOnly />
-            </div>
-            <div className="grid gap-2">
-              <Label>Target Set Run ID *</Label>
-              <Input
-                value={toSetRunId}
-                onChange={(e) => setToSetRunId(e.target.value ?? "")}
-                placeholder="Enter target set_run ID"
-                disabled={loading}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Reason for reassignment *</Label>
-              <Select value={presetReason} onValueChange={setPresetReason} disabled={loading}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select reason…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PRESET_REASONS.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>
-                      {r.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {presetReason && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleRequestSubmit();
+            }}
+          >
+            <div className="flex flex-col gap-4 py-2">
+              {loading && (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              )}
+              {successMsg && (
+                <Alert className="border-green-500 bg-green-50 dark:bg-green-950/30">
+                  <AlertDescription>
+                    <strong>Reassignment completed</strong>
+                    <br />
+                    {successMsg}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {apiError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{apiError}</AlertDescription>
+                </Alert>
+              )}
               <div className="grid gap-2">
-                <Label>{isOther ? "Please specify reason *" : "Additional note (optional)"}</Label>
+                <Label htmlFor="reassign-container-id">Container ID</Label>
+                <Input id="reassign-container-id" value={containerId} readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="reassign-source-set-run">Source Set Run</Label>
+                <Input id="reassign-source-set-run" value={fromSetRunId} readOnly />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="reassign-target-set-run">Target Set Run ID *</Label>
                 <Input
-                  value={freeNote}
-                  onChange={(e) => setFreeNote(e.target.value ?? "")}
-                  placeholder={isOther ? "Describe the reason…" : "Optional note"}
+                  id="reassign-target-set-run"
+                  value={toSetRunId}
+                  onChange={(e) => setToSetRunId(e.target.value ?? "")}
+                  placeholder="Enter target set_run ID"
                   disabled={loading}
                 />
-                {isOther && freeNote.trim().length === 0 && (
-                  <span className="text-sm text-destructive">Required when "Other" is selected</span>
-                )}
               </div>
-            )}
-            {trimmedReason && (
-              <div className="rounded-lg border bg-muted/50 p-3 text-sm">
-                <strong>Reason:</strong> {trimmedReason}
-                {!reasonValid && <span className="ml-2 text-destructive">(min 5 characters)</span>}
+              <div className="grid gap-2">
+                <Label htmlFor="reassign-preset-reason">Reason for reassignment *</Label>
+                <Select value={presetReason} onValueChange={setPresetReason} disabled={loading}>
+                  <SelectTrigger id="reassign-preset-reason">
+                    <SelectValue placeholder="Select reason…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRESET_REASONS.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>
+                        {r.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            )}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleRequestSubmit} disabled={!formValid || loading}>
-              {loading ? "Reassigning…" : "Reassign"}
-            </Button>
-          </DialogFooter>
+              {presetReason && (
+                <div className="grid gap-2">
+                  <Label htmlFor="reassign-free-note">
+                    {isOther ? "Please specify reason *" : "Additional note (optional)"}
+                  </Label>
+                  <Input
+                    id="reassign-free-note"
+                    value={freeNote}
+                    onChange={(e) => setFreeNote(e.target.value ?? "")}
+                    placeholder={isOther ? "Describe the reason…" : "Optional note"}
+                    disabled={loading}
+                  />
+                  {isOther && freeNote.trim().length === 0 && (
+                    <span className="text-sm text-destructive">Required when "Other" is selected</span>
+                  )}
+                </div>
+              )}
+              {trimmedReason && (
+                <div className="rounded-lg border bg-muted/50 p-3 text-sm">
+                  <strong>Reason:</strong> {trimmedReason}
+                  {!reasonValid && <span className="ml-2 text-destructive">(min 5 characters)</span>}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={handleClose} disabled={loading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!formValid || loading}>
+                {loading ? "Reassigning…" : "Reassign"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showConfirm} onOpenChange={(isOpen) => !isOpen && handleConfirmCancel()}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Reassignment</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm">Are you sure you want to reassign this material?</p>
-          <div className="mt-3 rounded-lg border bg-muted/50 p-3 text-sm">
-            <div>
-              <strong>Container:</strong> {containerId}
-            </div>
-            <div>
-              <strong>From:</strong> {fromSetRunId}
-            </div>
-            <div>
-              <strong>To:</strong> {toSetRunId}
-            </div>
-            <div>
-              <strong>Reason:</strong> {trimmedReason}
-            </div>
+      <ConfirmDialog
+        open={showConfirm}
+        title="Confirm Reassignment"
+        description="Are you sure you want to reassign this material?"
+        confirmText="Yes, Reassign"
+        submitting={loading}
+        onCancel={handleConfirmCancel}
+        onConfirm={handleConfirmedSubmit}
+      >
+        <div className="rounded-lg border bg-muted/50 p-3 text-sm">
+          <div>
+            <strong>Container:</strong> {containerId}
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleConfirmCancel}>
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleConfirmedSubmit}>
-              Yes, Reassign
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div>
+            <strong>From:</strong> {fromSetRunId}
+          </div>
+          <div>
+            <strong>To:</strong> {toSetRunId}
+          </div>
+          <div>
+            <strong>Reason:</strong> {trimmedReason}
+          </div>
+        </div>
+      </ConfirmDialog>
     </>
   );
 }

@@ -4,7 +4,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
 
 import { StationHeader } from "../../components/shared/StationHeader";
+import { StationActionBar, StationActionButton } from "../../components/shared/StationActionBar";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
+import { StationResultFeedback, type StationResultFeedbackState } from "../../components/shared/StationResultFeedback";
 import { ScanInput } from "../../components/shared/ScanInput";
 import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { StatusBadge } from "../../components/shared/StatusBadge";
@@ -13,7 +15,6 @@ import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { PageStack } from "@traceability/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -28,6 +29,7 @@ export function PackingStationPage() {
   const [groupId, setGroupId] = useState("");
   const [groups, setGroups] = useState<string[]>([]);
   const [outers, setOuters] = useState<string[]>([]);
+  const [latestResult, setLatestResult] = useState<StationResultFeedbackState | null>(null);
   const [overlay, setOverlay] = useState<{ open: boolean; mode: "PASS" | "NG"; title: string; description?: string }>({
     open: false,
     mode: "PASS",
@@ -60,20 +62,24 @@ export function PackingStationPage() {
       const res = result.queued ? ({} as Record<string, unknown>) : ((result.data ?? {}) as Record<string, unknown>);
       const generatedGroups = Array.isArray(res.generated_groups) ? (res.generated_groups as string[]) : [];
       setGroups(generatedGroups);
-      setOverlay({
-        open: true,
-        mode: "PASS",
-        title: "GROUP PASS",
-        description: result.queued ? "Split event queued offline." : `Generated ${generatedGroups.length} groups.`,
-      });
+      const nextResult = {
+        mode: "PASS" as const,
+        title: result.queued ? "Queued Offline" : "Groups Created",
+        description: result.queued
+          ? "Group creation was queued for sync."
+          : `Generated ${generatedGroups.length} groups.`,
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
     onError: (err) => {
-      setOverlay({
-        open: true,
-        mode: "NG",
-        title: "GROUP NG",
+      const nextResult = {
+        mode: "NG" as const,
+        title: "Group Creation Failed",
         description: formatStationError(err, "Split group failed"),
-      });
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
   });
 
@@ -90,24 +96,26 @@ export function PackingStationPage() {
       const outerId = (res.outer_id as string) || "";
       if (outerId) setOuters((prev) => [outerId, ...prev].slice(0, 10));
       setGroupId("");
-      setOverlay({
-        open: true,
-        mode: "PASS",
-        title: "OUTER PASS",
+      const nextResult = {
+        mode: "PASS" as const,
+        title: result.queued ? "Queued Offline" : "Outer Packed",
         description: result.queued
-          ? "Outer packing queued offline."
+          ? "Outer packing was queued for sync."
           : outerId
-            ? `Outer ${outerId} created`
-            : "Packed to outer",
-      });
+            ? `Outer ${outerId} created.`
+            : "Group packed to outer.",
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
     onError: (err) => {
-      setOverlay({
-        open: true,
-        mode: "NG",
-        title: "OUTER NG",
+      const nextResult = {
+        mode: "NG" as const,
+        title: "Outer Packing Failed",
         description: formatStationError(err, "Outer packing failed"),
-      });
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
   });
 
@@ -137,36 +145,45 @@ export function PackingStationPage() {
             <CardTitle>Packing Flow</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 flex flex-col gap-4">
+            <StationResultFeedback result={latestResult} />
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">1) Split ASSY into Groups (2 x 60)</p>
+              <p className="text-sm font-medium">1. Split ASSY into groups (2 x 60)</p>
               <ScanInput
+                name="packing-assy-id"
+                ariaLabel="ASSY ID"
                 value={assyId}
                 onChange={setAssyId}
                 onSubmit={() => splitMutation.mutate(assyId.trim())}
                 placeholder="Scan ASSY ID"
               />
-              <Button
-                onClick={() => splitMutation.mutate(assyId.trim())}
-                disabled={splitMutation.isPending || !assyId.trim()}
-              >
-                {splitMutation.isPending ? "Creating..." : "Create Groups"}
-              </Button>
+              <StationActionBar>
+                <StationActionButton
+                  onClick={() => splitMutation.mutate(assyId.trim())}
+                  disabled={splitMutation.isPending || !assyId.trim()}
+                >
+                  {splitMutation.isPending ? "Creating…" : "Create Groups"}
+                </StationActionButton>
+              </StationActionBar>
             </div>
 
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">2) Pack Group into Outer</p>
+              <p className="text-sm font-medium">2. Pack group into outer</p>
               <ScanInput
+                name="packing-group-id"
+                ariaLabel="Group ID"
                 value={groupId}
                 onChange={setGroupId}
                 onSubmit={() => outerMutation.mutate(groupId.trim())}
                 placeholder="Scan GROUP ID"
               />
-              <Button
-                onClick={() => outerMutation.mutate(groupId.trim())}
-                disabled={outerMutation.isPending || !groupId.trim()}
-              >
-                {outerMutation.isPending ? "Packing..." : "Pack to Outer"}
-              </Button>
+              <StationActionBar>
+                <StationActionButton
+                  onClick={() => outerMutation.mutate(groupId.trim())}
+                  disabled={outerMutation.isPending || !groupId.trim()}
+                >
+                  {outerMutation.isPending ? "Packing…" : "Pack to Outer"}
+                </StationActionButton>
+              </StationActionBar>
             </div>
 
             <div className="rounded-lg border border-border p-3 text-sm">

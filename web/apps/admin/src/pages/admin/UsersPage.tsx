@@ -221,7 +221,7 @@ export function UsersPage() {
           data={users}
           columns={columns}
           loading={usersLoading || departmentsLoading || sectionsLoading}
-          filterPlaceholder="Search users..."
+          filterPlaceholder="Search user, username, email, or role..."
           actions={
             <Button
               className="button-hover-scale"

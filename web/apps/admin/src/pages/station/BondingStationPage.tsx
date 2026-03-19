@@ -4,7 +4,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
 
 import { StationHeader } from "../../components/shared/StationHeader";
+import { StationActionBar, StationActionButton } from "../../components/shared/StationActionBar";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
+import { StationResultFeedback, type StationResultFeedbackState } from "../../components/shared/StationResultFeedback";
 import { ScanInput } from "../../components/shared/ScanInput";
 import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { StatusBadge } from "../../components/shared/StatusBadge";
@@ -13,7 +15,6 @@ import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { PageStack } from "@traceability/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -21,12 +22,20 @@ function genEventId() {
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
+const BONDING_ACTION_LABELS = {
+  BONDING_PLATE_SCANNED: "Scan Plate",
+  BONDING_MAGNET_SCANNED: "Scan Magnet Pack",
+  BONDING_START: "Start Bonding",
+  BONDING_END: "Complete Bonding",
+} as const;
+
 export function BondingStationPage() {
   const navigate = useNavigate();
   const { publishEvent } = useStationEvent();
   const [plateId, setPlateId] = useState("");
   const [magnetPackId, setMagnetPackId] = useState("");
   const [assyId, setAssyId] = useState("");
+  const [latestResult, setLatestResult] = useState<StationResultFeedbackState | null>(null);
   const [overlay, setOverlay] = useState<{ open: boolean; mode: "PASS" | "NG"; title: string; description?: string }>({
     open: false,
     mode: "PASS",
@@ -61,12 +70,27 @@ export function BondingStationPage() {
       setOverlay({
         open: true,
         mode: "PASS",
-        title: "PASS",
-        description: result.queued ? `${vars.eventType} queued offline` : `${vars.eventType} accepted`,
+        title: result.queued ? "Queued Offline" : "Accepted",
+        description: `${BONDING_ACTION_LABELS[vars.eventType as keyof typeof BONDING_ACTION_LABELS] ?? "Station event"} ${
+          result.queued ? "was queued for sync." : "was accepted."
+        }`,
+      });
+      setLatestResult({
+        mode: "PASS",
+        title: result.queued ? "Queued Offline" : "Accepted",
+        description: `${BONDING_ACTION_LABELS[vars.eventType as keyof typeof BONDING_ACTION_LABELS] ?? "Station event"} ${
+          result.queued ? "was queued for sync." : "was accepted."
+        }`,
       });
     },
     onError: (err) => {
-      setOverlay({ open: true, mode: "NG", title: "NG", description: formatStationError(err, "Event rejected") });
+      const nextResult = {
+        mode: "NG" as const,
+        title: "Action Rejected",
+        description: formatStationError(err, "Event rejected"),
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
   });
 
@@ -95,9 +119,12 @@ export function BondingStationPage() {
             <CardTitle>Bonding Flow</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 flex flex-col gap-4">
+            <StationResultFeedback result={latestResult} />
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">Plate</p>
               <ScanInput
+                name="bonding-plate-id"
+                ariaLabel="Plate ID"
                 value={plateId}
                 onChange={setPlateId}
                 onSubmit={() =>
@@ -113,6 +140,8 @@ export function BondingStationPage() {
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">Magnet Pack</p>
               <ScanInput
+                name="bonding-magnet-pack-id"
+                ariaLabel="Magnet pack ID"
                 value={magnetPackId}
                 onChange={setMagnetPackId}
                 onSubmit={() =>
@@ -125,8 +154,9 @@ export function BondingStationPage() {
                 placeholder="Scan magnet pack ID"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
+            <StationActionBar>
+              <StationActionButton
+                className="min-h-12"
                 onClick={() =>
                   mutation.mutate({
                     eventType: "BONDING_PLATE_SCANNED",
@@ -136,10 +166,11 @@ export function BondingStationPage() {
                 }
                 disabled={!plateId.trim() || mutation.isPending}
               >
-                BONDING_PLATE_SCANNED
-              </Button>
-              <Button
+                Scan Plate
+              </StationActionButton>
+              <StationActionButton
                 variant="secondary"
+                className="min-h-12"
                 onClick={() =>
                   mutation.mutate({
                     eventType: "BONDING_MAGNET_SCANNED",
@@ -149,10 +180,11 @@ export function BondingStationPage() {
                 }
                 disabled={!magnetPackId.trim() || mutation.isPending}
               >
-                BONDING_MAGNET_SCANNED
-              </Button>
-              <Button
+                Scan Magnet Pack
+              </StationActionButton>
+              <StationActionButton
                 variant="secondary"
+                className="min-h-12"
                 onClick={() =>
                   mutation.mutate({
                     eventType: "BONDING_START",
@@ -161,9 +193,10 @@ export function BondingStationPage() {
                 }
                 disabled={!plateId.trim() || !magnetPackId.trim() || mutation.isPending}
               >
-                BONDING_START
-              </Button>
-              <Button
+                Start Bonding
+              </StationActionButton>
+              <StationActionButton
+                className="min-h-12"
                 onClick={() =>
                   mutation.mutate({
                     eventType: "BONDING_END",
@@ -172,9 +205,9 @@ export function BondingStationPage() {
                 }
                 disabled={!plateId.trim() || !magnetPackId.trim() || mutation.isPending}
               >
-                BONDING_END
-              </Button>
-            </div>
+                Complete Bonding
+              </StationActionButton>
+            </StationActionBar>
           </CardContent>
         </Card>
 

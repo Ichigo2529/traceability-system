@@ -6,7 +6,9 @@ import path from "path";
 export default defineConfig({
   plugins: [react()],
   build: {
-    chunkSizeWarningLimit: 800,
+    // PDF export is isolated behind a dynamic import, so a larger warning threshold
+    // avoids noisy alerts for the export-only bundle while keeping the main app lean.
+    chunkSizeWarningLimit: 1700,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -15,7 +17,6 @@ export default defineConfig({
           if (id.includes("@tanstack/")) return "vendor-tanstack";
           if (id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("axios")) return "vendor-axios";
-          if (id.includes("@react-pdf/")) return "vendor-pdf";
           return undefined;
         },
       },

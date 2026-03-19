@@ -159,7 +159,7 @@ export function RolesPage() {
           data={roles}
           columns={columns}
           loading={rolesLoading || permissionsLoading}
-          filterPlaceholder="Search roles..."
+          filterPlaceholder="Search role name or permissions..."
           actions={
             <Button
               className="button-hover-scale"

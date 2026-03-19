@@ -127,7 +127,7 @@ export function ScanSessionPage() {
 
   if (sessionLoading) {
     return (
-      <PageLayout title="Scan Session" subtitle="Loading...">
+      <PageLayout title="Scan Session" subtitle="Loading session...">
         <div className="flex justify-center py-12">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden />
         </div>
@@ -301,7 +301,9 @@ export function ScanSessionPage() {
           </CardHeader>
           <CardContent>
             {scans.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No scans yet. Start scanning barcodes above.</p>
+              <p className="py-8 text-center text-muted-foreground">
+                No scans captured yet. Start scanning barcodes above to build this session.
+              </p>
             ) : (
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">

@@ -1,5 +1,5 @@
 import { memo, useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -243,6 +243,10 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
   }
 
   const normalizedPath = location.pathname.replace(/\/$/, "");
+  const isSelectedRoute = (to: string) => {
+    const normalizedTo = to.replace(/\/$/, "");
+    return normalizedPath === normalizedTo || normalizedPath.startsWith(`${normalizedTo}/`);
+  };
 
   return (
     <div
@@ -265,14 +269,13 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <button
-            type="button"
-            onClick={() => navigate(mode === "admin" ? "/admin" : "/station/login")}
+          <Link
+            to={mode === "admin" ? "/admin" : "/station/login"}
             className="shrink-0 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Go to home"
           >
             <img src="/logo.png" alt="MMI Logo" className="h-7 w-auto" />
-          </button>
+          </Link>
           <div className="h-5 w-px bg-border shrink-0" />
           <span className="text-sm font-medium text-foreground truncate">
             {mode === "admin" ? "Admin Console" : "Station Interface"}
@@ -360,7 +363,6 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent
           side="left"
-          disableOutsidePointerEvents={false}
           overlayClassName="top-14"
           className="top-14 h-[calc(100vh-3.5rem)] bg-sidebar border-sidebar-border p-0 w-[min(100vw-1rem,300px)] max-w-[90vw]"
         >
@@ -399,22 +401,13 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
                       {section.title}
                     </p>
                     {items.map((item) => {
-                      const normalizedTo = item.to.replace(/\/$/, "");
-                      const isSelected =
-                        mode === "admin"
-                          ? normalizedTo === "/admin"
-                            ? normalizedPath === "/admin"
-                            : normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/")
-                          : location.pathname === item.to;
+                      const isSelected = isSelectedRoute(item.to);
                       const Icon = getNavIcon(item.icon);
                       return (
-                        <button
+                        <Link
                           key={item.to}
-                          type="button"
-                          onClick={() => {
-                            navigate(item.to);
-                            setMobileNavOpen(false);
-                          }}
+                          to={item.to}
+                          onClick={() => setMobileNavOpen(false)}
                           className={cn(
                             "group flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-150",
                             isSelected
@@ -432,7 +425,7 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
                             )}
                           />
                           <span className="truncate text-sm leading-5">{item.label}</span>
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>
@@ -493,19 +486,12 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
 
                   {/* Nav items */}
                   {items.map((item) => {
-                    const normalizedTo = item.to.replace(/\/$/, "");
-                    const isSelected =
-                      mode === "admin"
-                        ? normalizedTo === "/admin"
-                          ? normalizedPath === "/admin"
-                          : normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/")
-                        : location.pathname === item.to;
+                    const isSelected = isSelectedRoute(item.to);
                     const Icon = getNavIcon(item.icon);
                     return (
-                      <button
+                      <Link
                         key={item.to}
-                        type="button"
-                        onClick={() => navigate(item.to)}
+                        to={item.to}
                         className={cn(
                           "group flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-left transition-colors duration-150",
                           isSelected
@@ -522,7 +508,7 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
                           )}
                         />
                         <span className="truncate text-sm leading-5">{item.label}</span>
-                      </button>
+                      </Link>
                     );
                   })}
                 </div>

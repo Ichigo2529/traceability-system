@@ -33,7 +33,7 @@ export default function MaterialRequestsPage() {
       title="Material Requests"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Internal warehouse transfer and material requisitions</span>
+          <span>Track request approval, warehouse issue, and production acknowledgement</span>
         </div>
       }
       icon="request"
@@ -48,6 +48,7 @@ export default function MaterialRequestsPage() {
           onView={(id) => navigate(`/admin/material-requests/${id}`)}
           onCreate={() => navigate("/admin/material-requests/new")}
           formatDateTime={(s) => formatDateTime(s ?? "")}
+          filterPlaceholder="Search request no., DMI, model, section, or requestor..."
           emptyStateTitle="No material requests"
           emptyStateDescription="Create a new request to start an internal transfer or requisition."
         />

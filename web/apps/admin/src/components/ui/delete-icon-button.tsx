@@ -1,4 +1,3 @@
-import * as React from "react";
 import { Trash2 } from "lucide-react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

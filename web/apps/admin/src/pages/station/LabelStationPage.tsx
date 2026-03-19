@@ -3,14 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
 import { PageHeader } from "../../components/shared/PageHeader";
+import { StationActionBar, StationActionButton } from "../../components/shared/StationActionBar";
 import { StationHeader } from "../../components/shared/StationHeader";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
+import { StationResultFeedback, type StationResultFeedbackState } from "../../components/shared/StationResultFeedback";
 import { ScanInput } from "../../components/shared/ScanInput";
 import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Checkbox } from "../../components/ui/checkbox";
-import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
@@ -29,6 +30,7 @@ export function LabelStationPage() {
   const [assyId, setAssyId] = useState("");
   const [labels, setLabels] = useState<Array<{ tray_id: string; serial: number; payload: string }>>([]);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
+  const [latestResult, setLatestResult] = useState<StationResultFeedbackState | null>(null);
   const [overlay, setOverlay] = useState<{ open: boolean; mode: "PASS" | "NG"; title: string; description?: string }>({
     open: false,
     mode: "PASS",
@@ -80,15 +82,22 @@ export function LabelStationPage() {
     },
     onSuccess: (rows) => {
       setLabels(rows);
-      setOverlay({ open: true, mode: "PASS", title: "LABEL PASS", description: `Generated ${rows.length} labels` });
+      const nextResult = {
+        mode: "PASS" as const,
+        title: "Labels Ready",
+        description: `Generated ${rows.length} tray labels.`,
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
     onError: (err) => {
-      setOverlay({
-        open: true,
-        mode: "NG",
-        title: "LABEL NG",
+      const nextResult = {
+        mode: "NG" as const,
+        title: "Label Generation Failed",
         description: formatStationError(err, "Label generation failed"),
-      });
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
   });
 
@@ -114,7 +123,10 @@ export function LabelStationPage() {
             <CardTitle>Label Generation</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 flex flex-col gap-4">
+            <StationResultFeedback result={latestResult} />
             <ScanInput
+              name="label-assy-id"
+              ariaLabel="ASSY ID"
               value={assyId}
               onChange={setAssyId}
               onSubmit={() => generateMutation.mutate(assyId.trim())}
@@ -122,34 +134,54 @@ export function LabelStationPage() {
             />
             <div className="rounded-lg border border-border p-4 flex flex-col gap-3">
               <p className="text-sm font-semibold text-foreground">Checklist</p>
-              <label className="flex items-center gap-2.5 cursor-pointer">
+              <label
+                htmlFor="label-check-components"
+                className="flex min-h-12 items-center gap-3 rounded-md px-1 cursor-pointer"
+              >
                 <Checkbox
+                  id="label-check-components"
                   checked={Boolean(checked.component)}
                   onCheckedChange={(v) => setChecked((prev) => ({ ...prev, component: Boolean(v) }))}
                 />
-                <Label className="cursor-pointer">Components validated</Label>
+                <Label htmlFor="label-check-components" className="cursor-pointer">
+                  Components validated
+                </Label>
               </label>
-              <label className="flex items-center gap-2.5 cursor-pointer">
+              <label
+                htmlFor="label-check-quantity"
+                className="flex min-h-12 items-center gap-3 rounded-md px-1 cursor-pointer"
+              >
                 <Checkbox
+                  id="label-check-quantity"
                   checked={Boolean(checked.qty)}
                   onCheckedChange={(v) => setChecked((prev) => ({ ...prev, qty: Boolean(v) }))}
                 />
-                <Label className="cursor-pointer">Quantity verified (6 trays)</Label>
+                <Label htmlFor="label-check-quantity" className="cursor-pointer">
+                  Quantity verified (6 trays)
+                </Label>
               </label>
-              <label className="flex items-center gap-2.5 cursor-pointer">
+              <label
+                htmlFor="label-check-layout"
+                className="flex min-h-12 items-center gap-3 rounded-md px-1 cursor-pointer"
+              >
                 <Checkbox
+                  id="label-check-layout"
                   checked={Boolean(checked.layout)}
                   onCheckedChange={(v) => setChecked((prev) => ({ ...prev, layout: Boolean(v) }))}
                 />
-                <Label className="cursor-pointer">Label layout confirmed</Label>
+                <Label htmlFor="label-check-layout" className="cursor-pointer">
+                  Label layout confirmed
+                </Label>
               </label>
             </div>
-            <Button
-              onClick={() => generateMutation.mutate(assyId.trim())}
-              disabled={!canGenerate || generateMutation.isPending}
-            >
-              {generateMutation.isPending ? "Generating..." : "Generate Labels"}
-            </Button>
+            <StationActionBar>
+              <StationActionButton
+                onClick={() => generateMutation.mutate(assyId.trim())}
+                disabled={!canGenerate || generateMutation.isPending}
+              >
+                {generateMutation.isPending ? "Generating…" : "Generate Labels"}
+              </StationActionButton>
+            </StationActionBar>
             {labels.length > 0 && (
               <div className="overflow-x-auto rounded border border-border">
                 <table className="w-full text-sm border-collapse">

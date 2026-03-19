@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { sdk } from "../../context/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,8 +44,6 @@ function ReadinessRow({ pass, text }: { pass: boolean; text: string }) {
 }
 
 export function AdminDashboardPage() {
-  const navigate = useNavigate();
-
   const { data: users = [], isLoading: loadingUsers } = useQuery({
     queryKey: ["users"],
     queryFn: () => sdk.admin.getUsers(),
@@ -116,18 +114,19 @@ export function AdminDashboardPage() {
                   return (
                     <Button
                       key={action.to}
-                      type="button"
+                      asChild
                       variant="outline"
                       className="h-auto justify-start gap-3 py-3 pr-4 pl-4"
-                      onClick={() => navigate(action.to)}
                     >
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
-                        <Icon className="size-4 text-muted-foreground" aria-hidden />
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-                        <span className="font-medium">{action.label}</span>
-                      </span>
-                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <Link to={action.to}>
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
+                          <Icon className="size-4 text-muted-foreground" aria-hidden />
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+                          <span className="font-medium">{action.label}</span>
+                        </span>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      </Link>
                     </Button>
                   );
                 })}
@@ -167,12 +166,8 @@ export function AdminDashboardPage() {
                     <Alert variant="destructive" className="mt-4">
                       <AlertDescription className="flex flex-wrap items-center gap-x-1 gap-y-1">
                         Complete the items above before going live. Open the
-                        <Button
-                          variant="link"
-                          className="h-auto p-0 font-medium"
-                          onClick={() => navigate("/admin/readiness")}
-                        >
-                          Readiness validator
+                        <Button variant="link" className="h-auto p-0 font-medium" asChild>
+                          <Link to="/admin/readiness">Readiness validator</Link>
                         </Button>
                         for details.
                       </AlertDescription>

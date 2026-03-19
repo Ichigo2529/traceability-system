@@ -144,7 +144,7 @@ export function MasterRoutingStepsPage() {
           data={rows}
           columns={columns}
           loading={rowsLoading}
-          filterPlaceholder="Search step code..."
+          filterPlaceholder="Search routing step code or description..."
           actions={
             <Button
               className="button-hover-scale"

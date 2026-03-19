@@ -177,7 +177,7 @@ export function CostCentersPage() {
           data={rows}
           columns={columns}
           loading={isLoading}
-          filterPlaceholder="Search cost centers..."
+          filterPlaceholder="Search cost center code, group, or short text..."
           actions={
             <Button
               className="button-hover-scale"

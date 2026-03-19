@@ -1,17 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
-import { ScanComponent } from "../../components/patterns/ScanComponent";
+import { PageHeader } from "../../components/shared/PageHeader";
+import { ScanInput } from "../../components/shared/ScanInput";
+import { StationActionBar, StationActionButton } from "../../components/shared/StationActionBar";
+import { StationHeader } from "../../components/shared/StationHeader";
+import { StationResultFeedback, type StationResultFeedbackState } from "../../components/shared/StationResultFeedback";
 import { StatusBadge } from "../../components/shared/StatusBadge";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
+import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { formatTime } from "../../lib/datetime";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { PageStack } from "@traceability/ui";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 type ScanRow = {
   assyId: string;
@@ -30,6 +34,16 @@ const ASSEMBLY_STEPS = [
   "FVMI_PASS",
   "FVMI_FAIL",
 ] as const;
+
+const STEP_LABELS: Record<(typeof ASSEMBLY_STEPS)[number], string> = {
+  PRESS_FIT_PIN430_DONE: "Press Fit PIN430",
+  PRESS_FIT_PIN300_DONE: "Press Fit PIN300",
+  PRESS_FIT_SHROUD_DONE: "Press Fit Shroud",
+  CRASH_STOP_DONE: "Crash Stop",
+  IONIZER_DONE: "Ionizer",
+  FVMI_PASS: "FVMI Pass",
+  FVMI_FAIL: "FVMI Hold",
+};
 
 function beep(type: "pass" | "ng") {
   const ctx = new AudioContext();
@@ -53,10 +67,12 @@ function genEventId() {
 export function ScanStationPage() {
   const navigate = useNavigate();
   const { publishEvent } = useStationEvent();
-  const [, setAssyId] = useState("");
+  const scanInputRef = useRef<HTMLInputElement>(null);
+  const [assyId, setAssyId] = useState("");
   const [step, setStep] = useState<(typeof ASSEMBLY_STEPS)[number]>("PRESS_FIT_PIN430_DONE");
   const [quantity, setQuantity] = useState(0);
   const [history, setHistory] = useState<ScanRow[]>([]);
+  const [latestResult, setLatestResult] = useState<StationResultFeedbackState | null>(null);
   const [overlay, setOverlay] = useState<{ open: boolean; mode: "PASS" | "NG"; title: string; description?: string }>({
     open: false,
     mode: "PASS",
@@ -96,22 +112,27 @@ export function ScanStationPage() {
       const row: ScanRow = { assyId: targetAssyId, step, at: formatTime(new Date()), result: "PASS" };
       setHistory((prev) => [row, ...prev].slice(0, 5));
       setQuantity((v) => v + 1);
-      setOverlay({
-        open: true,
-        mode: "PASS",
-        title: "PASS",
-        description: result.queued ? "Network unstable: queued for sync." : "Assembly step accepted.",
-      });
+      const nextResult = {
+        mode: "PASS" as const,
+        title: result.queued ? "Queued Offline" : "Step Accepted",
+        description: result.queued ? `${STEP_LABELS[step]} was queued for sync.` : `${STEP_LABELS[step]} was accepted.`,
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
       beep("pass");
       setTimeout(() => setOverlay((s) => ({ ...s, open: false })), 700);
       setAssyId("");
+      setTimeout(() => scanInputRef.current?.focus(), 100);
     },
     onError: (err, targetAssyId) => {
       const reason = formatStationError(err, "Validation rejected");
       const row: ScanRow = { assyId: targetAssyId, step, at: formatTime(new Date()), result: "NG", reason };
       setHistory((prev) => [row, ...prev].slice(0, 5));
-      setOverlay({ open: true, mode: "NG", title: "NG", description: reason });
+      const nextResult = { mode: "NG" as const, title: "Validation Failed", description: reason };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
       beep("ng");
+      setTimeout(() => scanInputRef.current?.focus(), 100);
     },
   });
 
@@ -125,180 +146,182 @@ export function ScanStationPage() {
     return { pass, ng };
   }, [history]);
 
-  if (heartbeatQuery.isLoading) {
+  if (heartbeatQuery.isLoading) return <LoadingSkeleton label="Connecting assembly station..." />;
+  if (heartbeatQuery.error)
     return (
-      <div className="flex min-h-screen items-center justify-center p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-hidden />
-        <span className="ml-3 text-muted-foreground">Connecting station...</span>
-      </div>
+      <ErrorState
+        title="Assembly station offline"
+        description="Register the device and verify the station assignment."
+      />
     );
-  }
-  if (heartbeatQuery.error) {
-    return (
-      <div className="p-4">
-        <Alert variant="destructive">
-          <AlertDescription>Station unavailable. Register device and verify assignment.</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-  if (deviceStatus === "disabled") {
-    return (
-      <div className="p-4">
-        <Alert variant="destructive">
-          <AlertDescription>Device Disabled. This terminal has been disabled by admin.</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+  if (deviceStatus === "disabled")
+    return <ErrorState title="Device Disabled" description="This terminal has been disabled by the administrator." />;
+
+  const submitScan = async () => {
+    const code = assyId.trim();
+    if (!code || eventMutation.isPending) return;
+
+    if (history[0]?.assyId === code && history[0]?.step === step) {
+      const row: ScanRow = {
+        assyId: code,
+        step,
+        at: formatTime(new Date()),
+        result: "NG",
+        reason: "Duplicate scan",
+      };
+      setHistory((prev) => [row, ...prev].slice(0, 5));
+      const nextResult = {
+        mode: "NG" as const,
+        title: "Duplicate Scan",
+        description: "This unit was already scanned for the selected step.",
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
+      beep("ng");
+      return;
+    }
+
+    if (!code.includes("-") && code.length < 16) {
+      const nextResult = {
+        mode: "NG" as const,
+        title: "Invalid ASSY ID",
+        description: "Check the barcode format and scan again.",
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
+      beep("ng");
+      return;
+    }
+
+    await eventMutation.mutateAsync(code);
+  };
 
   return (
-    <div className="flex h-screen flex-col bg-background">
-      {/* Title bar */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
-        <h2 className="text-xl font-semibold">Assembly Station</h2>
-        <StatusBadge status={deviceStatus} />
-      </div>
+    <PageStack>
+      <PageHeader title="Assembly Station" description="Scan ASSY units and record the current assembly step." />
+      <StationHeader stationName={stationName} processName={processName} deviceStatus={deviceStatus} />
 
-      {/* Header area: Station, Process, Quantity */}
-      <div className="flex justify-between items-center border-b px-4 py-4">
-        <div className="flex items-center gap-8">
-          <div className="flex flex-col gap-0.5">
-            <Label className="text-muted-foreground">Station</Label>
-            <span className="font-bold text-lg">{stationName}</span>
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <Label className="text-muted-foreground">Process</Label>
-            <span className="font-bold text-lg">{processName}</span>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-0.5">
-          <Label className="text-muted-foreground">Current Quantity</Label>
-          <span className="text-4xl font-bold leading-none">{quantity}</span>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 overflow-auto grid justify-center content-start gap-8 p-8">
-        <div className="grid w-full max-w-[1200px] grid-cols-1 gap-4 lg:grid-cols-12">
-          {/* Step Control */}
-          <Card className="lg:col-span-4">
-            <CardHeader>
-              <CardTitle>Step Control</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card>
+          <CardHeader className="border-b border-border pb-4">
+            <CardTitle>Step Selection</CardTitle>
+            <CardDescription>Choose the step before scanning the next unit.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 pt-4">
+            <StationActionBar className="flex-col">
               {ASSEMBLY_STEPS.map((item) => (
-                <Button
+                <StationActionButton
                   key={item}
                   variant={step === item ? "default" : "ghost"}
                   className="justify-start"
                   onClick={() => setStep(item)}
                 >
-                  {item}
-                </Button>
+                  {STEP_LABELS[item]}
+                </StationActionButton>
               ))}
-              <p className="mt-4 text-sm text-muted-foreground">Selected step: {step}</p>
+            </StationActionBar>
+            <div className="rounded-lg border border-border p-3 text-sm">
+              <p className="font-medium text-foreground">Selected step</p>
+              <p className="text-muted-foreground">{STEP_LABELS[step]}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col gap-4 xl:col-span-2">
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle>Scan Workbench</CardTitle>
+              <CardDescription>Scanner-first flow with duplicate and format validation.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 pt-4">
+              <StationResultFeedback result={latestResult} />
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="assembly-assy-scan" className="font-semibold">
+                  ASSY ID
+                </Label>
+                <ScanInput
+                  ref={scanInputRef}
+                  id="assembly-assy-scan"
+                  name="assembly-assy-scan"
+                  ariaLabel="ASSY ID"
+                  value={assyId}
+                  onChange={setAssyId}
+                  onSubmit={submitScan}
+                  disabled={eventMutation.isPending}
+                  placeholder="Scan ASSY ID"
+                />
+              </div>
+              <StationActionBar>
+                <StationActionButton onClick={submitScan} disabled={!assyId.trim() || eventMutation.isPending}>
+                  {eventMutation.isPending ? "Submitting…" : `Submit ${STEP_LABELS[step]}`}
+                </StationActionButton>
+              </StationActionBar>
             </CardContent>
           </Card>
 
-          {/* Main Scan Area + History + Batch Result */}
-          <div className="flex flex-col gap-4 lg:col-span-8">
-            <ScanComponent
-              label="ASSY Scan"
-              placeholder="Scan ASSY ID"
-              onScan={async (scannedValue) => {
-                const code = scannedValue.trim();
-
-                if (history[0]?.assyId === code && history[0]?.step === step) {
-                  const row: ScanRow = {
-                    assyId: code,
-                    step,
-                    at: formatTime(new Date()),
-                    result: "NG",
-                    reason: "Duplicate scan",
-                  };
-                  setHistory((prev) => [row, ...prev].slice(0, 5));
-                  setOverlay({ open: true, mode: "NG", title: "NG", description: "Duplicate scan" });
-                  beep("ng");
-                  return { success: false, message: "Duplicate step scan detected." };
-                }
-
-                if (!code.includes("-") && code.length < 16) {
-                  return { success: false, message: "ASSY ID format seems invalid." };
-                }
-
-                try {
-                  const result = await eventMutation.mutateAsync(code);
-                  return { success: true, message: result.queued ? "Queued for sync" : "Scan accepted" };
-                } catch (err) {
-                  const reason = formatStationError(err, "Validation rejected");
-                  return { success: false, message: reason };
-                }
-              }}
-            />
-
-            {/* History Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Last 5 Scans</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="px-4 py-2 text-left font-medium">
-                          <Label className="font-medium">Time</Label>
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          <Label className="font-medium">ASSY ID</Label>
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          <Label className="font-medium">Step</Label>
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          <Label className="font-medium">Result</Label>
-                        </th>
-                        <th className="px-4 py-2 text-left font-medium">
-                          <Label className="font-medium">Reason</Label>
-                        </th>
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle>Last 5 Scans</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="px-4 py-2 text-left font-medium">
+                        <Label className="font-medium">Time</Label>
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        <Label className="font-medium">ASSY ID</Label>
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        <Label className="font-medium">Step</Label>
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        <Label className="font-medium">Result</Label>
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        <Label className="font-medium">Reason</Label>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((row) => (
+                      <tr key={`${row.assyId}-${row.step}-${row.at}`} className="border-b last:border-b-0">
+                        <td className="px-4 py-2">{row.at}</td>
+                        <td className="px-4 py-2 font-mono">{row.assyId}</td>
+                        <td className="px-4 py-2">{STEP_LABELS[row.step as keyof typeof STEP_LABELS] ?? row.step}</td>
+                        <td className="px-4 py-2">
+                          <StatusBadge status={row.result} />
+                        </td>
+                        <td className="px-4 py-2">{row.reason ?? "-"}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {history.map((row) => (
-                        <tr key={`${row.assyId}-${row.step}-${row.at}`} className="border-b last:border-b-0">
-                          <td className="px-4 py-2">{row.at}</td>
-                          <td className="px-4 py-2 font-mono">{row.assyId}</td>
-                          <td className="px-4 py-2">{row.step}</td>
-                          <td className="px-4 py-2">
-                            <StatusBadge status={row.result} />
-                          </td>
-                          <td className="px-4 py-2">{row.reason ?? "-"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* Batch Result */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Batch Result</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-8">
-                  <span>
-                    PASS: <span className="font-bold text-green-600">{statusSummary.pass}</span>
-                  </span>
-                  <span>
-                    NG: <span className="font-bold text-destructive">{statusSummary.ng}</span>
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle>Shift Summary</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-8 pt-4 text-sm">
+              <div>
+                <p className="text-muted-foreground">Accepted</p>
+                <p className="text-3xl font-bold text-foreground">{quantity}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">PASS</p>
+                <p className="text-2xl font-bold text-green-600">{statusSummary.pass}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">NG</p>
+                <p className="text-2xl font-bold text-destructive">{statusSummary.ng}</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -309,6 +332,6 @@ export function ScanStationPage() {
         description={overlay.description}
         onClose={() => setOverlay((prev) => ({ ...prev, open: false }))}
       />
-    </div>
+    </PageStack>
   );
 }

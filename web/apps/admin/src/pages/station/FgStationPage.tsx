@@ -4,7 +4,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { sdk } from "../../context/AuthContext";
 
 import { StationHeader } from "../../components/shared/StationHeader";
+import { StationActionBar, StationActionButton } from "../../components/shared/StationActionBar";
 import { FullscreenResultOverlay } from "../../components/shared/FullscreenResultOverlay";
+import { StationResultFeedback, type StationResultFeedbackState } from "../../components/shared/StationResultFeedback";
 import { ScanInput } from "../../components/shared/ScanInput";
 import { ErrorState, LoadingSkeleton } from "../../components/shared/States";
 import { StatusBadge } from "../../components/shared/StatusBadge";
@@ -13,7 +15,6 @@ import { useStationEvent } from "../../hooks/useStationEvent";
 import { formatStationError } from "../../lib/station-errors";
 import { PageStack } from "@traceability/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 function genEventId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -27,6 +28,7 @@ export function FgStationPage() {
   const outerRef = useRef<HTMLInputElement>(null);
   const [outerCode, setOuterCode] = useState("");
   const [outerList, setOuterList] = useState<string[]>([]);
+  const [latestResult, setLatestResult] = useState<StationResultFeedbackState | null>(null);
   const [overlay, setOverlay] = useState<{ open: boolean; mode: "PASS" | "NG"; title: string; description?: string }>({
     open: false,
     mode: "PASS",
@@ -56,23 +58,27 @@ export function FgStationPage() {
         created_at_device: new Date().toISOString(),
       }),
     onSuccess: (result) => {
-      setOverlay({
-        open: true,
-        mode: "PASS",
-        title: "PALLET PASS",
-        description: result.queued ? "Pallet mapping queued offline." : "Outers mapped to pallet successfully.",
-      });
+      const nextResult = {
+        mode: "PASS" as const,
+        title: result.queued ? "Queued Offline" : "Pallet Ready",
+        description: result.queued
+          ? "Pallet mapping was queued for sync."
+          : "Outers were mapped to the pallet successfully.",
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
       setOuterList([]);
       setOuterCode("");
       outerRef.current?.focus();
     },
     onError: (err) => {
-      setOverlay({
-        open: true,
-        mode: "NG",
-        title: "PALLET NG",
+      const nextResult = {
+        mode: "NG" as const,
+        title: "Pallet Mapping Failed",
         description: formatStationError(err, "Validation failed"),
-      });
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
     },
   });
 
@@ -80,16 +86,22 @@ export function FgStationPage() {
     const value = outerCode.trim();
     if (!value) return;
     if (outerList.includes(value)) {
-      setOverlay({
-        open: true,
-        mode: "NG",
+      const nextResult = {
+        mode: "NG" as const,
         title: "Duplicate Outer",
-        description: "Outer already in this pallet draft.",
-      });
+        description: "This outer is already in the current pallet draft.",
+      };
+      setLatestResult(nextResult);
+      setOverlay({ open: true, ...nextResult });
       return;
     }
     setOuterList((prev) => [value, ...prev].slice(0, 40));
     setOuterCode("");
+    setLatestResult({
+      mode: "PASS",
+      title: "Outer Added",
+      description: `${value} added to the pallet draft.`,
+    });
     outerRef.current?.focus();
   };
 
@@ -119,27 +131,30 @@ export function FgStationPage() {
             <CardTitle>Pallet Mapping</CardTitle>
           </CardHeader>
           <CardContent className="pt-4 flex flex-col gap-3">
+            <StationResultFeedback result={latestResult} />
             <ScanInput
               ref={outerRef}
+              name="fg-outer-code"
+              ariaLabel="Outer code"
               value={outerCode}
               onChange={setOuterCode}
               onSubmit={addOuter}
               placeholder="Scan OUTER code"
             />
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={addOuter} disabled={!outerCode.trim()}>
+            <StationActionBar>
+              <StationActionButton onClick={addOuter} disabled={!outerCode.trim()}>
                 Add Outer
-              </Button>
-              <Button variant="secondary" onClick={() => setOuterList([])} disabled={!outerList.length}>
+              </StationActionButton>
+              <StationActionButton variant="secondary" onClick={() => setOuterList([])} disabled={!outerList.length}>
                 Clear
-              </Button>
-              <Button
+              </StationActionButton>
+              <StationActionButton
                 onClick={() => mapMutation.mutate(outerList)}
                 disabled={mapMutation.isPending || outerList.length === 0}
               >
-                {mapMutation.isPending ? "Mapping..." : "Map to Pallet"}
-              </Button>
-            </div>
+                {mapMutation.isPending ? "Mapping…" : "Map to Pallet"}
+              </StationActionButton>
+            </StationActionBar>
             <div className="max-h-72 overflow-auto rounded-lg border border-border">
               <table className="w-full text-sm border-collapse">
                 <thead>

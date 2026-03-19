@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { MaterialRequestCatalogItem, MaterialRequestMeta } from "@traceability/sdk";
+import { ConfirmDialog } from "@traceability/ui";
 import type { MaterialRequestFormErrors } from "../lib/materialRequestSchema";
 
 export type MaterialRequestLineForm = {
@@ -13,6 +14,7 @@ export type MaterialRequestLineForm = {
 };
 
 type MaterialRequestFormProps = {
+  formId?: string;
   lines: MaterialRequestLineForm[];
   setLines: (
     next: MaterialRequestLineForm[] | ((prev: MaterialRequestLineForm[]) => MaterialRequestLineForm[])
@@ -33,6 +35,7 @@ type MaterialRequestFormProps = {
   onSubmit?: () => void;
   submitLabel?: string;
   onCancel?: () => void;
+  showFooterActions?: boolean;
   formatDate: (iso: string) => string;
   disabled?: boolean;
   formErrors?: MaterialRequestFormErrors;
@@ -58,6 +61,7 @@ const labelBase = "text-sm font-medium leading-none";
 const errorText = "text-xs text-destructive";
 
 export function MaterialRequestForm({
+  formId,
   lines,
   setLines,
   selectedCostCenterId,
@@ -76,6 +80,7 @@ export function MaterialRequestForm({
   onSubmit,
   submitLabel = "Submit Request",
   onCancel,
+  showFooterActions = true,
   formatDate,
   disabled = false,
   formErrors,
@@ -176,47 +181,14 @@ export function MaterialRequestForm({
   };
 
   return (
-    <div className="flex flex-col gap-4 flex-1">
-      {/* Model-switch confirmation — shadcn Dialog style */}
-      {modelSwitchPending && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="model-switch-dialog-title"
-          aria-describedby="model-switch-dialog-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
-          onClick={(e) => e.target === e.currentTarget && setModelSwitchPending(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="model-switch-dialog-title" className="text-lg font-semibold leading-none tracking-tight">
-              Change model?
-            </h3>
-            <p id="model-switch-dialog-desc" className="mt-2 text-sm text-muted-foreground">
-              Changing the model will clear the selected part number and description for this row. Continue?
-            </p>
-            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setModelSwitchPending(null)}
-                className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmModelSwitch}
-                className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                Yes, change model
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <form
+      id={formId}
+      className="flex flex-1 flex-col gap-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit?.();
+      }}
+    >
       {sectionNotSet && (
         <div
           role="alert"
@@ -234,27 +206,20 @@ export function MaterialRequestForm({
         </div>
       )}
 
-      {/* Voucher header card — shadcn Card */}
+      {/* Request header */}
       <div className="rounded-xl border bg-card text-card-foreground shadow">
         <div className="flex flex-col gap-4 p-6">
-          <div className="flex flex-wrap gap-6 items-start">
-            <img src="/logo.png" alt="MMI Logo" className="h-[4.5rem] w-auto object-contain" />
-            <div className="flex flex-col gap-0.5">
-              <h3 className="text-lg font-medium italic leading-none tracking-tight">
-                MMI Precision Assembly (Thailand) Co., Ltd.
-              </h3>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Material Request Draft
+            </p>
+            <div className="space-y-1">
+              <h3 className="text-xl font-semibold leading-none tracking-tight">Prepare Warehouse Request</h3>
               <p className="text-sm text-muted-foreground">
-                888 Moo 1, Mittraphap Road, Tambon Naklang, Amphur Sungnoen, Nakornratchasima 30380 Thailand
+                Build a traceability-safe request with the correct model, component lines, quantity, and cost center
+                before sending it for approval and issue.
               </p>
-              <div className="mt-1 flex gap-4 text-sm text-muted-foreground">
-                <span>TEL : (6644) 000188</span>
-                <span>FAX : (6644) 000199</span>
-              </div>
             </div>
-          </div>
-
-          <div className="border-b-2 border-border pb-4">
-            <h3 className="text-lg font-semibold leading-none tracking-tight">DIRECT MATERIAL ISSUE VOUCHER</h3>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -288,9 +253,11 @@ export function MaterialRequestForm({
               </label>
               <select
                 id="material-cc-select"
+                name="material-cost-center"
                 disabled={sectionNotSet || disabled}
                 value={selectedCostCenterId}
                 onChange={(e) => setSelectedCostCenterId(e.target.value)}
+                autoComplete="off"
                 className={`${selectBase} ${ccError ? "border-destructive focus-visible:ring-destructive" : ""}`}
               >
                 <option value="">Select Cost Center</option>
@@ -316,7 +283,7 @@ export function MaterialRequestForm({
         <div className="relative overflow-x-auto">
           {catalogLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
-              <span className="text-sm text-muted-foreground">Loading...</span>
+              <span className="text-sm text-muted-foreground">Loading catalog...</span>
             </div>
           )}
           <table className="w-full min-w-[52rem] border-collapse">
@@ -357,9 +324,11 @@ export function MaterialRequestForm({
                     <td className="px-3 py-2">
                       <div className="flex flex-col gap-1.5">
                         <select
+                          name={`material-model-${idx}`}
                           value={line.model_id}
                           disabled={disabled}
                           onChange={(e) => onModelChange(idx, e.target.value)}
+                          autoComplete="off"
                           className={`${selectBase} ${modelErr ? "border-destructive focus-visible:ring-destructive" : ""}`}
                         >
                           <option value="">Select Model</option>
@@ -375,9 +344,11 @@ export function MaterialRequestForm({
                     <td className="px-3 py-2">
                       <div className="flex flex-col gap-1.5">
                         <select
+                          name={`material-part-number-${idx}`}
                           value={line.part_number}
                           disabled={disabled || !line.model_id}
                           onChange={(e) => onPartNumberChange(idx, e.target.value)}
+                          autoComplete="off"
                           className={`${selectBase} ${partErr ? "border-destructive focus-visible:ring-destructive" : ""}`}
                         >
                           <option value="">{line.model_id ? "Select Component" : "Select model first"}</option>
@@ -394,6 +365,7 @@ export function MaterialRequestForm({
                     <td className="px-3 py-2">
                       <div className="flex flex-col gap-1.5">
                         <input
+                          name={`material-requested-qty-${idx}`}
                           type="number"
                           value={line.requested_qty ?? ""}
                           onChange={(e) =>
@@ -401,6 +373,7 @@ export function MaterialRequestForm({
                           }
                           onBlur={() => setQtyTouched((prev) => new Set([...prev, idx]))}
                           disabled={disabled}
+                          autoComplete="off"
                           className={`${inputBase} text-right ${qtyErr ? "border-destructive focus-visible:ring-destructive" : ""}`}
                         />
                         {qtyErr && <span className={errorText}>{qtyErr}</span>}
@@ -409,9 +382,11 @@ export function MaterialRequestForm({
                     <td className="px-3 py-2 text-center text-sm">{line.uom || "PCS"}</td>
                     <td className="px-3 py-2">
                       <input
+                        name={`material-remarks-${idx}`}
                         value={line.remarks}
                         onChange={(e) => updateLine(idx, { remarks: e.target.value })}
                         disabled={disabled}
+                        autoComplete="off"
                         className={inputBase}
                       />
                     </td>
@@ -446,29 +421,39 @@ export function MaterialRequestForm({
               Add Item
             </button>
           )}
-          <div className="ml-auto flex items-center gap-2">
-            {onCancel && (
-              <button
-                type="button"
-                onClick={onCancel}
-                className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                Cancel
-              </button>
-            )}
-            {onSubmit && (
-              <button
-                type="button"
-                onClick={onSubmit}
-                disabled={disableSubmit}
-                className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-              >
-                {submitLabel}
-              </button>
-            )}
-          </div>
+          {showFooterActions && (
+            <div className="ml-auto flex items-center gap-2">
+              {onCancel && (
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  Cancel
+                </button>
+              )}
+              {onSubmit && (
+                <button
+                  type="submit"
+                  disabled={disableSubmit}
+                  className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {submitLabel}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
-    </div>
+
+      <ConfirmDialog
+        open={Boolean(modelSwitchPending)}
+        title="Change model?"
+        description="Changing the model will clear the selected part number and description for this row."
+        confirmText="Change Model"
+        onCancel={() => setModelSwitchPending(null)}
+        onConfirm={confirmModelSwitch}
+      />
+    </form>
   );
 }

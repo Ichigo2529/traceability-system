@@ -288,7 +288,7 @@ export function BarcodeTemplatesPage() {
         {rows.length === 0 && !isLoading && (
           <Alert className="mb-3">
             <AlertDescription>
-              No custom barcode templates yet. You can add one, or use built-in parser keys in the Parse Tester.
+              No custom barcode templates yet. Add one here or use the built-in parser keys in the Parse Tester below.
             </AlertDescription>
           </Alert>
         )}
@@ -297,7 +297,7 @@ export function BarcodeTemplatesPage() {
           data={rows}
           columns={columns}
           loading={isLoading}
-          filterPlaceholder="Search template..."
+          filterPlaceholder="Search template key, name, identifier, or version..."
           actions={
             <Button
               className="button-hover-scale"
@@ -330,11 +330,15 @@ export function BarcodeTemplatesPage() {
             <CardDescription>Test your barcode templates in real-time</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                <div className="md:col-span-3 grid gap-2">
-                  <Label>Parser Key *</Label>
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={parserForm.handleSubmit((values) => testParseMutation.mutate(values))}
+            >
+              <div className="grid grid-cols-1 gap-4 items-end md:grid-cols-12">
+                <div className="grid gap-2 md:col-span-3">
+                  <Label htmlFor="parser-key">Parser Key *</Label>
                   <Input
+                    id="parser-key"
                     placeholder="MARLIN_PLATE_V1"
                     {...parserForm.register("parser_key")}
                     className={parserForm.formState.errors.parser_key ? "border-destructive" : ""}
@@ -343,9 +347,10 @@ export function BarcodeTemplatesPage() {
                     <p className="text-sm text-destructive">{parserForm.formState.errors.parser_key.message}</p>
                   )}
                 </div>
-                <div className="md:col-span-6 grid gap-2">
-                  <Label>Raw Barcode *</Label>
+                <div className="grid gap-2 md:col-span-6">
+                  <Label htmlFor="parser-raw-barcode">Raw Barcode *</Label>
                   <Input
+                    id="parser-raw-barcode"
                     placeholder="Raw 2D barcode text"
                     {...parserForm.register("pack_barcode_raw")}
                     className={parserForm.formState.errors.pack_barcode_raw ? "border-destructive" : ""}
@@ -357,11 +362,11 @@ export function BarcodeTemplatesPage() {
                 <div className="md:col-span-3">
                   <Button
                     className="button-hover-scale w-full md:w-auto"
-                    onClick={(e) => parserForm.handleSubmit((values) => testParseMutation.mutate(values))(e as any)}
+                    type="submit"
                     disabled={testParseMutation.isPending}
                   >
                     <Play className="h-4 w-4 mr-2" />
-                    Test Parse
+                    {testParseMutation.isPending ? "Testing…" : "Test Parse"}
                   </Button>
                 </div>
               </div>
@@ -377,7 +382,7 @@ export function BarcodeTemplatesPage() {
                   />
                 </div>
               )}
-            </div>
+            </form>
           </CardContent>
         </Card>
       </div>

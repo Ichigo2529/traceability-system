@@ -168,7 +168,7 @@ export function DepartmentsPage() {
           data={rows}
           columns={columns}
           loading={isLoading}
-          filterPlaceholder="Search department..."
+          filterPlaceholder="Search department code or name..."
           actions={
             <Button
               className="button-hover-scale"

@@ -69,13 +69,42 @@ export function ProcessesPage() {
 
   const columns = useMemo<ColumnDef<Process>[]>(
     () => [
-      { id: "code", header: "Code", accessorKey: "process_code" },
-      { id: "name", header: "Name", accessorKey: "name" },
-      { id: "sequence", header: "Sequence", accessorKey: "sequence_order" },
+      {
+        id: "code",
+        header: "Process",
+        accessorKey: "process_code",
+        size: 240,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.process_code}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.name}</p>
+          </div>
+        ),
+      },
+      {
+        id: "sequence",
+        header: "Sequence",
+        accessorKey: "sequence_order",
+        size: 140,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="tabular-nums text-foreground">{row.original.sequence_order}</p>
+            <p className="truncate text-xs text-muted-foreground">Order in manufacturing flow</p>
+          </div>
+        ),
+      },
       {
         id: "status",
         header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} />,
+        size: 120,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <StatusBadge status={row.original.active ? "active" : "disabled"} />
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {row.original.active ? "Available in routing configuration" : "Excluded from active routing"}
+            </p>
+          </div>
+        ),
       },
       {
         id: "actions",
@@ -113,7 +142,7 @@ export function ProcessesPage() {
       title="Processes"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Manufacturing process master with sequence ordering</span>
+          <span>Manage the ordered process steps used by routing, stations, and workflow setup</span>
         </div>
       }
       icon="process"
@@ -135,7 +164,12 @@ export function ProcessesPage() {
           data={rows}
           columns={columns}
           loading={isLoading}
-          filterPlaceholder="Search process..."
+          onRowClick={(process) => {
+            setEditing(process);
+            form.reset(process);
+            setOpen(true);
+          }}
+          filterPlaceholder="Search process code, name, or sequence..."
           actions={
             <Button
               className="button-hover-scale"

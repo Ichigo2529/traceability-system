@@ -184,7 +184,9 @@ export function AppRoutes() {
         <Route path="fg" element={<FgStationPage />} />
         <Route path="queue" element={<QueueMonitorPage />} />
         <Route path="material/request" element={<ProductionMaterialRequestPage />} />
+        <Route path="material/request/:id" element={<ProductionMaterialRequestPage />} />
         <Route path="material/store" element={<StoreMaterialApprovalPage />} />
+        <Route path="material/store/:id" element={<StoreMaterialApprovalPage />} />
         <Route path="history" element={<StationHistoryPage />} />
       </Route>
 

@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createMaterialQueryKeys, NextNumbersResponse } from "@traceability/material";
-import { MaterialRequestForm, MaterialRequestLineForm } from "@traceability/material-ui";
+import {
+  MaterialRequestForm,
+  MaterialRequestFormErrors,
+  MaterialRequestLineForm,
+  validateMaterialRequestForm,
+} from "@traceability/material-ui";
 import { MaterialRequest, MaterialRequestCatalogItem } from "@traceability/sdk";
 import { useAuth } from "../../context/AuthContext";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
@@ -11,7 +16,6 @@ import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
 import {
@@ -33,6 +37,7 @@ function blankLine(itemNo: number): MaterialRequestLineForm {
 }
 
 export function MaterialRequestCreatePage() {
+  const formId = "material-request-create-form";
   const { user } = useAuth();
   const keys = createMaterialQueryKeys("admin");
   const queryClient = useQueryClient();
@@ -42,6 +47,7 @@ export function MaterialRequestCreatePage() {
   const [selectedCostCenterId, setSelectedCostCenterId] = useState("");
   const [headerRemarks] = useState("");
   const [lines, setLines] = useState<MaterialRequestLineForm[]>([blankLine(1)]);
+  const [formErrors, setFormErrors] = useState<MaterialRequestFormErrors | undefined>();
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
   const { meta, sectionNotSet } = useMaterialRequestMeta();
@@ -69,9 +75,30 @@ export function MaterialRequestCreatePage() {
     ? `${meta.section.section_name} (${meta.section.section_code})`
     : `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`;
 
-  const hasInvalidRequestedQty = lines
-    .filter((line) => line.part_number.trim().length > 0)
-    .some((line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0);
+  const filledLineCount = lines.filter((line) => line.part_number.trim().length > 0).length;
+
+  const handleSubmitClick = () => {
+    const result = validateMaterialRequestForm({
+      cost_center_id: selectedCostCenterId,
+      lines: lines.map((line) => ({
+        item_no: line.item_no,
+        model_id: line.model_id,
+        part_number: line.part_number,
+        description: line.description,
+        requested_qty: line.requested_qty,
+        uom: line.uom,
+        remarks: line.remarks,
+      })),
+    });
+
+    if (!result.success) {
+      setFormErrors(result.errors);
+      return;
+    }
+
+    setFormErrors(undefined);
+    setConfirmSubmitOpen(true);
+  };
 
   const createMutation = useMutation<MaterialRequest, Error>({
     mutationFn: () => {
@@ -81,7 +108,7 @@ export function MaterialRequestCreatePage() {
       }
       const modelIds = Array.from(new Set(requestedLines.map((line) => line.model_id).filter(Boolean)));
       if (modelIds.length !== 1) {
-        throw new Error("Each voucher must use one model only");
+        throw new Error("Each request must use one model only");
       }
       const invalidQtyLine = requestedLines.find(
         (line) => !Number.isFinite(Number(line.requested_qty)) || Number(line.requested_qty) <= 0
@@ -127,6 +154,8 @@ export function MaterialRequestCreatePage() {
     },
   });
 
+  const canSubmit = !createMutation.isPending && !sectionNotSet;
+
   const anyError = catalogQuery.error ?? nextNumbersQuery.error ?? createMutation.error;
 
   return (
@@ -146,16 +175,8 @@ export function MaterialRequestCreatePage() {
           <Button variant="ghost" onClick={() => navigate("/admin/material-requests")}>
             Cancel
           </Button>
-          <Button
-            onClick={() => setConfirmSubmitOpen(true)}
-            disabled={
-              createMutation.isPending ||
-              lines.every((line) => !line.part_number) ||
-              hasInvalidRequestedQty ||
-              sectionNotSet
-            }
-          >
-            {createMutation.isPending ? "Submitting..." : "Submit Request"}
+          <Button type="submit" form={formId} disabled={!canSubmit}>
+            {createMutation.isPending ? "Submitting…" : "Submit Request"}
           </Button>
         </div>
       }
@@ -164,22 +185,24 @@ export function MaterialRequestCreatePage() {
         <ApiErrorBanner message={anyError ? formatApiError(anyError) : undefined} />
 
         <div className="flex flex-col gap-5 flex-1">
-          {sectionNotSet && (
-            <Alert variant="destructive" className="mb-2">
-              <AlertDescription>
-                Your user account has no section assigned. You cannot create requests.
-              </AlertDescription>
-            </Alert>
-          )}
-
           <MaterialRequestForm
+            formId={formId}
             lines={lines}
-            setLines={setLines}
+            setLines={(next) => {
+              setLines(next);
+              if (formErrors) setFormErrors(undefined);
+            }}
             selectedCostCenterId={selectedCostCenterId}
-            setSelectedCostCenterId={setSelectedCostCenterId}
+            setSelectedCostCenterId={(value) => {
+              setSelectedCostCenterId(value);
+              if (formErrors?.cost_center_id) {
+                setFormErrors((current) => (current ? { ...current, cost_center_id: undefined } : current));
+              }
+            }}
             meta={meta}
             sectionNotSet={sectionNotSet}
             catalog={catalogQuery.data ?? []}
+            catalogLoading={catalogQuery.isLoading}
             requestNo={nextNumbersQuery.data?.request_no}
             dmiNo={nextNumbersQuery.data?.dmi_no}
             generatedAt={nextNumbersQuery.data?.generated_at}
@@ -187,6 +210,16 @@ export function MaterialRequestCreatePage() {
             departmentName={meta?.department?.name ?? user?.department ?? "-"}
             sectionDisplay={sectionDisplay}
             formatDate={formatDate}
+            disabled={createMutation.isPending}
+            formErrors={formErrors}
+            onSubmit={handleSubmitClick}
+            submitLabel={
+              createMutation.isPending
+                ? "Submitting…"
+                : `Submit Request${filledLineCount ? ` (${filledLineCount})` : ""}`
+            }
+            disableSubmit={!canSubmit}
+            showFooterActions={false}
           />
         </div>
       </div>

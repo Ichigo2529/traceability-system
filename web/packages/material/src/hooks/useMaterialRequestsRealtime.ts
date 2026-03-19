@@ -8,6 +8,10 @@ type UseMaterialRequestsRealtimeOptions = {
   authenticated?: boolean;
 };
 
+function readEnvString(value: string | boolean | undefined): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
 function readAccessToken(): string | null {
   if (typeof window === "undefined") return null;
   const raw = localStorage.getItem("auth_tokens");
@@ -48,7 +52,7 @@ export function useMaterialRequestsRealtime({
     const accessToken = readAccessToken();
     if (!accessToken) return;
 
-    const base = getApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+    const base = getApiBaseUrl(readEnvString(import.meta.env.VITE_API_BASE_URL));
     if (!base) return;
 
     const url = `${base}/realtime/material-requests?access_token=${encodeURIComponent(accessToken)}`;

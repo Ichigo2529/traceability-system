@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Wifi, WifiOff, Smartphone, ChevronRight, Users, Factory, Package, ScrollText } from "lucide-react";
 import { DataTable } from "../components/shared/DataTable";
@@ -22,7 +22,6 @@ const SHORTCUTS: { label: string; description: string; to: string; icon: typeof 
 ];
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const { data: devices = [], isLoading } = useQuery({
     queryKey: ["devices"],
     queryFn: () => sdk.admin.getDevices(),
@@ -131,21 +130,17 @@ export default function DashboardPage() {
                 {SHORTCUTS.map((s) => {
                   const Icon = s.icon;
                   return (
-                    <Button
-                      key={s.to}
-                      type="button"
-                      variant="outline"
-                      className="h-auto justify-start gap-3 py-3 pr-4 pl-4"
-                      onClick={() => navigate(s.to)}
-                    >
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
-                        <Icon className="size-4 text-muted-foreground" aria-hidden />
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-                        <span className="font-medium">{s.label}</span>
-                        <span className="text-xs font-normal text-muted-foreground">{s.description}</span>
-                      </span>
-                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    <Button key={s.to} asChild variant="outline" className="h-auto justify-start gap-3 py-3 pr-4 pl-4">
+                      <Link to={s.to}>
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
+                          <Icon className="size-4 text-muted-foreground" aria-hidden />
+                        </span>
+                        <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+                          <span className="font-medium">{s.label}</span>
+                          <span className="text-xs font-normal text-muted-foreground">{s.description}</span>
+                        </span>
+                        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      </Link>
                     </Button>
                   );
                 })}

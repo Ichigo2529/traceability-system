@@ -157,15 +157,43 @@ export function InboundPacksPage() {
 
   const doColumns = useMemo<ColumnDef<InventoryDoRecord>[]>(
     () => [
-      { id: "do_number", header: "DO Number", accessorKey: "do_number" },
       {
-        id: "vendor",
-        header: "Vendor",
-        cell: ({ row }) => row.original.vendor_name || row.original.supplier_name || "-",
+        id: "do_number",
+        header: "Delivery Order",
+        accessorKey: "do_number",
+        size: 240,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">{row.original.do_number}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {row.original.vendor_name || row.original.supplier_name || "Unknown vendor"}
+            </p>
+          </div>
+        ),
       },
-      { id: "part_number", header: "Part Number", accessorKey: "part_number" },
-      { id: "qty_received", header: "Qty Received", accessorKey: "qty_received" },
-      { id: "qty_issued", header: "Qty Issued", accessorKey: "qty_issued" },
+      {
+        id: "part_number",
+        header: "Part",
+        accessorKey: "part_number",
+        size: 240,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">{row.original.part_number || "-"}</p>
+            <p className="truncate text-xs text-muted-foreground">{row.original.description || "No description"}</p>
+          </div>
+        ),
+      },
+      {
+        id: "qty_summary",
+        header: "Quantity Summary",
+        size: 200,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="tabular-nums text-foreground">Received {row.original.qty_received ?? 0}</p>
+            <p className="tabular-nums text-xs text-muted-foreground">Issued {row.original.qty_issued ?? 0}</p>
+          </div>
+        ),
+      },
     ],
     []
   );
@@ -174,14 +202,43 @@ export function InboundPacksPage() {
     () => [
       {
         id: "vendor",
-        header: "Vendor",
-        cell: ({ row }) => row.original.vendor_name || row.original.supplier_name || "-",
+        header: "Vendor Pack",
+        size: 260,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate font-medium text-foreground">
+              {row.original.vendor_name || row.original.supplier_name || "-"}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">DO {row.original.do_number || "not linked"}</p>
+          </div>
+        ),
       },
-      { id: "do_number", header: "DO", accessorKey: "do_number" },
-      { id: "part_number", header: "Part Number", accessorKey: "part_number" },
-      { id: "lot", header: "Lot", cell: ({ row }) => row.original.vendor_lot || row.original.supplier_lot || "-" },
-      { id: "pack_qty_total", header: "Pack Qty", accessorKey: "pack_qty_total" },
-      { id: "pack_qty_remaining", header: "Remaining", accessorKey: "pack_qty_remaining" },
+      {
+        id: "part_number",
+        header: "Part / Lot",
+        size: 260,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="truncate text-foreground">{row.original.part_number || "-"}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              Lot {row.original.vendor_lot || row.original.supplier_lot || "not provided"}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "pack_qty",
+        header: "Pack Balance",
+        size: 180,
+        cell: ({ row }) => (
+          <div className="min-w-0 whitespace-normal">
+            <p className="tabular-nums text-foreground">Total {row.original.pack_qty_total ?? 0}</p>
+            <p className="tabular-nums text-xs text-muted-foreground">
+              Remaining {row.original.pack_qty_remaining ?? 0}
+            </p>
+          </div>
+        ),
+      },
       { id: "pack_barcode_raw", header: "Raw 2D", accessorKey: "pack_barcode_raw" },
     ],
     []
@@ -192,7 +249,7 @@ export function InboundPacksPage() {
       title="Inbound Material Packs"
       subtitle={
         <div className="flex items-center gap-2">
-          <span>Vendor pack reception and DO matching</span>
+          <span>Receive supplier packs, match them to delivery orders, and keep remaining pack balance traceable</span>
         </div>
       }
       icon="shipping-status"
@@ -200,7 +257,12 @@ export function InboundPacksPage() {
     >
       <div className="page-container">
         <Section title="Delivery Orders" variant="card">
-          <DataTable data={dos} columns={doColumns} loading={dosLoading} filterPlaceholder="Search DO..." />
+          <DataTable
+            data={dos}
+            columns={doColumns}
+            loading={dosLoading}
+            filterPlaceholder="Search DO number, vendor, part number, or quantity..."
+          />
         </Section>
 
         <Section title="Vendor Packs" variant="card">
@@ -209,7 +271,7 @@ export function InboundPacksPage() {
             data={packs}
             columns={packColumns}
             loading={packsLoading || vendorsLoading || partNumbersLoading || profilesLoading || parsersLoading}
-            filterPlaceholder="Search pack..."
+            filterPlaceholder="Search vendor, DO, part number, lot, or raw 2D barcode..."
             actions={
               <Button
                 className="button-hover-scale"
@@ -244,9 +306,15 @@ export function InboundPacksPage() {
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
             <DialogTitle>Receive Vendor Pack</DialogTitle>
-            <DialogDescription>Enter pack details and raw barcode.</DialogDescription>
+            <DialogDescription>
+              Capture supplier pack details, link the pack to a DO when available, and store the raw 2D value for
+              traceability.
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4 py-4">
+          <form
+            onSubmit={handleSubmit((values) => receiveMutation.mutate(values))}
+            className="flex flex-col gap-4 py-4"
+          >
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -254,13 +322,13 @@ export function InboundPacksPage() {
             )}
 
             <div className="grid gap-2">
-              <Label>Vendor *</Label>
+              <Label htmlFor="inbound-vendor">Vendor *</Label>
               <Controller
                 name="vendor_id"
                 control={control}
                 render={({ field }) => (
                   <Select value={field.value || ""} onValueChange={field.onChange}>
-                    <SelectTrigger className={errors.vendor_id ? "border-destructive" : ""}>
+                    <SelectTrigger id="inbound-vendor" className={errors.vendor_id ? "border-destructive" : ""}>
                       <SelectValue placeholder="Select vendor" />
                     </SelectTrigger>
                     <SelectContent>
@@ -277,22 +345,24 @@ export function InboundPacksPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>DO Number</Label>
+              <Label htmlFor="inbound-do-number">DO Number</Label>
               <Controller
                 name="do_number"
                 control={control}
-                render={({ field }) => <Input {...field} value={field.value || ""} placeholder="D0001" />}
+                render={({ field }) => (
+                  <Input id="inbound-do-number" {...field} value={field.value || ""} placeholder="D0001" />
+                )}
               />
             </div>
 
             <div className="grid gap-2">
-              <Label>Parser Key</Label>
+              <Label htmlFor="inbound-parser-key">Parser Key</Label>
               <Controller
                 name="parser_key"
                 control={control}
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
+                    <SelectTrigger id="inbound-parser-key">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -308,7 +378,7 @@ export function InboundPacksPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Part Number</Label>
+              <Label htmlFor="inbound-part-number">Part Number</Label>
               <Controller
                 name="part_number"
                 control={control}
@@ -332,7 +402,7 @@ export function InboundPacksPage() {
                       }
                     }}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="inbound-part-number">
                       <SelectValue placeholder="Manual input" />
                     </SelectTrigger>
                     <SelectContent>
@@ -349,7 +419,7 @@ export function InboundPacksPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Vendor Part Number</Label>
+              <Label htmlFor="inbound-vendor-part-number">Vendor Part Number</Label>
               {vendorProfiles.length ? (
                 <Controller
                   name="vendor_part_number"
@@ -369,7 +439,7 @@ export function InboundPacksPage() {
                         }
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="inbound-vendor-part-number">
                         <SelectValue placeholder="Not specified" />
                       </SelectTrigger>
                       <SelectContent>
@@ -390,27 +460,28 @@ export function InboundPacksPage() {
                 <Controller
                   name="vendor_part_number"
                   control={control}
-                  render={({ field }) => <Input {...field} value={field.value || ""} />}
+                  render={({ field }) => <Input id="inbound-vendor-part-number" {...field} value={field.value || ""} />}
                 />
               )}
             </div>
 
             <div className="grid gap-2">
-              <Label>Vendor Lot</Label>
+              <Label htmlFor="inbound-vendor-lot">Vendor Lot</Label>
               <Controller
                 name="vendor_lot"
                 control={control}
-                render={({ field }) => <Input {...field} value={field.value || ""} />}
+                render={({ field }) => <Input id="inbound-vendor-lot" {...field} value={field.value || ""} />}
               />
             </div>
 
             <div className="grid gap-2">
-              <Label>Pack Quantity</Label>
+              <Label htmlFor="inbound-pack-qty">Pack Quantity</Label>
               <Controller
                 name="pack_qty_total"
                 control={control}
                 render={({ field }) => (
                   <Input
+                    id="inbound-pack-qty"
                     type="number"
                     value={field.value?.toString() ?? ""}
                     onChange={(e) => field.onChange(Number(e.target.value))}
@@ -422,21 +493,24 @@ export function InboundPacksPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label>Production Date</Label>
+              <Label htmlFor="inbound-production-date">Production Date</Label>
               <Controller
                 name="production_date"
                 control={control}
-                render={({ field }) => <Input {...field} value={field.value || ""} placeholder="YYYY-MM-DD" />}
+                render={({ field }) => (
+                  <Input id="inbound-production-date" {...field} value={field.value || ""} placeholder="YYYY-MM-DD" />
+                )}
               />
             </div>
 
             <div className="grid gap-2">
-              <Label>Pack 2D Barcode Raw *</Label>
+              <Label htmlFor="inbound-pack-barcode">Pack 2D Barcode Raw *</Label>
               <Controller
                 name="pack_barcode_raw"
                 control={control}
                 render={({ field }) => (
                   <Input
+                    id="inbound-pack-barcode"
                     {...field}
                     value={field.value || ""}
                     className={errors.pack_barcode_raw ? "border-destructive" : ""}
@@ -452,18 +526,15 @@ export function InboundPacksPage() {
                 {selectedProfile.default_pack_qty ? `| default pack ${selectedProfile.default_pack_qty}` : ""}
               </p>
             )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={(e) => handleSubmit((values) => receiveMutation.mutate(values))(e as any)}
-              disabled={receiveMutation.isPending}
-            >
-              {receiveMutation.isPending ? "Receiving..." : "Receive"}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={receiveMutation.isPending}>
+                {receiveMutation.isPending ? "Receiving…" : "Receive"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </PageLayout>
