@@ -16,11 +16,12 @@ import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { getSections } from "../../lib/section-api";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 
 const ROLES = ["ADMIN", "SUPERVISOR", "OPERATOR", "STORE", "PRODUCTION", "QA"];
 const SELECT_NONE = "__none__";
@@ -179,16 +180,11 @@ export function UsersPage() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
+            <DeleteIconButton
               title="Delete User"
               aria-label="Delete User"
               onClick={() => setDeleteTarget(row.original)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ),
       },

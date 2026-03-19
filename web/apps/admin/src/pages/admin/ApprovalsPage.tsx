@@ -11,11 +11,12 @@ import { StatusBadge } from "../../components/shared/StatusBadge";
 import { PageLayout, Section } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Pencil, Trash2, Save, ArrowRight } from "lucide-react";
+import { Plus, Pencil, Save, ArrowRight } from "lucide-react";
 import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
@@ -266,17 +267,12 @@ export function ApprovalsPage() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="button-hover-scale text-destructive"
+            <DeleteIconButton
+              className="button-hover-scale"
               onClick={() => setDeleteTarget(row.original.id)}
               title="Delete Rule"
               aria-label="Delete Rule"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ),
       },
@@ -619,20 +615,16 @@ export function ApprovalsPage() {
                       Default
                     </Label>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive"
+                  <DeleteIconButton
+                    title="Remove approver"
+                    aria-label="Remove approver row"
                     onClick={() =>
                       setApproverRows((prev) => {
                         const next = prev.filter((_, i) => i !== idx);
                         return next.length ? next : [{ ...EMPTY_APPROVER_ROW }];
                       })
                     }
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  />
                 </div>
               ))}
             </div>

@@ -5,8 +5,8 @@ import { Skeleton } from "../ui/skeleton";
 export function LoadingSkeleton({ label }: { label?: string }) {
   return (
     <Card>
-      <CardContent className="space-y-4 py-8 px-6">
-        <div className="space-y-2">
+      <CardContent className="flex flex-col gap-4 py-8 px-6">
+        <div className="flex flex-col gap-2">
           <Skeleton className="h-5 w-3/4" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-5/6" />

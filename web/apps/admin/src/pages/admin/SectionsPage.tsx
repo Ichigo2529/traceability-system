@@ -13,6 +13,7 @@ import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "../../components/ui/badge";
-import { Plus, Pencil, Trash2, Banknote, Star } from "lucide-react";
+import { Plus, Pencil, Banknote, Star } from "lucide-react";
 import {
   AdminSection,
   SectionCostCenterMapping,
@@ -197,16 +198,11 @@ export function SectionsPage() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
+            <DeleteIconButton
               onClick={() => setDisableTarget(row.original)}
               title="Disable"
               aria-label="Disable section"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ),
       },
@@ -406,10 +402,7 @@ export function SectionsPage() {
                           )}
                         </td>
                         <td className="p-2">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
+                          <DeleteIconButton
                             title="Remove mapping"
                             aria-label="Remove cost center mapping"
                             disabled={removeMappingMut.isPending}
@@ -417,9 +410,7 @@ export function SectionsPage() {
                               if (!liveMappingTarget) return;
                               removeMappingMut.mutate({ sectionId: liveMappingTarget.id, ccId: m.cost_center_id });
                             }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          />
                         </td>
                       </tr>
                     ))}

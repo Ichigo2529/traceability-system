@@ -75,7 +75,11 @@ export default function ReadinessValidatorPage() {
                     <SelectItem value="__none__">-- Select Model --</SelectItem>
                     {models.map((m: Model) => (
                       <SelectItem key={m.id} value={m.id}>
-                        {m.code} - {m.name}
+                        <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                          <span className="shrink-0 font-mono tabular-nums">{m.code}</span>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="truncate">{m.name}</span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

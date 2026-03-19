@@ -11,7 +11,7 @@ import {
   userDepartments,
   workflowApprovalConfigs,
 } from "./schema/organization";
-import { models, modelRevisions, componentTypes, partNumbers, bom } from "./schema/config";
+import { models, modelRevisions, componentTypes, partNumbers, bom, masterRoutingSteps } from "./schema/config";
 import { suppliers, supplierPartProfiles } from "./schema/inventory";
 import { materialRequests, materialRequestItems } from "./schema/material-requests";
 
@@ -54,6 +54,25 @@ const COST_CENTER_SEEDS: { groupCode: string; costCode: string; shortText: strin
 ];
 
 const SECTION_SEEDS = [{ sectionCode: "STORE", sectionName: "Store / Warehouse" }];
+
+/** Standard step codes (master data). Used when building per-model routing on a revision. */
+const MASTER_ROUTING_STEP_SEEDS: { stepCode: string; description: string; isActive: boolean }[] = [
+  { stepCode: "DI-WASH", description: "ล้าง / ทำความสะอาดก่อนประกอบ", isActive: true },
+  { stepCode: "DI-SAW", description: "ตัด wafer (saw)", isActive: true },
+  { stepCode: "DI-WB", description: "Wire bond", isActive: true },
+  { stepCode: "DI-MOLD", description: "Molding / หุ้มสาร", isActive: true },
+  { stepCode: "DI-PLATING", description: "Plating / ชุบ", isActive: true },
+  { stepCode: "DI-MARK", description: "Marking / สกรีนโค้ด", isActive: true },
+  { stepCode: "DI-TEST", description: "Electrical test / ICT", isActive: true },
+  { stepCode: "DI-SOLDER", description: "Solder / บัดกรี", isActive: true },
+  { stepCode: "DI-DEJUNK", description: "Dejunk / คัดของเสีย", isActive: true },
+  { stepCode: "DI-SORT", description: "Sort / คัดเกรด", isActive: true },
+  { stepCode: "ASSY-SMT", description: "SMT assembly", isActive: true },
+  { stepCode: "ASSY-FA", description: "Final assembly", isActive: true },
+  { stepCode: "PKG-FG", description: "บรรจุสินค้าสำเร็จ (FG pack)", isActive: true },
+  { stepCode: "QA-OQC", description: "Outgoing QC", isActive: true },
+  { stepCode: "STEP-LEGACY", description: "(ตัวอย่าง) ขั้นตอนเก่าที่ปิดใช้งาน", isActive: false },
+];
 
 // Dummy data below: links admin to section/department, demo model+BOM for Material Request catalog,
 // one supplier, workflow approval (STORE approves requests), and 3 sample material requests (REQUESTED, APPROVED, ISSUED).
@@ -140,6 +159,38 @@ async function seed() {
       await db.insert(sections).values(sec).onConflictDoNothing({ target: sections.sectionCode });
     }
     console.log(`Seeded ${SECTION_SEEDS.length} sections.`);
+
+    // ─── Master routing steps (table was missing from early migrations) ──
+    const [mrsTable] = await client`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'master_routing_steps'
+      ) AS ex
+    `;
+    if (!mrsTable?.ex) {
+      console.log("Creating master_routing_steps table (run db:migrate to record migration 0022).");
+      await client`
+        CREATE TABLE "master_routing_steps" (
+          "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+          "step_code" varchar(100) NOT NULL,
+          "description" text,
+          "is_active" boolean DEFAULT true NOT NULL,
+          "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+          "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+          CONSTRAINT "master_routing_steps_step_code_unique" UNIQUE("step_code")
+        );
+      `;
+      await client`
+        CREATE INDEX "idx_master_routing_steps_active" ON "master_routing_steps" USING btree ("is_active");
+      `;
+    }
+
+    // ─── Master routing steps (catalog of allowed step_code values) ──
+    console.log("Seeding master routing steps...");
+    for (const row of MASTER_ROUTING_STEP_SEEDS) {
+      await db.insert(masterRoutingSteps).values(row).onConflictDoNothing({ target: masterRoutingSteps.stepCode });
+    }
+    console.log(`Seeded ${MASTER_ROUTING_STEP_SEEDS.length} master routing steps (skipped if step_code exists).`);
 
     // ─── Link cost centers to STORE section & set default ──
     const [storeSection] = await db.select().from(sections).where(eq(sections.sectionCode, "STORE")).limit(1);

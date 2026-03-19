@@ -37,7 +37,7 @@ export function PageLayout({
 }: PageLayoutProps) {
   return (
     <div className="flex flex-col h-full">
-      <div className="shrink-0 px-6 pt-6 pb-4">
+      <div className="shrink-0 pl-4 pr-4 pt-6 pb-4 sm:pl-5 sm:pr-5">
         <div className="flex items-center gap-6 min-w-0 flex-1">
           {showBackButton && (
             <button
@@ -67,14 +67,14 @@ export function PageLayout({
         </div>
       </div>
       {(filters || actions || toolbar) && (
-        <div className="flex flex-col gap-4 px-6 pb-4 border-b border-border">
+        <div className="flex flex-col gap-4 border-b border-border px-4 pb-4 sm:px-5">
           {toolbar && <div className="w-full">{toolbar}</div>}
           {actions && <div className="flex justify-end w-full">{actions}</div>}
           {filters && <div className="w-full">{filters}</div>}
         </div>
       )}
       <div
-        className={`flex flex-col flex-1 min-h-0 ${fullHeight ? "p-0" : "p-6"}`}
+        className={`flex flex-col flex-1 min-h-0 ${fullHeight ? "p-0" : "px-4 py-6 sm:px-5"}`}
         style={{ height: fullHeight ? "100%" : "auto" }}
       >
         <div

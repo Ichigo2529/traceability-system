@@ -19,7 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "./StatusBadge";
-import { Link2, PlusCircle, ChevronLeft } from "lucide-react";
+import { Link2, Play, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
@@ -154,33 +154,41 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
       {
         id: "actions",
         header: "Actions",
-        size: 120,
+        size: 200,
         cell: ({ row }) => {
           const rev = row.original;
           return (
-            <div className="flex items-center gap-2">
-              {rev.status !== RevisionStatus.ACTIVE && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!model?.id}
+                onClick={() => model?.id && navigate(`/admin/models/${model.id}/revisions/${rev.id}`)}
+              >
+                Configure
+                <ChevronRight className="h-3.5 w-3.5 ml-0.5" aria-hidden />
+              </Button>
+              {rev.status !== RevisionStatus.ACTIVE ? (
                 <Button
                   type="button"
                   size="sm"
-                  variant="default"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActivateTarget(rev);
-                  }}
+                  variant="secondary"
+                  onClick={() => setActivateTarget(rev)}
                   disabled={activateRevision.isPending}
                 >
-                  <PlusCircle className="h-4 w-4 mr-1" />
+                  <Play className="h-3.5 w-3.5 mr-1" aria-hidden />
                   Activate
                 </Button>
+              ) : (
+                <StatusBadge status="active" />
               )}
-              {rev.status === RevisionStatus.ACTIVE && <StatusBadge status="active" />}
             </div>
           );
         },
       },
     ],
-    [activateRevision.isPending]
+    [activateRevision.isPending, model?.id, navigate]
   );
 
   const formGrid = (
@@ -248,8 +256,7 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
                   columns={revisionColumns}
                   loading={revisionsLoading}
                   hideEmptyState={false}
-                  onRowClick={(rev) => navigate(`/admin/models/${model.id}/revisions/${rev.id}`)}
-                  actions={<Button onClick={() => setIsDraftModalOpen(true)}>New Draft</Button>}
+                  actions={<Button onClick={() => setIsDraftModalOpen(true)}>New draft</Button>}
                 />
               </div>
             )}
@@ -311,7 +318,17 @@ export function ModelDetailPanel({ model, onClose, onSaved }: ModelDetailPanelPr
                   <SelectItem value="__empty__">-- Empty Draft --</SelectItem>
                   {(revisions as ModelRevision[]).map((r) => (
                     <SelectItem key={r.id} value={r.id}>
-                      {r.revision_code} ({r.status})
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="tabular-nums">{r.revision_code}</span>
+                        <span className="text-muted-foreground">·</span>
+                        <span className="text-muted-foreground">
+                          {r.status === RevisionStatus.DRAFT
+                            ? "Draft"
+                            : r.status === RevisionStatus.ACTIVE
+                              ? "Active"
+                              : r.status}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

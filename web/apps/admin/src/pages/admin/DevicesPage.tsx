@@ -14,13 +14,14 @@ import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FormDialog } from "../../components/shared/FormDialog";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { Alert } from "@/components/ui/alert";
-import { Plus, Pencil, Wrench, Power, PowerOff, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, Pencil, Wrench, Power, PowerOff, RefreshCw } from "lucide-react";
 
 const NONE = "__none__";
 
@@ -267,17 +268,12 @@ export function DevicesPage() {
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="button-hover-scale text-destructive"
+            <DeleteIconButton
+              className="button-hover-scale"
               onClick={() => row.original.id && setDeleteTarget(row.original)}
               title="Delete Device"
               aria-label="Delete Device"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ),
       },

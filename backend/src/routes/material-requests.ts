@@ -1,5 +1,5 @@
 import Elysia, { t } from "elysia";
-import { and, asc, desc, eq, gte, inArray, lte, sql, aliasedTable } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or, sql, aliasedTable } from "drizzle-orm";
 import { db } from "../db/connection";
 import { checkAuth, checkRole } from "../middleware/auth";
 import { authDerive } from "../middleware/auth";
@@ -62,6 +62,15 @@ export async function auditConfigChange(
 function hasAnyRole(user: AccessTokenPayload | null, roles: string[]) {
   if (!user) return false;
   return roles.some((r) => user.roles?.includes(r));
+}
+
+/** Section IDs linked to the user (production can list/view MRs for their section). */
+async function getUserSectionIdsForMaterialAccess(userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ sectionId: userSections.sectionId })
+    .from(userSections)
+    .where(eq(userSections.userId, userId));
+  return rows.map((r) => r.sectionId).filter((id): id is string => Boolean(id));
 }
 
 type WorkflowApproverUser = {
@@ -406,7 +415,17 @@ materialRequestRoutes.get(
     const reqUser = aliasedTable(users, "request_user");
 
     if (!canViewAll) {
-      conditions.push(eq(materialRequests.requestedByUserId, currentUser.userId));
+      const sectionIds = await getUserSectionIdsForMaterialAccess(currentUser.userId);
+      if (sectionIds.length) {
+        conditions.push(
+          or(
+            eq(materialRequests.requestedByUserId, currentUser.userId),
+            inArray(materialRequests.requestSectionId, sectionIds)
+          )!
+        );
+      } else {
+        conditions.push(eq(materialRequests.requestedByUserId, currentUser.userId));
+      }
     }
     if (query.status) conditions.push(eq(materialRequests.status, query.status as any));
     if (query.date_from) conditions.push(gte(materialRequests.requestDate, query.date_from));
@@ -492,9 +511,9 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
   if (!canApproveMaterialRequestByWorkflow(currentUser, policy)) {
     return { success: true, data: [] };
   }
-  
+
   const reqUser = aliasedTable(users, "request_user");
-  
+
   const rows = await db
     .select({
       id: materialRequests.id,
@@ -541,6 +560,25 @@ materialRequestRoutes.get("/pending", async ({ user, set }: { user: AccessTokenP
   };
 });
 
+// GET /material-requests/meta — register before /:id so "meta" is not treated as a request UUID
+materialRequestRoutes.get("/meta", async ({ set, user }: { set: any; user: AccessTokenPayload | null }) => {
+  const unauthorized = checkAuth({ user, set });
+  if (unauthorized) return unauthorized;
+  const currentUser = user as AccessTokenPayload;
+
+  const meta = await resolveUserSectionMeta(currentUser);
+  if (!meta) {
+    set.status = 400;
+    return {
+      success: false,
+      error_code: "SECTION_NOT_SET",
+      message: "User section is not configured. Contact admin.",
+    };
+  }
+
+  return { success: true, data: meta };
+});
+
 materialRequestRoutes.get(
   "/:id",
   async ({ params, set, user }: { params: { id: string }; set: any; user: AccessTokenPayload | null }) => {
@@ -566,6 +604,7 @@ materialRequestRoutes.get(
         status: materialRequests.status,
         remarks: materialRequests.remarks,
         request_department_name: materialRequests.requestDepartmentName,
+        request_section_id: materialRequests.requestSectionId,
         requested_by_user_id: materialRequests.requestedByUserId,
         requested_by_name: reqUser.displayName,
         approved_by_user_id: materialRequests.approvedByUserId,
@@ -593,9 +632,15 @@ materialRequestRoutes.get(
     }
 
     const canViewAll = hasAnyRole(currentUser, ["STORE", "SUPERVISOR", "ADMIN"]);
-    if (!canViewAll && header.requested_by_user_id !== currentUser.userId) {
-      set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "No permission to view this request" };
+    if (!canViewAll) {
+      const isOwner = header.requested_by_user_id === currentUser.userId;
+      const sectionIds = await getUserSectionIdsForMaterialAccess(currentUser.userId);
+      const inSameSection =
+        Boolean(header.request_section_id) && sectionIds.includes(String(header.request_section_id));
+      if (!isOwner && !inSameSection) {
+        set.status = 403;
+        return { success: false, error_code: "FORBIDDEN", message: "No permission to view this request" };
+      }
     }
 
     const items = await db
@@ -664,13 +709,19 @@ materialRequestRoutes.get(
       receivedByName = receivedByUser?.display_name ?? receivedByUser?.email ?? null;
     }
 
-    // Fetch handover batch number for QR code on voucher
-    const [batchRow] = await db
-      .select({ batch_no: handoverBatches.batchNo })
-      .from(handoverBatches)
-      .where(eq(handoverBatches.materialRequestId, params.id))
-      .orderBy(asc(handoverBatches.createdAt))
-      .limit(1);
+    // Fetch handover batch number for QR code on voucher (optional if table not migrated yet)
+    let handoverBatchNo: string | null = null;
+    try {
+      const [batchRow] = await db
+        .select({ batch_no: handoverBatches.batchNo })
+        .from(handoverBatches)
+        .where(eq(handoverBatches.materialRequestId, params.id))
+        .orderBy(asc(handoverBatches.createdAt))
+        .limit(1);
+      handoverBatchNo = batchRow?.batch_no ?? null;
+    } catch {
+      // relation "handover_batches" may not exist if migrations not run; detail view still works
+    }
 
     return {
       success: true,
@@ -679,7 +730,7 @@ materialRequestRoutes.get(
         issued_by_name: issuedByName,
         received_by_name: receivedByName,
         received_at: header.received_by_user_id ? header.updated_at : null,
-        handover_batch_no: batchRow?.batch_no ?? null,
+        handover_batch_no: handoverBatchNo,
         alert_status: "UNTRACKED",
         alert_recipients: alertRecipients,
         items: items.map((item) => ({
@@ -775,25 +826,6 @@ export async function resolveUserSectionMeta(currentUser: AccessTokenPayload) {
     default_cost_center_id: defaultCC?.cost_center_id ?? null,
   };
 }
-
-// GET /material-requests/meta
-materialRequestRoutes.get("/meta", async ({ set, user }: { set: any; user: AccessTokenPayload | null }) => {
-  const unauthorized = checkAuth({ user, set });
-  if (unauthorized) return unauthorized;
-  const currentUser = user as AccessTokenPayload;
-
-  const meta = await resolveUserSectionMeta(currentUser);
-  if (!meta) {
-    set.status = 400;
-    return {
-      success: false,
-      error_code: "SECTION_NOT_SET",
-      message: "User section is not configured. Contact admin.",
-    };
-  }
-
-  return { success: true, data: meta };
-});
 
 materialRequestRoutes.post(
   "/",
@@ -1061,7 +1093,11 @@ materialRequestRoutes.get(
     const workflowPolicy = await getMaterialWorkflowPolicy();
     if (!canStoreHandleIssue(currentUser, workflowPolicy)) {
       set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "Requires STORE/SUPERVISOR role or workflow approver permission" };
+      return {
+        success: false,
+        error_code: "FORBIDDEN",
+        message: "Requires STORE/SUPERVISOR role or workflow approver permission",
+      };
     }
 
     const [header] = await db
@@ -1305,7 +1341,11 @@ materialRequestRoutes.post(
     const workflowPolicy = await getMaterialWorkflowPolicy();
     if (!canStoreHandleIssue(currentUser, workflowPolicy)) {
       set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "Requires STORE/SUPERVISOR role or workflow approver permission" };
+      return {
+        success: false,
+        error_code: "FORBIDDEN",
+        message: "Requires STORE/SUPERVISOR role or workflow approver permission",
+      };
     }
 
     const [existing] = await db.select().from(materialRequests).where(eq(materialRequests.id, params.id)).limit(1);
@@ -1493,7 +1533,13 @@ materialRequestRoutes.post(
         // We need the inserted IDs, so we re-select them. Since this is in tx,
         // it's safe to select by materialRequestId = params.id
         const currentIssues = await tx
-          .select({ id: materialRequestItemIssues.id, partNumber: materialRequestItemIssues.partNumber, doNumber: materialRequestItemIssues.doNumber, issuedQty: materialRequestItemIssues.issuedQty, issuedPacks: materialRequestItemIssues.issuedPacks })
+          .select({
+            id: materialRequestItemIssues.id,
+            partNumber: materialRequestItemIssues.partNumber,
+            doNumber: materialRequestItemIssues.doNumber,
+            issuedQty: materialRequestItemIssues.issuedQty,
+            issuedPacks: materialRequestItemIssues.issuedPacks,
+          })
           .from(materialRequestItemIssues)
           .where(eq(materialRequestItemIssues.materialRequestId, params.id));
 
@@ -1651,7 +1697,10 @@ materialRequestRoutes.post(
     user,
   }: {
     params: { id: string };
-    body: { scans: Array<{ part_number: string; do_number: string; scan_data: string; pack_count?: number }>; remarks?: string };
+    body: {
+      scans: Array<{ part_number: string; do_number: string; scan_data: string; pack_count?: number }>;
+      remarks?: string;
+    };
     set: any;
     user: AccessTokenPayload | null;
   }) => {
@@ -1919,7 +1968,11 @@ materialRequestRoutes.post(
     const isAdmin = hasAnyRole(currentUser, ["ADMIN"]);
     if (!isOwner && !isAdmin) {
       set.status = 403;
-      return { success: false, error_code: "FORBIDDEN", message: "Only request owner or ADMIN can withdraw this request" };
+      return {
+        success: false,
+        error_code: "FORBIDDEN",
+        message: "Only request owner or ADMIN can withdraw this request",
+      };
     }
 
     const reason = String(body.reason ?? "").trim();

@@ -8,11 +8,13 @@ import { Role } from "@traceability/sdk";
 import { sdk } from "../../context/AuthContext";
 import { DataTable } from "../../components/shared/DataTable";
 import { FormDialog } from "../../components/shared/FormDialog";
+import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { ApiErrorBanner } from "../../components/ui/ApiErrorBanner";
 import { formatApiError } from "../../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +33,7 @@ export function RolesPage() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Role | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Role | null>(null);
   const { showToast } = useToast();
   const { data: roles = [], isLoading: rolesLoading } = useQuery({
     queryKey: ["roles"],
@@ -63,6 +66,15 @@ export function RolesPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => sdk.admin.deleteRole(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      setDeleteTarget(null);
+      showToast("Role deleted");
+    },
+  });
+
   const columns = useMemo<ColumnDef<Role>[]>(
     () => [
       { id: "name", header: "Role", accessorKey: "name" },
@@ -81,24 +93,33 @@ export function RolesPage() {
         id: "actions",
         header: "Actions",
         cell: ({ row }) => (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              setEditing(row.original);
-              form.reset({
-                name: row.original.name,
-                description: row.original.description || "",
-                permissions: row.original.permissions || [],
-              });
-              setOpen(true);
-            }}
-            title="Edit Role"
-            aria-label="Edit Role"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setEditing(row.original);
+                form.reset({
+                  name: row.original.name,
+                  description: row.original.description || "",
+                  permissions: row.original.permissions || [],
+                });
+                setOpen(true);
+              }}
+              title="Edit Role"
+              aria-label="Edit Role"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            {row.original.name !== "ADMIN" && (
+              <DeleteIconButton
+                onClick={() => setDeleteTarget(row.original)}
+                title="Delete Role"
+                aria-label={`Delete role ${row.original.name}`}
+              />
+            )}
+          </div>
         ),
       },
     ],
@@ -129,7 +150,9 @@ export function RolesPage() {
               ? formatApiError(createMutation.error)
               : updateMutation.error
                 ? formatApiError(updateMutation.error)
-                : undefined
+                : deleteMutation.error
+                  ? formatApiError(deleteMutation.error)
+                  : undefined
           }
         />
         <DataTable
@@ -213,6 +236,24 @@ export function RolesPage() {
           </div>
         </div>
       </FormDialog>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete role"
+        description={
+          deleteTarget
+            ? `Delete role “${deleteTarget.name}”? Users assigned only this role will lose it; approval rules using this role may be cleared.`
+            : ""
+        }
+        confirmText="Delete"
+        destructive
+        submitting={deleteMutation.isPending}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          deleteMutation.mutate(deleteTarget.id);
+        }}
+      />
     </PageLayout>
   );
 }

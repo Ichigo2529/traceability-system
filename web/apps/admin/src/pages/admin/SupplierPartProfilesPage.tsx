@@ -16,11 +16,12 @@ import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, FilterX } from "lucide-react";
+import { Plus, Pencil, FilterX } from "lucide-react";
 
 const schema = z.object({
   vendor_id: z.string().min(1),
@@ -146,16 +147,11 @@ export function SupplierPartProfilesPage() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
+            <DeleteIconButton
               onClick={() => setDeleteTarget(row.original)}
               title="Delete Profile"
               aria-label="Delete Profile"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ),
       },

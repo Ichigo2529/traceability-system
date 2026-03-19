@@ -15,11 +15,13 @@ import { formatApiError } from "../../lib/errors";
 import { ConfirmDialog } from "../../components/shared/ConfirmDialog";
 import { PageLayout } from "@traceability/ui";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "../../hooks/useToast";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, GitBranch } from "lucide-react";
+import { ModelsBreadcrumb } from "../../components/models/ModelsBreadcrumb";
 
 const modelSchema = z.object({
   code: z.string().min(1, "Code is required"),
@@ -104,35 +106,93 @@ export function ModelsPage() {
 
   const columns = useMemo<ColumnDef<Model>[]>(
     () => [
-      { id: "code", header: "Model Code", accessorKey: "code", minSize: 120 },
-      { id: "name", header: "Model Name", accessorKey: "name", minSize: 200 },
+      {
+        id: "code",
+        header: "Code",
+        accessorKey: "code",
+        minSize: 88,
+        maxSize: 140,
+        meta: { flex: 0.9 },
+      },
+      {
+        id: "name",
+        header: "Name",
+        accessorKey: "name",
+        minSize: 100,
+        maxSize: 240,
+        meta: { flex: 1.4 },
+      },
       {
         id: "part_number",
-        header: "Part Number",
+        header: "Part #",
         accessorKey: "part_number",
-        minSize: 140,
-        cell: ({ row }) => row.original.part_number || "-",
+        minSize: 72,
+        maxSize: 120,
+        meta: { flex: 0.85 },
+        cell: ({ row }) => row.original.part_number || "—",
       },
-      { id: "pack_size", header: "FOF Tray Pack Size", accessorKey: "pack_size", minSize: 140 },
+      {
+        id: "pack_size",
+        header: "Pack",
+        accessorKey: "pack_size",
+        size: 52,
+        minSize: 48,
+        maxSize: 56,
+        meta: { fixed: true },
+      },
       {
         id: "active_revision",
-        header: "Active Revision",
+        header: "Rev",
         accessorKey: "active_revision_code",
-        minSize: 140,
-        cell: ({ row }) => row.original.active_revision_code || "-",
+        size: 56,
+        minSize: 52,
+        maxSize: 64,
+        meta: { fixed: true },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-muted-foreground">{row.original.active_revision_code || "—"}</span>
+        ),
       },
       {
         id: "status",
         header: "Status",
-        minSize: 100,
+        size: 76,
+        minSize: 72,
+        maxSize: 88,
+        meta: { fixed: true },
         cell: ({ row }) => <StatusBadge status={row.original.active ? "active" : "disabled"} />,
       },
       {
-        id: "actions",
-        header: "Actions",
-        size: 100,
+        id: "revisions",
+        header: "Revs",
+        size: 52,
+        minSize: 48,
+        maxSize: 52,
+        meta: { fixed: true },
         cell: ({ row }) => (
-          <div className="flex gap-2">
+          <div className="flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              title={`Revisions — ${row.original.code}`}
+              aria-label={`Open revisions for ${row.original.code}`}
+              onClick={() => navigate(`/admin/models/${row.original.id}`)}
+            >
+              <GitBranch className="h-4 w-4" aria-hidden />
+            </Button>
+          </div>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Edit",
+        size: 76,
+        minSize: 72,
+        maxSize: 80,
+        meta: { fixed: true },
+        cell: ({ row }) => (
+          <div className="flex gap-1">
             <Button
               type="button"
               variant="ghost"
@@ -140,7 +200,7 @@ export function ModelsPage() {
               title="Edit Model"
               aria-label="Edit Model"
               onClick={(e) => {
-                e.stopPropagation();
+                e.preventDefault();
                 const model = row.original;
                 setEditing(model);
                 editingRef.current = model;
@@ -157,32 +217,30 @@ export function ModelsPage() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
+            <DeleteIconButton
               title="Delete Model"
               aria-label="Delete Model"
               onClick={(e) => {
-                e.stopPropagation();
+                e.preventDefault();
                 setDeleteTarget(row.original);
               }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ),
       },
     ],
-    [form]
+    [form, navigate]
   );
 
   return (
     <PageLayout
       title="Models"
       subtitle={
-        <div className="flex items-center gap-2">
-          <span>Manage product models and specifications</span>
+        <div className="flex flex-col gap-2">
+          <ModelsBreadcrumb items={[{ label: "Models" }]} />
+          <span className="text-muted-foreground">
+            Product models and tray pack settings. Open revisions to manage BOM and routing.
+          </span>
         </div>
       }
       icon="product"
@@ -207,7 +265,6 @@ export function ModelsPage() {
           columns={columns}
           loading={isLoading}
           filterPlaceholder="Search models..."
-          onRowClick={(row) => navigate(`/admin/models/${row.id}`)}
           actions={
             <Button
               className="button-hover-scale"

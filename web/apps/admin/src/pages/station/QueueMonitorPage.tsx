@@ -6,6 +6,7 @@ import { EmptyState } from "../../components/shared/States";
 import { ConfirmDialog } from "@traceability/ui";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Badge } from "../../components/ui/badge";
 import { Alert, AlertDescription } from "../../components/ui/alert";
 import { AlertTriangle } from "lucide-react";
@@ -110,14 +111,13 @@ export function QueueMonitorPage() {
                       <td className="px-4 py-3 text-muted-foreground">{event.last_error || "-"}</td>
                       <td className="px-4 py-3 text-muted-foreground">{formatDateTime(event.created_at)}</td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
+                        <DeleteIconButton
+                          className="h-8 w-8 shrink-0"
+                          title="Remove from queue"
+                          aria-label="Remove event from queue"
                           disabled={busy || event.id === undefined}
                           onClick={() => event.id !== undefined && removeEvent(event.id)}
-                        >
-                          Remove
-                        </Button>
+                        />
                       </td>
                     </tr>
                   ))}

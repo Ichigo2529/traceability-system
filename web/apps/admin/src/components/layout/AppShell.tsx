@@ -16,7 +16,8 @@ import { getNavIcon } from "./nav-icons";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "../../context/ThemeContext";
 import { Suspense } from "react";
-import { Sun, Moon, Bell, Loader2, User, LogOut, Search } from "lucide-react";
+import { Sun, Moon, Bell, Loader2, User, LogOut, Search, Menu } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "../ui/sheet";
 type AdminGroup = "overview" | "master-data" | "engineering" | "operations" | "governance";
 type StationGroup = "setup" | "production" | "monitor" | "materials" | "history";
 
@@ -208,6 +209,7 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
   const location = useLocation();
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const nav =
     mode === "admin"
@@ -248,9 +250,21 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
       style={{ height: "100vh", display: "flex", flexDirection: "column" }}
     >
       {/* Header — brand (left) | actions (right) */}
-      <header className="flex items-center justify-between h-14 border-b bg-background/95 backdrop-blur-sm px-4 shrink-0 z-10">
-        {/* Left: Brand */}
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="flex items-center justify-between h-14 border-b bg-background/95 backdrop-blur-sm px-3 sm:px-4 shrink-0 z-20">
+        {/* Left: Mobile menu + Brand */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="lg:hidden h-9 w-9 shrink-0"
+            aria-label={mobileNavOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileNavOpen}
+            aria-controls="mobile-navigation"
+            onClick={() => setMobileNavOpen((open) => !open)}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
           <button
             type="button"
             onClick={() => navigate(mode === "admin" ? "/admin" : "/station/login")}
@@ -266,7 +280,7 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center justify-end gap-0.5">
+        <div className="flex items-center justify-end gap-0.5 shrink-0">
           {/* Theme toggle */}
           <Button
             variant="ghost"
@@ -343,10 +357,109 @@ export const AppShell = memo(function AppShell({ mode }: { mode: "admin" | "stat
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent
+          side="left"
+          disableOutsidePointerEvents={false}
+          overlayClassName="top-14"
+          className="top-14 h-[calc(100vh-3.5rem)] bg-sidebar border-sidebar-border p-0 w-[min(100vw-1rem,300px)] max-w-[90vw]"
+        >
+          <SheetHeader className="border-b border-sidebar-border px-4 py-3 text-left space-y-0">
+            <SheetTitle className="text-base font-semibold">
+              {mode === "admin" ? "Admin Console" : "Station"}
+            </SheetTitle>
+          </SheetHeader>
+          <div id="mobile-navigation" className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="px-2 pt-2 pb-1 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search menu…"
+                  value={searchValue}
+                  onChange={(e) => setSearchValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleSearch(searchValue);
+                      setMobileNavOpen(false);
+                    }
+                  }}
+                  className="h-8 pl-8 text-sm bg-muted/50 border-muted-foreground/20 focus-visible:bg-background"
+                  aria-label="Search menu"
+                />
+              </div>
+            </div>
+            <nav className="flex flex-col py-2 px-2 overflow-y-auto flex-1" aria-label="Mobile navigation">
+              {(mode === "admin" ? adminNavSections : stationNavSections).map((section, sectionIdx) => {
+                const items = nav.filter((n) => n.group === section.key);
+                if (items.length === 0) return null;
+                return (
+                  <div key={section.key} className={cn("flex flex-col", sectionIdx > 0 && "mt-1")}>
+                    {sectionIdx > 0 && <div className="mx-3 my-2 border-t border-border" />}
+                    <p className="px-3 pt-1 pb-1 text-xs font-medium tracking-wide text-muted-foreground select-none">
+                      {section.title}
+                    </p>
+                    {items.map((item) => {
+                      const normalizedTo = item.to.replace(/\/$/, "");
+                      const isSelected =
+                        mode === "admin"
+                          ? normalizedTo === "/admin"
+                            ? normalizedPath === "/admin"
+                            : normalizedPath === normalizedTo || normalizedPath.startsWith(normalizedTo + "/")
+                          : location.pathname === item.to;
+                      const Icon = getNavIcon(item.icon);
+                      return (
+                        <button
+                          key={item.to}
+                          type="button"
+                          onClick={() => {
+                            navigate(item.to);
+                            setMobileNavOpen(false);
+                          }}
+                          className={cn(
+                            "group flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors duration-150",
+                            isSelected
+                              ? "bg-primary text-primary-foreground font-medium"
+                              : "text-foreground/80 hover:bg-accent hover:text-accent-foreground"
+                          )}
+                          aria-current={isSelected ? "page" : undefined}
+                        >
+                          <Icon
+                            className={cn(
+                              "h-4 w-4 shrink-0",
+                              isSelected
+                                ? "text-primary-foreground"
+                                : "text-muted-foreground group-hover:text-foreground"
+                            )}
+                          />
+                          <span className="truncate text-sm leading-5">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              <div className="mt-4 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileNavOpen(false);
+                    logout();
+                  }}
+                  className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                >
+                  <LogOut className="h-4 w-4 shrink-0" />
+                  Sign Out
+                </button>
+              </div>
+            </nav>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        {/* Sidebar — desktop only */}
         <aside
-          className="flex flex-col border-r bg-sidebar w-[260px] shrink-0 overflow-y-auto"
+          className="hidden lg:flex flex-col border-r bg-sidebar w-[260px] shrink-0 overflow-y-auto"
           aria-label="Main navigation menu"
         >
           {/* Sidebar: menu search (find page by name) */}

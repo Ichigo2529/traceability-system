@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
 import { ApiError } from "@traceability/sdk";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { sdk } from "../context/AuthContext";
 
 function currentRoutePath() {

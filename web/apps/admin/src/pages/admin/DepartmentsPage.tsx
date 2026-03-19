@@ -16,11 +16,12 @@ import { PageLayout } from "@traceability/ui";
 import { useToast } from "../../hooks/useToast";
 import { getSections } from "../../lib/section-api";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 
 const SELECT_NONE = "__none__";
 
@@ -128,16 +129,11 @@ export function DepartmentsPage() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
+            <DeleteIconButton
               onClick={() => setDisableTarget(row.original)}
               title="Disable Department"
               aria-label="Disable Department"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ),
       },

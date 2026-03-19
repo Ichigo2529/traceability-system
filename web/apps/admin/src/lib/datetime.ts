@@ -9,13 +9,13 @@ function toValidDate(value?: string | number | Date | null) {
 
 export function formatDate(value?: string | number | Date | null, locale = DEFAULT_LOCALE) {
   const date = toValidDate(value);
-  if (!date) return "-";
+  if (!date) return "—";
   return date.toLocaleDateString(locale, { timeZone: APP_TIMEZONE });
 }
 
 export function formatDateTime(value?: string | number | Date | null, locale = DEFAULT_LOCALE) {
   const date = toValidDate(value);
-  if (!date) return "-";
+  if (!date) return "—";
   return date.toLocaleString(locale, {
     timeZone: APP_TIMEZONE,
     day: "2-digit",
@@ -30,7 +30,7 @@ export function formatDateTime(value?: string | number | Date | null, locale = D
 
 export function formatTime(value?: string | number | Date | null, locale = DEFAULT_LOCALE) {
   const date = toValidDate(value);
-  if (!date) return "-";
+  if (!date) return "—";
   return date.toLocaleTimeString(locale, {
     timeZone: APP_TIMEZONE,
     hour: "2-digit",
@@ -39,4 +39,3 @@ export function formatTime(value?: string | number | Date | null, locale = DEFAU
     hour12: false,
   });
 }
-

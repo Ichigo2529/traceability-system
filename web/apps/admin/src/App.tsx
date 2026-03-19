@@ -23,7 +23,7 @@ export default function App() {
             <Toaster
               position="top-center"
               richColors
-              closeButton
+              closeButton={false}
               duration={5000}
               toastOptions={{
                 style: { fontFamily: "Inter, sans-serif" },

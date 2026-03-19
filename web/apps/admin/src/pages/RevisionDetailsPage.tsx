@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ColumnDef } from "@tanstack/react-table";
 import { sdk } from "../context/AuthContext";
@@ -8,6 +8,7 @@ import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { formatApiError } from "../lib/errors";
 import { DataTable } from "../components/shared/DataTable";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PageLayout } from "@traceability/ui";
@@ -16,15 +17,35 @@ import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { VariantDialog, VariantForm } from "../components/shared/VariantDialog";
 import { RoutingDialog, RoutingForm } from "../components/shared/RoutingDialog";
 import { BindingDialog, BindingForm } from "../components/shared/BindingDialog";
-import { ArrowLeft, Plus, Pencil, Trash2, Layers, Package, List, Link2 } from "lucide-react";
+import { Plus, Pencil, Layers, Package, List, Link2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ModelsBreadcrumb } from "../components/models/ModelsBreadcrumb";
 
-// Schemas and types moved to shared component files
+const REVISION_TAB_KEYS = ["variants", "bom", "routing", "bindings"] as const;
+type RevisionTabKey = (typeof REVISION_TAB_KEYS)[number];
 
 export default function RevisionDetailsPage() {
   const { id: modelId, revisionId } = useParams<{ id: string; revisionId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<"variants" | "bom" | "routing" | "bindings">("variants");
+
+  const tabParam = searchParams.get("tab");
+  const tab: RevisionTabKey = REVISION_TAB_KEYS.includes(tabParam as RevisionTabKey)
+    ? (tabParam as RevisionTabKey)
+    : "variants";
+
+  const setTab = (key: RevisionTabKey) => {
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        if (key === "variants") n.delete("tab");
+        else n.set("tab", key);
+        return n;
+      },
+      { replace: true }
+    );
+  };
   const [bomDialogOpen, setBomDialogOpen] = useState(false);
   const [editingBomRow, setEditingBomRow] = useState<BomRow | null>(null);
   const [variantDialogOpen, setVariantDialogOpen] = useState(false);
@@ -364,16 +385,14 @@ export default function RevisionDetailsPage() {
               >
                 <Pencil className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
+              <DeleteIconButton
+                title="Delete variant"
+                aria-label="Delete variant"
                 onClick={(e) => {
                   e.stopPropagation();
                   setDeleteTarget({ id: v.id, type: "variant" });
                 }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              />
             </div>
           );
         },
@@ -436,16 +455,14 @@ export default function RevisionDetailsPage() {
               >
                 <Pencil className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
+              <DeleteIconButton
+                title="Delete BOM row"
+                aria-label="Delete BOM row"
                 onClick={(e) => {
                   e.stopPropagation();
                   setDeleteTarget({ id: b.id, type: "bom" });
                 }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              />
             </div>
           );
         },
@@ -506,16 +523,14 @@ export default function RevisionDetailsPage() {
               >
                 <Pencil className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
+              <DeleteIconButton
+                title="Delete routing step"
+                aria-label="Delete routing step"
                 onClick={(e) => {
                   e.stopPropagation();
                   setDeleteTarget({ id: r.id, type: "routing" });
                 }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              />
             </div>
           );
         },
@@ -561,16 +576,14 @@ export default function RevisionDetailsPage() {
               >
                 <Pencil className="h-4 w-4" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
+              <DeleteIconButton
+                title="Delete binding"
+                aria-label="Delete label binding"
                 onClick={(e) => {
                   e.stopPropagation();
                   setDeleteTarget({ id: b.id, type: "binding" });
                 }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              />
             </div>
           );
         },
@@ -603,171 +616,159 @@ export default function RevisionDetailsPage() {
   }
 
   const revCode = revision.revision_code;
-  const modelName = (revision as any).model?.name || "Model";
-  const modelCode = (revision as any).model?.code || "";
-
-  const tabButtons = [
-    { key: "variants" as const, label: "Variants", icon: Layers },
-    { key: "bom" as const, label: "BOM", icon: Package },
-    { key: "routing" as const, label: "Routing", icon: List },
-    { key: "bindings" as const, label: "Bindings", icon: Link2 },
-  ];
+  const modelName = model?.name || (revision as { model?: { name?: string } }).model?.name || "Model";
+  const modelCode = model?.code || (revision as { model?: { code?: string } }).model?.code || "";
 
   return (
     <PageLayout
-      title={`Revision: ${revCode}`}
+      title={`${modelCode} · ${revCode}`}
       subtitle={
-        <div className="flex items-center gap-2">
-          <span>
-            {modelName} ({modelCode}) — Revision details and BOM profile
+        <div className="flex flex-col gap-2">
+          <ModelsBreadcrumb
+            items={[
+              { label: "Models", to: "/admin/models" },
+              { label: modelCode || "Model", to: `/admin/models/${modelId}` },
+              { label: `Revision ${revCode}` },
+            ]}
+          />
+          <span className="text-muted-foreground">
+            {modelName} — Variants, BOM, routing, label bindings. Tab choice is saved in the URL (shareable).
           </span>
         </div>
       }
       icon="product"
       iconColor="indigo"
+      showBackButton
+      onBackClick={() => navigate(`/admin/models/${modelId}`)}
     >
       <div className="flex flex-col gap-4">
         <ApiErrorBanner message={errorMessage} />
 
-        <div className="relative">
-          {isReadOnly && (
-            <div className="mb-2">
-              <span className="text-sm font-semibold text-green-600">Read-only (ACTIVE)</span>
-            </div>
-          )}
-          <div className="flex gap-1 border-b mb-3">
-            {tabButtons.map(({ key, label, icon: Icon }) => (
-              <Button key={key} variant={tab === key ? "secondary" : "ghost"} size="sm" onClick={() => setTab(key)}>
-                <Icon className="h-4 w-4 mr-1" />
-                {label}
-              </Button>
-            ))}
-          </div>
+        {isReadOnly && (
+          <Alert>
+            <AlertDescription>
+              This revision is <strong>active</strong> (production). Configuration is read-only; clone a new draft from
+              the revisions list to edit.
+            </AlertDescription>
+          </Alert>
+        )}
 
-          {tab === "variants" && (
-            <div className="page-container tab-content-container">
-              <DataTable
-                data={variants as Variant[]}
-                columns={variantColumns}
-                filterPlaceholder="Search variants…"
-                hideEmptyState={true}
-                actions={
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/models/${modelId}`)}>
-                      <ArrowLeft className="h-4 w-4 mr-1" />
-                      Back to Revisions
-                    </Button>
-                    {!isReadOnly && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setEditingVariant(null);
-                          setVariantDialogOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Variant
-                      </Button>
-                    )}
-                  </div>
-                }
-              />
-            </div>
-          )}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as RevisionTabKey)} className="w-full">
+          <TabsList className="mb-3 h-auto w-full flex-wrap justify-start gap-1 sm:w-auto">
+            <TabsTrigger value="variants" className="gap-1.5">
+              <Layers className="h-4 w-4 shrink-0" aria-hidden />
+              Variants
+            </TabsTrigger>
+            <TabsTrigger value="bom" className="gap-1.5">
+              <Package className="h-4 w-4 shrink-0" aria-hidden />
+              BOM
+            </TabsTrigger>
+            <TabsTrigger value="routing" className="gap-1.5">
+              <List className="h-4 w-4 shrink-0" aria-hidden />
+              Routing
+            </TabsTrigger>
+            <TabsTrigger value="bindings" className="gap-1.5">
+              <Link2 className="h-4 w-4 shrink-0" aria-hidden />
+              Bindings
+            </TabsTrigger>
+          </TabsList>
 
-          {tab === "bom" && (
-            <div className="page-container tab-content-container">
-              <DataTable
-                data={bom as BomRow[]}
-                columns={bomColumns}
-                filterPlaceholder="Search BOM…"
-                hideEmptyState={true}
-                actions={
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/models/${modelId}`)}>
-                      <ArrowLeft className="h-4 w-4 mr-1" />
-                      Back to Revisions
-                    </Button>
-                    {!isReadOnly && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setEditingBomRow(null);
-                          setBomDialogOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Row
-                      </Button>
-                    )}
-                  </div>
-                }
-              />
-            </div>
-          )}
+          <TabsContent value="variants" className="page-container tab-content-container mt-0 outline-none">
+            <DataTable
+              data={variants as Variant[]}
+              columns={variantColumns}
+              filterPlaceholder="Search variants…"
+              hideEmptyState={true}
+              actions={
+                !isReadOnly ? (
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setEditingVariant(null);
+                      setVariantDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" aria-hidden />
+                    Add variant
+                  </Button>
+                ) : undefined
+              }
+            />
+          </TabsContent>
 
-          {tab === "routing" && (
-            <div className="page-container tab-content-container">
-              <DataTable
-                data={routing as RoutingStep[]}
-                columns={routingColumns}
-                filterPlaceholder="Search steps…"
-                hideEmptyState={true}
-                actions={
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/models/${modelId}`)}>
-                      <ArrowLeft className="h-4 w-4 mr-1" />
-                      Back to Revisions
-                    </Button>
-                    {!isReadOnly && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setEditingRouting(null);
-                          setRoutingDialogOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Step
-                      </Button>
-                    )}
-                  </div>
-                }
-              />
-            </div>
-          )}
+          <TabsContent value="bom" className="page-container tab-content-container mt-0 outline-none">
+            <DataTable
+              data={bom as BomRow[]}
+              columns={bomColumns}
+              filterPlaceholder="Search BOM…"
+              hideEmptyState={true}
+              actions={
+                !isReadOnly ? (
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setEditingBomRow(null);
+                      setBomDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" aria-hidden />
+                    Add row
+                  </Button>
+                ) : undefined
+              }
+            />
+          </TabsContent>
 
-          {tab === "bindings" && (
-            <div className="page-container tab-content-container">
-              <DataTable
-                data={bindings as LabelBinding[]}
-                columns={bindingColumns}
-                filterPlaceholder="Search bindings…"
-                hideEmptyState={true}
-                actions={
-                  <div className="flex gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/models/${modelId}`)}>
-                      <ArrowLeft className="h-4 w-4 mr-1" />
-                      Back to Revisions
-                    </Button>
-                    {!isReadOnly && (
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setEditingBinding(null);
-                          setBindingDialogOpen(true);
-                        }}
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Binding
-                      </Button>
-                    )}
-                  </div>
-                }
-              />
-            </div>
-          )}
-        </div>
+          <TabsContent value="routing" className="page-container tab-content-container mt-0 outline-none">
+            <DataTable
+              data={routing as RoutingStep[]}
+              columns={routingColumns}
+              filterPlaceholder="Search steps…"
+              hideEmptyState={true}
+              actions={
+                !isReadOnly ? (
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setEditingRouting(null);
+                      setRoutingDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" aria-hidden />
+                    Add step
+                  </Button>
+                ) : undefined
+              }
+            />
+          </TabsContent>
+
+          <TabsContent value="bindings" className="page-container tab-content-container mt-0 outline-none">
+            <DataTable
+              data={bindings as LabelBinding[]}
+              columns={bindingColumns}
+              filterPlaceholder="Search bindings…"
+              hideEmptyState={true}
+              actions={
+                !isReadOnly ? (
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      setEditingBinding(null);
+                      setBindingDialogOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" aria-hidden />
+                    Add binding
+                  </Button>
+                ) : undefined
+              }
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* ── BOM Dialog ──────────────────────────────────────────────────────── */}

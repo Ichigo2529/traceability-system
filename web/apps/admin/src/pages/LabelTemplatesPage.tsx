@@ -9,13 +9,14 @@ import { formatDateTime } from "../lib/datetime";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../hooks/useToast";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { ColumnDef } from "@tanstack/react-table";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 
 const EMPTY = { name: "", revision_id: "", template_body: "{}", description: "" };
 
@@ -133,17 +134,12 @@ export default function LabelTemplatesPage() {
             >
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
+            <DeleteIconButton
               className="button-hover-scale"
               onClick={() => setDeleteTarget(row.original)}
               title="Delete Template"
               aria-label="Delete Template"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            />
           </div>
         ),
       },

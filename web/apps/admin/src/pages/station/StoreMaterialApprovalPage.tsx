@@ -24,7 +24,7 @@ import { MaterialRequestVoucherView } from "../../components/material/MaterialRe
 import { useIssueAllocationWorkbench } from "../../hooks/useIssueAllocationWorkbench";
 import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
 import { formatDateTime } from "../../lib/datetime";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import {
   Document as PdfDocument,
   Image as PdfImage,

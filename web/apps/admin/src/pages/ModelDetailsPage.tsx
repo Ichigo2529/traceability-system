@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sdk } from "../context/AuthContext";
@@ -14,16 +14,34 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Plus, Link2, Play } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ArrowLeft, Plus, Play, ChevronRight } from "lucide-react";
+import { StatusBadge } from "../components/shared/StatusBadge";
+import { ModelsBreadcrumb } from "../components/models/ModelsBreadcrumb";
+import { useToast } from "../hooks/useToast";
 
 export default function ModelDetailsPage() {
   const { id: modelId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [layout, setLayout] = useState<"OneColumn" | "TwoColumnsStartExpanded">("OneColumn");
+  const { showToast } = useToast();
+  const [isDraftDialogOpen, setIsDraftDialogOpen] = useState(false);
   const [newRevisionCode, setNewRevisionCode] = useState("");
   const [cloneFromRevisionId, setCloneFromRevisionId] = useState("");
   const [activateTarget, setActivateTarget] = useState<ModelRevision | null>(null);
+
+  const { data: model } = useQuery({
+    queryKey: ["model", modelId],
+    queryFn: () => sdk.admin.getModels().then((models) => models.find((m) => m.id === modelId)),
+    enabled: !!modelId,
+  });
 
   const { data: revisions = [], isLoading } = useQuery({
     queryKey: ["models", modelId, "revisions"],
@@ -34,14 +52,16 @@ export default function ModelDetailsPage() {
   const createRevision = useMutation({
     mutationFn: async () =>
       sdk.admin.createRevision(modelId!, {
-        revision_code: newRevisionCode,
+        revision_code: newRevisionCode.trim(),
         clone_from_revision_id: cloneFromRevisionId || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["models", modelId, "revisions"] });
-      setLayout("OneColumn");
+      queryClient.invalidateQueries({ queryKey: ["models"] });
+      setIsDraftDialogOpen(false);
       setNewRevisionCode("");
       setCloneFromRevisionId("");
+      showToast("Draft revision created");
     },
   });
 
@@ -49,81 +69,102 @@ export default function ModelDetailsPage() {
     mutationFn: async (revisionId: string) => sdk.admin.activateRevision(modelId!, revisionId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["models", modelId, "revisions"] });
+      queryClient.invalidateQueries({ queryKey: ["models"] });
       setActivateTarget(null);
+      showToast("Revision activated for production");
     },
   });
 
-  const columns = [
-    {
-      header: "Revision",
-      accessorKey: "revision_code" as const,
-      size: 160,
-      cell: ({ row }: { row: { original: ModelRevision } }) => {
-        const rev = row.original;
-        const isActive = rev.status === RevisionStatus.ACTIVE;
-        return (
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                isActive
-                  ? "bg-gradient-to-br from-green-400 to-blue-500"
-                  : "bg-gradient-to-br from-indigo-500 to-purple-600"
-              }`}
-            >
-              <Link2 className="h-3.5 w-3.5 text-white" />
+  const columns = useMemo(
+    () => [
+      {
+        id: "revision_code",
+        header: "Revision",
+        accessorKey: "revision_code" as const,
+        size: 140,
+        cell: ({ row }: { row: { original: ModelRevision } }) => {
+          const rev = row.original;
+          const isActive = rev.status === RevisionStatus.ACTIVE;
+          return (
+            <div className="flex items-center gap-2 min-w-0">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                aria-hidden
+              />
+              <span className="font-semibold truncate">{rev.revision_code}</span>
             </div>
-            <span className="font-bold">{rev.revision_code}</span>
-          </div>
-        );
+          );
+        },
       },
-    },
-    {
-      header: "Status",
-      accessorKey: "status" as const,
-      size: 140,
-      cell: ({ row }: { row: { original: ModelRevision } }) => {
-        const rev = row.original;
-        const cls =
-          rev.status === RevisionStatus.ACTIVE
-            ? "text-green-600"
-            : rev.status === RevisionStatus.DRAFT
-              ? "text-amber-600"
-              : "text-muted-foreground";
-        return <span className={cls}>{rev.status}</span>;
+      {
+        id: "status",
+        header: "Status",
+        accessorKey: "status" as const,
+        size: 120,
+        cell: ({ row }: { row: { original: ModelRevision } }) => {
+          const rev = row.original;
+          if (rev.status === RevisionStatus.ACTIVE) return <StatusBadge status="active" />;
+          if (rev.status === RevisionStatus.DRAFT) return <StatusBadge status="disabled" />;
+          return <span className="text-muted-foreground text-xs">{rev.status}</span>;
+        },
       },
-    },
-    {
-      header: "Updated",
-      accessorKey: "updated_at" as const,
-      cell: ({ row }: { row: { original: ModelRevision } }) => formatDateTime(row.original.updated_at),
-    },
-    {
-      header: "Actions",
-      size: 160,
-      cell: ({ row }: { row: { original: ModelRevision } }) => {
-        const rev = row.original;
-        return (
-          <div className="flex items-center gap-2">
-            {rev.status !== RevisionStatus.ACTIVE && (
+      {
+        id: "updated_at",
+        header: "Updated",
+        accessorKey: "updated_at" as const,
+        size: 160,
+        cell: ({ row }: { row: { original: ModelRevision } }) => (
+          <span className="text-muted-foreground text-sm">{formatDateTime(row.original.updated_at)}</span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        size: 220,
+        meta: { fixed: true },
+        cell: ({ row }: { row: { original: ModelRevision } }) => {
+          const rev = row.original;
+          const canActivate = rev.status !== RevisionStatus.ACTIVE;
+          return (
+            <div className="flex flex-wrap items-center gap-1.5">
               <Button
-                variant="default"
+                type="button"
+                variant="outline"
                 size="sm"
+                className="h-8"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setActivateTarget(rev);
+                  navigate(`/admin/models/${modelId}/revisions/${rev.id}`);
                 }}
-                disabled={activateRevision.isPending}
               >
-                <Play className="h-4 w-4 mr-1" />
-                Activate
+                Configure
+                <ChevronRight className="h-3.5 w-3.5 ml-0.5" aria-hidden />
               </Button>
-            )}
-            {rev.status === RevisionStatus.ACTIVE && <span className="text-green-600 font-medium">Live</span>}
-          </div>
-        );
+              {canActivate ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActivateTarget(rev);
+                  }}
+                  disabled={activateRevision.isPending}
+                >
+                  <Play className="h-3.5 w-3.5 mr-1" aria-hidden />
+                  Activate
+                </Button>
+              ) : (
+                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-500 px-1">Live</span>
+              )}
+            </div>
+          );
+        },
       },
-    },
-  ];
+    ],
+    [modelId, navigate, activateRevision.isPending]
+  );
 
   if (!modelId) {
     return (
@@ -135,110 +176,157 @@ export default function ModelDetailsPage() {
     );
   }
 
+  const modelLabel = model?.code ?? "…";
+
   return (
     <PageLayout
-      title="Model Revisions"
-      fullHeight={true}
+      title={`Revisions · ${modelLabel}`}
       subtitle={
-        <div className="flex items-center gap-2">
-          <span>Create drafts, configure BOM & routing, then activate when ready for production</span>
+        <div className="flex flex-col gap-2">
+          <ModelsBreadcrumb
+            items={[
+              { label: "Models", to: "/admin/models" },
+              { label: model ? `${model.code} — ${model.name}` : modelLabel },
+            ]}
+          />
+          <span className="text-muted-foreground">Create drafts, configure BOM and routing, then activate.</span>
         </div>
       }
       icon="chain-link"
       iconColor="blue"
+      showBackButton
+      onBackClick={() => navigate("/admin/models")}
     >
-      <div className={`flex h-full ${layout === "TwoColumnsStartExpanded" ? "gap-0" : ""}`}>
-        <div className="page-container flex flex-col h-full flex-1 min-w-0">
-          <div className="pr-8 pb-4">
-            <Alert className="rounded-lg">
-              <AlertDescription>
-                Only the <strong>ACTIVE</strong> revision is used in production. Active revisions are read-only — clone
-                to a new draft to make changes.
-              </AlertDescription>
-            </Alert>
-          </div>
+      <div className="page-container flex flex-col gap-4">
+        <Alert>
+          <AlertDescription>
+            Only the <strong>active</strong> revision runs in production. Active revisions are read-only; clone to a new
+            draft to change BOM, routing, or variants.
+          </AlertDescription>
+        </Alert>
 
-          <ApiErrorBanner message={activateRevision.isError ? formatApiError(activateRevision.error) : undefined} />
+        <ApiErrorBanner
+          message={
+            activateRevision.isError
+              ? formatApiError(activateRevision.error)
+              : createRevision.isError
+                ? formatApiError(createRevision.error)
+                : undefined
+          }
+        />
 
-          <DataTable
-            data={revisions as ModelRevision[]}
-            columns={columns}
-            loading={isLoading}
-            filterPlaceholder="Search revisions…"
-            hideEmptyState={layout !== "OneColumn"}
-            onRowClick={(rev: ModelRevision) => navigate(`/admin/models/${modelId}/revisions/${rev.id}`)}
-            actions={
-              <>
-                <Button variant="ghost" size="sm" onClick={() => navigate("/admin/models")}>
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Back to Models
-                </Button>
-                <Button size="sm" onClick={() => setLayout("TwoColumnsStartExpanded")}>
-                  <Plus className="h-4 w-4 mr-1" />
-                  New Draft
-                </Button>
-              </>
-            }
-          />
-        </div>
+        <DataTable
+          data={revisions as ModelRevision[]}
+          columns={columns}
+          loading={isLoading}
+          filterPlaceholder="Filter by revision code..."
+          emptyStateTitle="No revisions yet"
+          emptyStateDescription="Create a first draft to configure this model."
+          emptyStateActionText="New draft"
+          emptyStateOnAction={() => setIsDraftDialogOpen(true)}
+          actions={
+            <>
+              <Button variant="outline" size="sm" type="button" onClick={() => navigate("/admin/models")}>
+                <ArrowLeft className="h-4 w-4 mr-1" aria-hidden />
+                All models
+              </Button>
+              <Button size="sm" type="button" onClick={() => setIsDraftDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" aria-hidden />
+                New draft
+              </Button>
+            </>
+          }
+        />
+      </div>
 
-        {layout === "TwoColumnsStartExpanded" && (
-          <div className="w-full max-w-md border-l bg-card flex flex-col rounded-r-xl overflow-hidden shrink-0">
-            <div className="px-4 py-3 border-b">
-              <h2 className="font-semibold text-lg">Create Revision Draft</h2>
-            </div>
-            <div className="p-4 flex-1 overflow-y-auto flex flex-col gap-4">
-              <ApiErrorBanner message={createRevision.isError ? formatApiError(createRevision.error) : undefined} />
+      <Dialog
+        open={isDraftDialogOpen}
+        onOpenChange={(open) => {
+          setIsDraftDialogOpen(open);
+          if (!open) {
+            setNewRevisionCode("");
+            setCloneFromRevisionId("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newRevisionCode.trim() || createRevision.isPending) return;
+              createRevision.mutate();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>New revision draft</DialogTitle>
+              <DialogDescription>
+                Optional: clone from an existing revision to copy BOM, routing, and variants.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
               <div className="space-y-2">
-                <Label className="font-semibold">Revision Code *</Label>
+                <Label htmlFor="revision-code-input">Revision code</Label>
                 <Input
+                  id="revision-code-input"
                   value={newRevisionCode}
                   onChange={(e) => setNewRevisionCode(e.target.value)}
-                  placeholder="e.g. R01"
+                  placeholder="e.g. R02"
+                  autoComplete="off"
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label className="font-semibold">Clone From (Optional)</Label>
+                <Label>Clone from</Label>
                 <Select
                   value={cloneFromRevisionId || "__empty__"}
                   onValueChange={(v) => setCloneFromRevisionId(v === "__empty__" ? "" : v)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="-- Empty Draft --" />
+                    <SelectValue placeholder="Empty draft" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__empty__">-- Empty Draft --</SelectItem>
+                    <SelectItem value="__empty__">Empty draft</SelectItem>
                     {(revisions as ModelRevision[]).map((r) => (
                       <SelectItem key={r.id} value={r.id}>
-                        {r.revision_code} ({r.status})
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="tabular-nums">{r.revision_code}</span>
+                          <span className="text-muted-foreground">·</span>
+                          <span className="text-muted-foreground">
+                            {r.status === RevisionStatus.DRAFT
+                              ? "Draft"
+                              : r.status === RevisionStatus.ACTIVE
+                                ? "Active"
+                                : r.status}
+                          </span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="p-4 border-t flex gap-2 justify-end">
-              <Button onClick={() => createRevision.mutate()} disabled={createRevision.isPending || !newRevisionCode}>
-                {createRevision.isPending ? "Creating…" : "Create Draft"}
-              </Button>
-              <Button variant="outline" onClick={() => setLayout("OneColumn")}>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsDraftDialogOpen(false)}>
                 Cancel
               </Button>
-            </div>
-          </div>
-        )}
-      </div>
+              <Button type="submit" disabled={createRevision.isPending || !newRevisionCode.trim()}>
+                {createRevision.isPending ? "Creating…" : "Create draft"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {/* Activate confirmation */}
       <ConfirmDialog
         open={Boolean(activateTarget)}
-        title="Activate Revision"
+        title="Activate revision"
         description={
           activateTarget
-            ? `Activate revision "${activateTarget.revision_code}"? This will replace the current active revision and make it live in production.`
+            ? `Activate “${activateTarget.revision_code}”? This becomes the live production revision for model ${modelLabel}.`
             : ""
         }
         confirmText="Activate"
+        submitting={activateRevision.isPending}
         onCancel={() => setActivateTarget(null)}
         onConfirm={() => {
           if (!activateTarget) return;

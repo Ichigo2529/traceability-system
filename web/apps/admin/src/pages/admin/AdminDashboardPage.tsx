@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { sdk } from "../../context/AuthContext";
-import { PageLayout, Skeleton } from "@traceability/ui";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Users,
   Package,
@@ -13,78 +14,31 @@ import {
   Truck,
   ClipboardCheck,
   History,
-  Settings,
   Laptop,
-  Check,
-  X,
+  CheckCircle2,
+  XCircle,
+  ChevronRight,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-type ColorKey = "indigo" | "cyan" | "pink" | "emerald" | "amber" | "teal";
-
-const colorMap: Record<ColorKey, { icon: string; glow: string; ring: string }> = {
-  indigo: {
-    icon: "bg-gradient-to-br from-indigo-500 to-purple-600",
-    glow: "from-indigo-500 to-purple-600",
-    ring: "text-indigo-500",
-  },
-  cyan: {
-    icon: "bg-gradient-to-br from-cyan-400 to-blue-500",
-    glow: "from-cyan-400 to-blue-500",
-    ring: "text-cyan-500",
-  },
-  pink: {
-    icon: "bg-gradient-to-br from-pink-400 to-rose-500",
-    glow: "from-pink-400 to-rose-500",
-    ring: "text-pink-500",
-  },
-  emerald: {
-    icon: "bg-gradient-to-br from-emerald-400 to-blue-500",
-    glow: "from-emerald-400 to-blue-500",
-    ring: "text-emerald-500",
-  },
-  amber: {
-    icon: "bg-gradient-to-br from-amber-300 to-red-400",
-    glow: "from-amber-300 to-red-400",
-    ring: "text-amber-500",
-  },
-  teal: {
-    icon: "bg-gradient-to-br from-teal-400 to-indigo-900",
-    glow: "from-teal-400 to-indigo-900",
-    ring: "text-teal-500",
-  },
-};
-
-const QUICK_ACTIONS: { label: string; icon: LucideIcon; to: string; color: ColorKey }[] = [
-  { label: "Add User", icon: Users, to: "/admin/users", color: "indigo" },
-  { label: "New Model", icon: Package, to: "/admin/models", color: "cyan" },
-  { label: "Add Station", icon: Factory, to: "/admin/stations", color: "pink" },
-  { label: "Inbound Pack", icon: Truck, to: "/admin/inbound-packs", color: "emerald" },
-  { label: "Approvals", icon: ClipboardCheck, to: "/admin/approvals", color: "amber" },
-  { label: "Audit Logs", icon: History, to: "/admin/audit-logs", color: "teal" },
+const QUICK_ACTIONS: { label: string; icon: LucideIcon; to: string }[] = [
+  { label: "Add User", icon: Users, to: "/admin/users" },
+  { label: "New Model", icon: Package, to: "/admin/models" },
+  { label: "Add Station", icon: Factory, to: "/admin/stations" },
+  { label: "Inbound Pack", icon: Truck, to: "/admin/inbound-packs" },
+  { label: "Approvals", icon: ClipboardCheck, to: "/admin/approvals" },
+  { label: "Audit Logs", icon: History, to: "/admin/audit-logs" },
 ];
 
-const ICON_MAP: Record<string, LucideIcon> = {
-  group: Users,
-  laptop: Laptop,
-  factory: Factory,
-  product: Package,
-  settings: Settings,
-};
-
-function ReadinessItem({ pass, text }: { pass: boolean; text: string }) {
+function ReadinessRow({ pass, text }: { pass: boolean; text: string }) {
   return (
-    <div className="flex items-center gap-2.5 py-2">
-      <div
-        className={cn(
-          "w-6 h-6 rounded-full flex items-center justify-center shrink-0",
-          pass ? "bg-emerald-500" : "bg-destructive"
-        )}
-      >
-        {pass ? <Check className="w-3.5 h-3.5 text-white" /> : <X className="w-3.5 h-3.5 text-white" />}
-      </div>
-      <Label className="text-sm leading-snug">{text}</Label>
+    <div className="flex items-start gap-3 py-2.5">
+      {pass ? (
+        <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
+      ) : (
+        <XCircle className="mt-0.5 size-5 shrink-0 text-destructive" aria-hidden />
+      )}
+      <p className="text-sm leading-snug text-foreground">{text}</p>
     </div>
   );
 }
@@ -125,7 +79,7 @@ export function AdminDashboardPage() {
     { pass: activeProcesses.length > 0, text: `At least one active process — ${activeProcesses.length} found` },
     {
       pass: assignedDevices.length > 0,
-      text: `Devices assigned to station & process — ${assignedDevices.length} assigned`,
+      text: `Devices assigned to station and process — ${assignedDevices.length} assigned`,
     },
     { pass: models.length > 0, text: `At least one product model configured — ${models.length} found` },
   ];
@@ -133,178 +87,133 @@ export function AdminDashboardPage() {
   const isReady = !readinessLoading && readinessChecks.every((c) => c.pass);
 
   return (
-    <PageLayout
-      title="Admin Dashboard"
-      subtitle={
-        <div className="flex items-center gap-2">
-          <span>Quick actions and system health overview</span>
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="shrink-0 border-b border-border py-5 pl-4 pr-4 sm:pl-5 sm:pr-6">
+        <div className="flex w-full flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Admin dashboard</h1>
+          <p className="text-sm text-muted-foreground">Quick actions and system health overview</p>
         </div>
-      }
-      icon="settings"
-      iconColor="indigo"
-    >
-      <div className="max-w-[1400px] mx-auto grid gap-6 w-full mt-2">
-        <div className="grid grid-cols-12 gap-6">
-          <DashboardStatCard icon="group" label="Users" value={users.length} loading={loadingUsers} color="indigo" />
-          <DashboardStatCard
-            icon="laptop"
-            label="Devices"
-            value={devices.length}
-            loading={loadingDevices}
-            color="emerald"
-          />
-          <DashboardStatCard
-            icon="factory"
-            label="Stations"
-            value={stations.length}
-            loading={loadingStations}
-            color="pink"
-          />
-          <DashboardStatCard icon="product" label="Models" value={models.length} loading={loadingModels} color="cyan" />
-        </div>
+      </header>
 
-        <Card className="mt-2 bg-card border border-border shadow-sm">
-          <CardHeader className="pb-2">
-            <h4 className="text-lg font-semibold m-0">Quick Actions</h4>
-            <Label className="opacity-70 text-xs">Jump to common tasks</Label>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
-              {QUICK_ACTIONS.map((action) => {
-                const IconC = action.icon;
-                const colors = colorMap[action.color];
-                return (
-                  <button
-                    key={action.to}
-                    type="button"
-                    onClick={() => navigate(action.to)}
-                    className="flex flex-col items-center gap-2.5 p-4 rounded-xl border bg-card hover:-translate-y-0.5 hover:shadow-md transition-all cursor-pointer"
-                  >
-                    <div
-                      className={cn(
-                        "w-10 h-10 rounded-[10px] flex items-center justify-center text-white shadow-sm",
-                        colors.icon
-                      )}
+      <div className="min-h-0 flex-1 overflow-auto py-5 pl-4 pr-4 sm:pl-5 sm:pr-6">
+        <div className="flex w-full flex-col gap-6">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard label="Users" value={users.length} loading={loadingUsers} icon={Users} />
+            <StatCard label="Devices" value={devices.length} loading={loadingDevices} icon={Laptop} />
+            <StatCard label="Stations" value={stations.length} loading={loadingStations} icon={Factory} />
+            <StatCard label="Models" value={models.length} loading={loadingModels} icon={Package} />
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick actions</CardTitle>
+              <CardDescription>Jump to common admin tasks</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {QUICK_ACTIONS.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <Button
+                      key={action.to}
+                      type="button"
+                      variant="outline"
+                      className="h-auto justify-start gap-3 py-3 pr-4 pl-4"
+                      onClick={() => navigate(action.to)}
                     >
-                      <IconC className="w-5 h-5" />
-                    </div>
-                    <Label className="text-[0.78rem] font-semibold text-center cursor-pointer">{action.label}</Label>
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
+                        <Icon className="size-4 text-muted-foreground" aria-hidden />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+                        <span className="font-medium">{action.label}</span>
+                      </span>
+                      <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                    </Button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card className="mt-2 bg-card border border-border shadow-sm">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <div>
-              <h4 className="text-lg font-semibold m-0">System Readiness</h4>
-              <Label className="opacity-70 text-xs">Configuration requirements for go-live</Label>
-            </div>
-            {!readinessLoading && (
-              <div
-                className={cn(
-                  "px-3 py-1 rounded-full text-xs font-bold text-white",
-                  isReady ? "bg-emerald-500" : "bg-destructive"
-                )}
-              >
-                {isReady ? "READY" : "NOT READY"}
+          <Card>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-1.5">
+                <CardTitle>System readiness</CardTitle>
+                <CardDescription>Configuration checks before go-live</CardDescription>
               </div>
-            )}
-          </CardHeader>
-          <CardContent className="pt-0">
-            {readinessLoading ? (
-              <div className="flex flex-col gap-2">
-                {[1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} height="1.5rem" width="100%" />
-                ))}
-              </div>
-            ) : (
-              <>
-                {readinessChecks.map((check, i) => (
-                  <ReadinessItem key={i} pass={check.pass} text={check.text} />
-                ))}
-                {!isReady && (
-                  <Alert variant="destructive" className="mt-4 rounded-lg">
-                    <AlertDescription>
-                      Complete the items above before going live. Visit{" "}
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto font-normal underline"
-                        onClick={() => navigate("/admin/readiness")}
-                      >
-                        Readiness Validator
-                      </Button>{" "}
-                      for details.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+              {!readinessLoading && (
+                <Badge variant={isReady ? "success" : "danger"} className="w-fit shrink-0">
+                  {isReady ? "Ready" : "Not ready"}
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent className="flex flex-col gap-0">
+              {readinessLoading ? (
+                <div className="flex flex-col gap-3 py-2">
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-12 w-full" />
+                </div>
+              ) : (
+                <>
+                  {readinessChecks.map((check, i) => (
+                    <div key={i}>
+                      {i > 0 ? <Separator className="my-0" /> : null}
+                      <ReadinessRow pass={check.pass} text={check.text} />
+                    </div>
+                  ))}
+                  {!isReady && (
+                    <Alert variant="destructive" className="mt-4">
+                      <AlertDescription className="flex flex-wrap items-center gap-x-1 gap-y-1">
+                        Complete the items above before going live. Open the
+                        <Button
+                          variant="link"
+                          className="h-auto p-0 font-medium"
+                          onClick={() => navigate("/admin/readiness")}
+                        >
+                          Readiness validator
+                        </Button>
+                        for details.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </PageLayout>
+    </div>
   );
 }
 
-function DashboardStatCard({
-  icon,
+function StatCard({
   label,
   value,
-  color,
   loading,
+  icon: Icon,
 }: {
-  icon: string;
   label: string;
   value: number;
-  color: ColorKey;
   loading?: boolean;
+  icon: LucideIcon;
 }) {
-  const IconC = ICON_MAP[icon] ?? Package;
-  const colors = colorMap[color];
   return (
-    <Card className="col-span-12 xl:col-span-3 lg:col-span-3 md:col-span-6 border border-border overflow-hidden relative bg-card shadow-sm">
-      <div className="p-6 relative z-10">
-        <div
-          className={cn(
-            "absolute -top-6 -right-6 w-[120px] h-[120px] rounded-full opacity-[0.06] blur-[20px] bg-gradient-to-br",
-            colors.glow
-          )}
-        />
-        <div className="flex justify-between items-center">
-          <div className="flex-1">
-            <Label className="font-extrabold text-[0.7rem] uppercase tracking-wider opacity-60 text-muted-foreground">
-              {label}
-            </Label>
-            {loading ? (
-              <Skeleton height="2.4rem" width="60px" className="my-1" />
-            ) : (
-              <h2 className="text-4xl font-black my-0.5 text-foreground">{value}</h2>
-            )}
-            <div className={cn("h-4 w-24 mt-2 opacity-40", colors.ring)}>
-              <svg viewBox="0 0 100 20" preserveAspectRatio="none" className="w-full h-full">
-                <path
-                  d="M0 15 Q 10 5, 20 12 T 40 8 T 60 14 T 80 6 L 100 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-          </div>
-          <div
-            className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center text-white border border-white/20 shadow-sm",
-              colors.icon
-            )}
-          >
-            <IconC className="w-7 h-7" />
-          </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+        <div className="flex size-9 items-center justify-center rounded-md border border-border bg-muted/50">
+          <Icon className="size-4 text-muted-foreground" aria-hidden />
         </div>
-      </div>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <Skeleton className="h-9 w-16" />
+        ) : (
+          <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{value}</p>
+        )}
+      </CardContent>
     </Card>
   );
 }

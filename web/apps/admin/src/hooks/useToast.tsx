@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { toast as sonnerToast } from "sonner";
+import { toast as sonnerToast } from "@/lib/toast";
 
 /**
  * Declarative toast hook for consistent CRUD success/error feedback.

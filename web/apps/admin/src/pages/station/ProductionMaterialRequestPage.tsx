@@ -41,8 +41,9 @@ import { useMaterialRequestMeta } from "../../hooks/useMaterialRequestMeta";
 import { useMaterialRequestsRealtime } from "../../hooks/useMaterialRequestsRealtime";
 import { formatDate, formatDateTime } from "../../lib/datetime";
 import { formatApiError } from "../../lib/errors";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { ScanInput } from "../../components/shared/ScanInput";
+import { Check, Loader2 } from "lucide-react";
 
 const SELECT_NONE = "__none__";
 
@@ -61,7 +62,7 @@ function blankLine(itemNo: number): MaterialRequestLineForm {
 const WORKFLOW_STEPS = [
   { key: "requested", label: "Requested", sub: "Production" },
   { key: "approved", label: "Approved", sub: "Store" },
-  { key: "dispatched", label: "Dispatched", sub: "Store → Forklift" },
+  { key: "dispatched", label: "Dispatched", sub: "Store — Forklift" },
   { key: "issued", label: "Issued", sub: "Forklift" },
   { key: "prod_ack", label: "Prod. ACK", sub: "Production" },
   { key: "fork_ack", label: "Forklift ACK", sub: "Forklift" },
@@ -162,7 +163,19 @@ export function ProductionMaterialRequestPage() {
       );
       setFormErrors(undefined);
       setShowCreateForm(false);
-      if (created.id) setSelectedId(created.id);
+      if (created.id) {
+        setSelectedId(created.id);
+        const itemCount =
+          (created as MaterialRequest & { item_count?: number }).item_count ??
+          (Array.isArray((created as { items?: unknown[] }).items)
+            ? (created as { items: unknown[] }).items.length
+            : 0);
+        queryClient.setQueryData<MaterialRequest[]>(keys.requests(), (old) => {
+          const list = old ?? [];
+          if (list.some((r) => r.id === created.id)) return list;
+          return [{ ...created, item_count: itemCount } as MaterialRequest, ...list];
+        });
+      }
       await queryClient.invalidateQueries({ queryKey: keys.requests() });
       await queryClient.invalidateQueries({ queryKey: keys.nextNumbers() });
     },
@@ -480,13 +493,13 @@ export function ProductionMaterialRequestPage() {
               </button>
               {showCreateForm && (
                 <>
-                  <span aria-hidden>/</span>
+                  <span aria-hidden> — </span>
                   <span className="font-medium text-foreground">New request</span>
                 </>
               )}
               {showingDetails && !showCreateForm && (
                 <>
-                  <span aria-hidden>/</span>
+                  <span aria-hidden> — </span>
                   <span
                     className="font-medium text-foreground truncate max-w-[12rem]"
                     title={detailsQuery.data?.request_no}
@@ -496,7 +509,7 @@ export function ProductionMaterialRequestPage() {
                 </>
               )}
             </nav>
-            <span className="hidden sm:inline text-muted-foreground/70">·</span>
+            <span className="hidden sm:inline text-muted-foreground/70"> — </span>
             <span className="text-muted-foreground">
               {showCreateForm
                 ? "Create a new material request"
@@ -531,69 +544,112 @@ export function ProductionMaterialRequestPage() {
 
           {/* ── CREATE FORM ───────────────────────────────── */}
           {showCreateForm ? (
-            <>
-              <MaterialRequestForm
-                lines={lines}
-                setLines={(next) => {
-                  setLines(next);
-                  // Clear errors when user edits (per docs: real-time feedback)
-                  if (formErrors) setFormErrors(undefined);
-                }}
-                selectedCostCenterId={selectedCostCenterId}
-                setSelectedCostCenterId={(v) => {
-                  setSelectedCostCenterId(v);
-                  if (formErrors?.cost_center_id) setFormErrors((e) => (e ? { ...e, cost_center_id: undefined } : e));
-                }}
-                meta={meta}
-                sectionNotSet={sectionNotSet}
-                catalog={catalogQuery.data ?? []}
-                catalogLoading={catalogQuery.isLoading}
-                requestNo={nextNumbersQuery.data?.request_no}
-                dmiNo={nextNumbersQuery.data?.dmi_no}
-                generatedAt={nextNumbersQuery.data?.generated_at}
-                requestorName={user?.display_name}
-                departmentName={meta?.department?.name ?? user?.department ?? "-"}
-                sectionDisplay={
-                  meta?.section
-                    ? `${meta.section.section_name} (${meta.section.section_code})`
-                    : `${user?.display_name ?? "-"}${user?.department ? ` / ${user.department}` : ""}`
-                }
-                formatDate={formatDate}
-                disabled={Boolean(createMutation.isPending)}
-                formErrors={formErrors}
-                onSubmit={handleSubmitClick}
-                submitLabel={createMutation.isPending ? "Submitting…" : "Submit Request"}
-                disableSubmit={Boolean(createMutation.isPending || sectionNotSet)}
-                onCancel={() => {
-                  setShowCreateForm(false);
-                  setFormErrors(undefined);
-                }}
-              />
-
-              {/* Approval info card (create form) — Event/Divert preview */}
-              {canReadApprovalConfig && (
-                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  <h3 className="text-sm font-semibold text-primary mb-2">Approval Route</h3>
-                  {approvalFlowSummary ? (
-                    <>
-                      <p className="text-sm text-foreground/90">{approvalFlowSummary}</p>
-                      {workflowMailRecipients.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Mail alert to: {workflowMailRecipients.join(", ")}
-                        </p>
-                      )}
-                    </>
-                  ) : approvalsQuery.isLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading approval route…</p>
+            <div className="flex flex-col gap-6">
+              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <header className="border-b bg-muted/30 px-6 py-3">
+                  <h2 className="text-sm font-semibold tracking-tight">Request form detail</h2>
+                </header>
+                <div className="p-6">
+                  <MaterialRequestForm
+                    lines={lines}
+                    setLines={(next) => {
+                      setLines(next);
+                      if (formErrors) setFormErrors(undefined);
+                    }}
+                    selectedCostCenterId={selectedCostCenterId}
+                    setSelectedCostCenterId={(v) => {
+                      setSelectedCostCenterId(v);
+                      if (formErrors?.cost_center_id)
+                        setFormErrors((e) => (e ? { ...e, cost_center_id: undefined } : e));
+                    }}
+                    meta={meta}
+                    sectionNotSet={sectionNotSet}
+                    catalog={catalogQuery.data ?? []}
+                    catalogLoading={catalogQuery.isLoading}
+                    requestNo={nextNumbersQuery.data?.request_no}
+                    dmiNo={nextNumbersQuery.data?.dmi_no}
+                    generatedAt={nextNumbersQuery.data?.generated_at}
+                    requestorName={user?.display_name}
+                    departmentName={meta?.department?.name ?? user?.department ?? "—"}
+                    sectionDisplay={
+                      meta?.section
+                        ? `${meta.section.section_name} (${meta.section.section_code})`
+                        : `${user?.display_name ?? "—"}${user?.department ? ` — ${user.department}` : ""}`
+                    }
+                    formatDate={formatDate}
+                    disabled={Boolean(createMutation.isPending)}
+                    formErrors={formErrors}
+                    onSubmit={handleSubmitClick}
+                    submitLabel={createMutation.isPending ? "Submitting…" : "Submit Request"}
+                    disableSubmit={Boolean(createMutation.isPending || sectionNotSet)}
+                    onCancel={() => {
+                      setShowCreateForm(false);
+                      setFormErrors(undefined);
+                    }}
+                  />
+                </div>
+              </section>
+              <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                <header className="border-b bg-muted/30 px-6 py-3">
+                  <h2 className="text-sm font-semibold tracking-tight">Request workflow</h2>
+                </header>
+                <div className="p-6">
+                  {canReadApprovalConfig ? (
+                    approvalFlowSummary ? (
+                      <>
+                        <p className="text-sm text-foreground/90">{approvalFlowSummary}</p>
+                        {workflowMailRecipients.length > 0 && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Email notifications — {workflowMailRecipients.join(", ")}
+                          </p>
+                        )}
+                      </>
+                    ) : approvalsQuery.isLoading ? (
+                      <p className="text-sm text-muted-foreground">Loading approval route…</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">System routes by configured approval rules.</p>
+                    )
                   ) : (
-                    <p className="text-sm text-muted-foreground">System will route by configured approval rules.</p>
+                    <p className="text-sm text-muted-foreground">Routing follows configured approval rules.</p>
                   )}
                 </div>
-              )}
-            </>
+              </section>
+            </div>
           ) : showingDetails ? (
             /* ── DETAIL / VOUCHER VIEW ─────────────────────── */
-            detail ? (
+            detailsQuery.isFetching && !detailsQuery.data ? (
+              <div className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-xl border border-border bg-card p-8 text-muted-foreground">
+                <Loader2 className="h-8 w-8 animate-spin" aria-hidden />
+                <p className="text-sm">Loading request details…</p>
+              </div>
+            ) : detailsQuery.isError ? (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 space-y-4">
+                <p className="text-sm font-medium text-destructive">{formatApiError(detailsQuery.error as Error)}</p>
+                <p className="text-sm text-muted-foreground">
+                  If you just submitted this request, try returning to the list — it may appear after refresh. Contact
+                  store if you still cannot open it.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      void queryClient.invalidateQueries({ queryKey: keys.request(selectedId!) });
+                    }}
+                  >
+                    Retry
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setSelectedId(null);
+                      void queryClient.invalidateQueries({ queryKey: keys.requests() });
+                    }}
+                  >
+                    Back to list
+                  </Button>
+                </div>
+              </div>
+            ) : detail ? (
               <>
                 <MaterialRequestVoucherView detail={detail} hideTopBarActions hideIssueTotalsBeforeIssued />
                 {canScanReceive && (
@@ -745,119 +801,144 @@ export function ProductionMaterialRequestPage() {
                   </div>
                 )}
                 {detail?.status === "ISSUED" && Boolean(detail?.production_ack_at) && (
-                  <Alert className="border-green-500/50 bg-green-50 dark:bg-green-900/20">
-                    <AlertDescription>Production receipt already acknowledged.</AlertDescription>
+                  <Alert className="border-primary/30 bg-primary/5">
+                    <AlertDescription className="text-sm">Production receipt already acknowledged.</AlertDescription>
                   </Alert>
                 )}
 
-                {/* Workflow Timeline — Event/Divert flow */}
-                <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                  <h3 className="font-semibold text-base mb-4">Request Workflow</h3>
-
-                  <div className="flex items-start overflow-x-auto pb-2 gap-0" role="list" aria-label="Workflow steps">
-                    {WORKFLOW_STEPS.map((step, idx) => {
-                      const done = workflowStepsDone[idx];
-                      const active = idx === firstIncompleteIdx;
-                      const rejected =
-                        (detail.status === "REJECTED" || detail.status === "CANCELLED") && idx > 0 && !done;
-                      const circleClass = done
-                        ? "bg-green-600 text-white ring-2 ring-green-600/30"
-                        : active
-                          ? "bg-primary text-primary-foreground ring-2 ring-primary/40 ring-offset-2 ring-offset-background"
-                          : rejected
-                            ? "bg-muted-foreground/50 text-muted-foreground"
-                            : "bg-muted text-muted-foreground";
-                      const textClass = done
-                        ? "text-green-600 dark:text-green-400"
-                        : active
-                          ? "text-primary font-semibold"
-                          : "text-muted-foreground";
-                      return (
-                        <div key={step.key} className="flex items-start flex-1 min-w-0" role="listitem">
-                          <div className="flex flex-col items-center min-w-[84px]">
-                            <div
-                              className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0 transition-colors ${circleClass}`}
-                              aria-current={active ? "step" : undefined}
-                            >
-                              {done ? "✓" : idx + 1}
-                            </div>
-                            <span className={`text-xs text-center mt-1.5 ${textClass}`}>{step.label}</span>
-                            <span className="text-[0.65rem] text-muted-foreground text-center mt-0.5">{step.sub}</span>
-                            {active && (
-                              <span className="text-[0.65rem] font-medium text-primary mt-1 px-1.5 py-0.5 rounded bg-primary/10">
-                                Current
-                              </span>
-                            )}
-                          </div>
-                          {idx < WORKFLOW_STEPS.length - 1 && (
-                            <div
-                              className={`flex-1 h-0.5 mt-5 min-w-3 self-center rounded-full ${done ? "bg-green-600" : "bg-muted"}`}
-                              aria-hidden
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
+                <div className="rounded-xl border border-border bg-card shadow-sm">
+                  <div className="border-b border-border px-5 py-3">
+                    <h3 className="text-sm font-semibold tracking-tight">Request workflow</h3>
                   </div>
-
-                  {!isTerminalStatus && (
-                    <div className="mt-4 py-3 px-4 rounded-lg bg-destructive/10 border border-destructive/20">
-                      <p className="text-sm">
-                        <strong className="text-destructive">Waiting for:</strong> {pendingApprovalText}
-                      </p>
-                    </div>
-                  )}
-
-                  {canReadApprovalConfig && allApprovalRows.length > 0 && (
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-sm text-muted-foreground">
-                        Approval Configuration ({allApprovalRows.length} step{allApprovalRows.length > 1 ? "s" : ""})
-                      </summary>
-                      <div className="mt-2 flex flex-col gap-2">
-                        {allApprovalRows.map((row) => {
-                          const stepState = getApprovalStepState(row);
-                          const processors = (row.approver_users ?? [])
-                            .map((u) => formatApproverWithEmail(u))
-                            .filter(Boolean)
-                            .join(", ");
-                          const stateClass =
-                            stepState.state === "Positive"
-                              ? "text-green-600"
-                              : stepState.state === "Critical"
-                                ? "text-destructive"
-                                : "text-muted-foreground";
+                  <div className="px-5 py-5">
+                    <nav className="w-full overflow-x-auto pb-1" aria-label="Workflow steps">
+                      <ol className="flex min-w-[36rem] items-start">
+                        {WORKFLOW_STEPS.map((step, idx) => {
+                          const done = workflowStepsDone[idx];
+                          const active = idx === firstIncompleteIdx;
+                          const rejected =
+                            (detail.status === "REJECTED" || detail.status === "CANCELLED") && idx > 0 && !done;
+                          const segmentComplete = workflowStepsDone[idx];
                           return (
-                            <div
-                              key={row.id}
-                              className="grid grid-cols-[auto_1fr_auto] gap-2 items-center p-2 rounded border bg-background"
-                            >
-                              <Label className="font-bold">L{row.level}</Label>
-                              <div>
-                                <p className="text-sm">{row.flow_name}</p>
-                                <p className="text-xs text-muted-foreground block">
-                                  {processors || row.approver_role_name || "-"}
-                                </p>
+                            <li key={step.key} className="contents">
+                              <div className="flex w-[5.25rem] shrink-0 flex-col items-center gap-1.5 text-center">
+                                <div
+                                  className={
+                                    done
+                                      ? "flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-primary text-primary-foreground"
+                                      : active
+                                        ? "flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-background text-primary ring-2 ring-primary/20 ring-offset-2 ring-offset-background"
+                                        : rejected
+                                          ? "flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground"
+                                          : "flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted/50 text-muted-foreground"
+                                  }
+                                  aria-current={active ? "step" : undefined}
+                                >
+                                  {done ? (
+                                    <Check className="size-4" strokeWidth={2.5} aria-hidden />
+                                  ) : (
+                                    <span className="text-xs font-semibold tabular-nums">{idx + 1}</span>
+                                  )}
+                                </div>
+                                <span
+                                  className={
+                                    done || active
+                                      ? "text-xs font-medium text-foreground"
+                                      : "text-xs font-medium text-muted-foreground"
+                                  }
+                                >
+                                  {step.label}
+                                </span>
+                                <span className="text-[11px] leading-tight text-muted-foreground">{step.sub}</span>
+                                {active && (
+                                  <span className="rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+                                    Current
+                                  </span>
+                                )}
                               </div>
-                              <span className={`text-sm ${stateClass}`}>{stepState.text}</span>
-                            </div>
+                              {idx < WORKFLOW_STEPS.length - 1 && (
+                                <div
+                                  className="mt-4 flex min-w-[0.75rem] flex-1 items-center self-start px-0.5"
+                                  aria-hidden
+                                >
+                                  <div
+                                    className={segmentComplete ? "h-px w-full bg-primary/60" : "h-px w-full bg-border"}
+                                  />
+                                </div>
+                              )}
+                            </li>
                           );
                         })}
-                      </div>
-                    </details>
-                  )}
+                      </ol>
+                    </nav>
 
-                  {!canReadApprovalConfig && fallbackApproverRows.length > 0 && (
-                    <div className="mt-2">
-                      {fallbackApproverRows.map((row, idx) => (
-                        <p key={idx} className="text-sm text-muted-foreground">
-                          {row.display}
+                    {!isTerminalStatus && (
+                      <div className="mt-5 rounded-lg border border-destructive/25 bg-destructive/5 px-4 py-3">
+                        <p className="text-sm text-foreground">
+                          <span className="font-medium text-destructive">Waiting — </span>
+                          {pendingApprovalText}
                         </p>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    )}
+
+                    {canReadApprovalConfig && allApprovalRows.length > 0 && (
+                      <details className="mt-6 border-t border-border pt-4">
+                        <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
+                          Approval configuration ({allApprovalRows.length} step
+                          {allApprovalRows.length > 1 ? "s" : ""})
+                        </summary>
+                        <div className="mt-3 flex flex-col gap-2">
+                          {allApprovalRows.map((row) => {
+                            const stepState = getApprovalStepState(row);
+                            const processors = (row.approver_users ?? [])
+                              .map((u) => formatApproverWithEmail(u))
+                              .filter(Boolean)
+                              .join(", ");
+                            const stateClass =
+                              stepState.state === "Positive"
+                                ? "text-primary"
+                                : stepState.state === "Critical"
+                                  ? "text-destructive"
+                                  : "text-muted-foreground";
+                            return (
+                              <div
+                                key={row.id}
+                                className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-md border border-border bg-muted/30 p-3"
+                              >
+                                <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                                  L{row.level}
+                                </span>
+                                <div>
+                                  <p className="text-sm font-medium">{row.flow_name}</p>
+                                  <p className="mt-0.5 text-xs text-muted-foreground">
+                                    {processors || row.approver_role_name || "—"}
+                                  </p>
+                                </div>
+                                <span className={`text-sm font-medium ${stateClass}`}>{stepState.text}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </details>
+                    )}
+
+                    {!canReadApprovalConfig && fallbackApproverRows.length > 0 && (
+                      <div className="mt-6 border-t border-border pt-4">
+                        {fallbackApproverRows.map((row, idx) => (
+                          <p key={idx} className="text-sm text-muted-foreground">
+                            {row.display}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </>
-            ) : null
+            ) : (
+              <div className="rounded-xl border border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+                No detail loaded for this request.
+              </div>
+            )
           ) : (
             /* ── LIST VIEW ────────────────────────────────── */
             <MaterialRequestListTable

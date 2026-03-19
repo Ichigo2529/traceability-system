@@ -8,6 +8,7 @@ import { formatApiError } from "../lib/errors";
 import { PageLayout } from "@traceability/ui";
 import { useToast } from "../hooks/useToast";
 import { Button } from "@/components/ui/button";
+import { DeleteIconButton } from "@/components/ui/delete-icon-button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,7 +16,7 @@ import { FormDialog } from "../components/shared/FormDialog";
 import { ConfirmDialog } from "../components/shared/ConfirmDialog";
 import { ApiErrorBanner } from "../components/ui/ApiErrorBanner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, Pencil, Trash2, Cpu } from "lucide-react";
+import { Plus, Pencil, Cpu } from "lucide-react";
 
 const EMPTY_FORM = { name: "", station_type: "SCANNER", line_code: "", supported_variants: "" };
 const STATION_TYPES = ["SCANNER", "PRINTER", "TESTER", "ASSEMBLY", "PACKING"];
@@ -154,16 +155,11 @@ export default function MachinesPage() {
             <Button type="button" variant="ghost" size="icon" onClick={() => openEdit(row.original)} title="Edit">
               <Pencil className="h-4 w-4" />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="text-destructive"
+            <DeleteIconButton
               onClick={() => setDeleteTarget(row.original.id)}
               title="Deactivate"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+              aria-label="Deactivate machine"
+            />
           </div>
         ),
       },
